@@ -7441,12 +7441,12 @@ void MyFrame::OnFrameTimer1( wxTimerEvent& event )
                 wxString cog;
                 if( std::isnan(gCog) ) cog.Printf( _T("COG ----- ") );
                 else
-                    cog.Printf( _T("COG %10.5f "), gCog );
+                    cog.Printf( _T("COG %5.1f "), gCog );
 
                 wxString sog;
                 if( std::isnan(gSog) ) sog.Printf( _T("SOG -----  ") );
                 else
-                    sog.Printf( _T("SOG %6.2f ") + getUsrSpeedUnit(), toUsrSpeed( gSog ) );
+                    sog.Printf( _T("SOG %3.1f ") + getUsrSpeedUnit(), toUsrSpeed( gSog ) );
 
                 navmsg += cog;
                 navmsg += sog;

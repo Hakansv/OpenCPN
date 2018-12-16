@@ -472,8 +472,127 @@ bool PlugInManager::LoadPlugInDirectory(const wxString &plugin_dir, bool load_en
     
     //  Enable the compatibility dialogs if requested, and has not been already done once.
     m_benable_blackdialog = b_enable_blackdialog && !m_benable_blackdialog_done;
-    
+
+#if _DEBUG //Has for debug use
+#ifdef __WXMSW__        
+    wxString m_opencpn_environment = _T("C:\\Builds\\OCPN\\OpenCPN\\");
+    wxString m_debug_plugin_dir(m_opencpn_environment + _T("build\\Debug\\plugins\\"));
+    static bool debug_once;
+    if (!debug_once) //Copy only once per session
+    {
+        if (!wxDirExists(m_debug_plugin_dir)) wxMkdir(m_debug_plugin_dir, wxS_DIR_DEFAULT);
+        bool x;
+        wxString destf, f, volume, path, name, ext;
+
+        if (1) // Dashboard
+        {   
+            f = wxFindFirstFile(m_opencpn_environment + _T("build\\plugins\\dashboard_pi\\Debug\\*.dll"), wxFILE);
+            while (!f.empty())
+            {
+                wxFileName::SplitPath(f, &volume, &path, &name, &ext);
+                destf = m_debug_plugin_dir;
+                destf << name << _T(".") << ext;
+                x = wxCopyFile(f, destf, true);
+                f = wxFindNextFile();
+            }
+
+            if (!wxDirExists(m_debug_plugin_dir + _T("dashboard_pi\\data\\"))) wxMkDir(m_debug_plugin_dir + _T("dashboard_pi\\data\\"));
+            
+            f = wxFindFirstFile(m_opencpn_environment + _T("plugins\\dashboard_pi\\data\\*.*"), wxFILE);
+            while (!f.empty())
+            {
+                wxFileName::SplitPath(f, &volume, &path, &name, &ext);
+                destf = m_debug_plugin_dir + _T("dashboard_pi\\data\\");
+                destf << name << _T(".") << ext;
+                x = wxCopyFile(f, destf, true);
+                f = wxFindNextFile();
+            }
+        }
+
+        if (1) // WMM
+        {
+            f = wxFindFirstFile(m_opencpn_environment + _T("build\\plugins\\wmm_pi\\Debug\\*.dll"), wxFILE);
+            while (!f.empty())
+            {
+                wxFileName::SplitPath(f, &volume, &path, &name, &ext);
+                destf = m_debug_plugin_dir;
+                destf << name << _T(".") << ext;
+                x = wxCopyFile(f, destf, true);
+                f = wxFindNextFile();
+            }
+
+            if (!wxDirExists(m_debug_plugin_dir + _T("wmm_pi\\data\\"))) wxMkDir(m_debug_plugin_dir + _T("wmm_pi\\data\\"));
+            
+            f = wxFindFirstFile(m_opencpn_environment + _T("plugins\\wmm_pi\\data\\*.*"), wxFILE);
+            while (!f.empty())
+            {
+                wxFileName::SplitPath(f, &volume, &path, &name, &ext);
+                destf = m_debug_plugin_dir + _T("wmm_pi\\data\\");
+                destf << name << _T(".") << ext;
+                x = wxCopyFile(f, destf, true);
+                f = wxFindNextFile();
+            }
+        }
+
+        if (1) // Radar_pi
+        {
+            f = wxFindFirstFile(_T("C:\\Builds\\OCPN\\radar_pi\\build\\Debug\\*.dll"), wxFILE);
+            while (!f.empty())
+            {
+                wxFileName::SplitPath(f, &volume, &path, &name, &ext);
+                destf = m_debug_plugin_dir;
+                destf << name << _T(".") << ext;
+                x = wxCopyFile(f, destf, true);
+                f = wxFindNextFile();
+            }
+
+            if (!wxDirExists(m_debug_plugin_dir + _T("radar_pi\\data\\"))) wxMkDir(m_debug_plugin_dir + _T("radar_pi\\data\\"));
+
+            f = wxFindFirstFile(_T("C:\\Builds\\OCPN\\radar_pi\\data\\*.*"), wxFILE);
+            while (!f.empty())
+            {
+                wxFileName::SplitPath(f, &volume, &path, &name, &ext);
+                destf = m_debug_plugin_dir + _T("radar_pi\\data\\");
+                destf << name << _T(".") << ext;
+                x = wxCopyFile(f, destf, true);
+                f = wxFindNextFile();
+            }
+        }
+
+        if (1) // oeSENC_pi
+        {
+                f = wxFindFirstFile(_T("C:\\Builds\\OCPN\\oesenc_pi\\build\\Debug\\*.dll"), wxFILE);
+                while (!f.empty())
+                {
+                    wxFileName::SplitPath(f, &volume, &path, &name, &ext);
+                    destf = m_debug_plugin_dir;
+                    destf << name << _T(".") << ext;
+                    x = wxCopyFile(f, destf, true);
+                    f = wxFindNextFile();
+                }
+            
+                if (!wxDirExists(m_debug_plugin_dir + _T("oesenc_pi\\data\\"))) wxMkDir(m_debug_plugin_dir + _T("oesenc_pi\\data\\"));
+                f = wxFindFirstFile(_T("C:\\Builds\\OCPN\\oesenc_pi\\data\\*.*"), wxFILE);
+                while (!f.empty())
+                {
+                    wxFileName::SplitPath(f, &volume, &path, &name, &ext);
+                    destf = m_debug_plugin_dir + _T("oesenc_pi\\data\\");
+                    destf << name << _T(".") << ext;
+                    x = wxCopyFile(f, destf, true);
+                    f = wxFindNextFile();
+                }
+                x = wxCopyFile(_T("C:\\Builds\\OCPN\\oesenc_pi\\buildwin\\oeserverd\\*.*"), m_debug_plugin_dir + _T("oesenc_pi\\"), true);
+        }
+
+        debug_once = true;
+    }
+    m_plugin_location = m_debug_plugin_dir;
+#else //__WXMSW
     m_plugin_location = plugin_dir;
+#endif  //__WXMSW
+#else
+    m_plugin_location = plugin_dir;
+#endif  //Debug
 
     wxString msg(_T("PlugInManager searching for PlugIns in location "));
     msg += m_plugin_location;

@@ -36,12 +36,13 @@
 // xw 2.8
 #include <wx/filename.h>
 #include <wx/fontdlg.h>
-
+#include <wx/stdpaths.h>
 #include <typeinfo>
 #include "dashboard_pi.h"
 #include "icons.h"
 #include "wx/jsonreader.h"
 #include "wx/jsonwriter.h"
+#include <fstream>
 
 wxFont *g_pFontTitle;
 wxFont *g_pFontData;
@@ -54,8 +55,12 @@ int g_iDashSOGDamp;
 int g_iDashDepthUnit;
 int g_iDashDistanceUnit;
 int g_iDashWindSpeedUnit;
+bool b_IsDeviation;         // For Momo deviation table
+bool b_IsDevPrintSound;
+int devSOG, devCOG, ComCOG; // Dito
 int g_iUTCOffset;
 double g_dDashDBTOffset;
+
 
 #if !defined(NAN)
 static const long long lNaN = 0xfff8000000000000;
@@ -427,6 +432,8 @@ int dashboard_pi::Init( void )
     mHDT_Watchdog = 2;
     mGPS_Watchdog = 2;
     mVar_Watchdog = 2;
+    mMWV_Watchdog = 2;
+    mDPT_DBT_Watchdog = 2;
 
     g_pFontTitle = new wxFont( 10, wxFONTFAMILY_SWISS, wxFONTSTYLE_ITALIC, wxFONTWEIGHT_NORMAL );
     g_pFontData = new wxFont( 14, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL );
@@ -550,6 +557,19 @@ void dashboard_pi::Notify()
         mSatsInView = 0;
         SendSentenceToAllInstruments( OCPN_DBP_STC_SAT, 0, _T("") );
     }
+    
+    mMWV_Watchdog--;
+    if (mMWV_Watchdog <= 0) {
+        SendSentenceToAllInstruments(OCPN_DBP_STC_AWA, NAN, _T("-"));
+        SendSentenceToAllInstruments(OCPN_DBP_STC_AWS, NAN, _T("-"));
+        SendSentenceToAllInstruments(OCPN_DBP_STC_TWA, NAN, _T("-"));
+        SendSentenceToAllInstruments(OCPN_DBP_STC_TWS, NAN, _T("-"));
+    }
+
+    mDPT_DBT_Watchdog--;
+    if (mDPT_DBT_Watchdog <= 0) {
+        SendSentenceToAllInstruments(OCPN_DBP_STC_DPT, 0.0, _T("?"));
+    }
 }
 
 int dashboard_pi::GetAPIVersionMajor()
@@ -642,6 +662,7 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
                     depth += g_dDashDBTOffset;
                     SendSentenceToAllInstruments( OCPN_DBP_STC_DPT, toUsrDistance_Plugin( depth / 1852.0, g_iDashDepthUnit ), getUsrDistanceUnit_Plugin( g_iDashDepthUnit ) );
                 }
+                mDPT_DBT_Watchdog = gps_watchdog_timeout_ticks;
             }
         }
 
@@ -660,6 +681,7 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
                     depth += g_dDashDBTOffset;
                     SendSentenceToAllInstruments( OCPN_DBP_STC_DPT, toUsrDistance_Plugin( depth / 1852.0, g_iDashDepthUnit ), getUsrDistanceUnit_Plugin( g_iDashDepthUnit ) );
                 }
+                mDPT_DBT_Watchdog = gps_watchdog_timeout_ticks;
             }
         }
 // TODO: GBS - GPS Satellite fault detection
@@ -764,6 +786,53 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
                     mPriHeadingM = 1;
                     mHdm = m_NMEA0183.Hdg.MagneticSensorHeadingDegrees;
                     SendSentenceToAllInstruments( OCPN_DBP_STC_HDM, mHdm, _T("\u00B0") );
+                    
+                    //Print HDM, HDT and COG to file for deviation table when COG is stable
+                    if (b_IsDeviation)  //When checked in preferences
+                    {                        
+                        static int printdelay = 1;
+                        if (printdelay > 6) 
+                        {
+                            wxStandardPathsBase& std_path = wxStandardPathsBase::Get();
+                            wxString s = wxFileName::GetPathSeparator();
+                            wxString stdPath = std_path.GetConfigDir();
+                            int mHdt = mHdm + mVar;
+                            wxString tid = wxDateTime::Now().Format(wxT("%Y-%m-%d %H:%M:%S"), wxDateTime::CET);
+                            wxString devdataPath = stdPath + s + wxT("devdata.txt");
+                            
+                            std::ofstream outfile(devdataPath.mb_str(), std::ios_base::app); //wx_str()
+                            if (outfile.is_open()) {
+                                outfile << tid << "," << "HDM:" << "," << mHdm << "," << "HDT:" << "," << mHdt << "," << "COG:" << "," << devCOG << "\n";                                
+                            }
+                            outfile.close();
+#ifdef __WXMSW__
+                            if (b_IsDevPrintSound) Beep(400, 500);
+#endif  //__WXMSW
+                            printdelay = 1;                            
+                        }
+                        else if (devCOG > 0 && devSOG > 3)  //Stable COG and enough speed.
+                        {
+                            switch (printdelay) {
+                            case 1:
+                                ComCOG = devCOG;
+                                printdelay++;
+                                return;
+                            case 2:
+                            case 3:
+                            case 4:
+                            case 5:
+                            case 6:
+                                if ((ComCOG == devCOG) ||
+                                    (((devCOG > ComCOG) && (devCOG - ComCOG) < 1)) ||
+                                    (((devCOG < ComCOG) && (ComCOG - devCOG) < 1))) 
+                                {
+                                    printdelay++;
+                                    return;                                    
+                                }
+                            default: printdelay = 1; //Back to scratch                            
+                            }                            
+                        }                        
+                    }
                 }
                 if( !std::isnan(m_NMEA0183.Hdg.MagneticSensorHeadingDegrees) )
                        mHDx_Watchdog = gps_watchdog_timeout_ticks;
@@ -952,6 +1021,7 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
                                     getUsrSpeedUnit_Plugin( g_iDashWindSpeedUnit ) );
                         }
                     }
+                    mMWV_Watchdog = gps_watchdog_timeout_ticks;
                 }
             }
         }
@@ -1267,6 +1337,11 @@ void dashboard_pi::SetPositionFix( PlugIn_Position_Fix &pfix )
         mPriCOGSOG = 1;
         SendSentenceToAllInstruments( OCPN_DBP_STC_SOG, toUsrSpeed_Plugin( mSOGFilter.filter(pfix.Sog), g_iDashSpeedUnit ), getUsrSpeedUnit_Plugin( g_iDashSpeedUnit ) );
         SendSentenceToAllInstruments( OCPN_DBP_STC_COG, mCOGFilter.filter(pfix.Cog), _T("\u00B0") );
+        if (b_IsDeviation)  // For Momo deviation table
+        {
+            devCOG = mCOGFilter.filter(pfix.Cog);
+            devSOG = mSOGFilter.filter(pfix.Sog);
+        }
         dMagneticCOG = mCOGFilter.get() - pfix.Var;
         if ( dMagneticCOG < 0.0 ) dMagneticCOG = 360.0 + dMagneticCOG;
         if ( dMagneticCOG > 360.0 ) dMagneticCOG = dMagneticCOG - 360.0;
@@ -2163,6 +2238,18 @@ DashboardPreferencesDialog::DashboardPreferencesDialog( wxWindow *parent, wxWind
     m_pChoiceWindSpeedUnit->SetSelection( g_iDashWindSpeedUnit );
     itemFlexGridSizer04->Add( m_pChoiceWindSpeedUnit, 0, wxALIGN_RIGHT | wxALL, 0 );
 
+    m_pSetDeviationBtn = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
+        wxT(" Spara deviationsdata till fil"), wxDefaultPosition, wxDefaultSize);
+    m_pSetDeviationBtn->SetValue(b_IsDeviation);
+    itemFlexGridSizer04->Add(m_pSetDeviationBtn, 0, wxEXPAND | wxALL, 0);
+
+    m_pDevfilename = new wxStaticText(itemPanelNotebook02, wxID_ANY, _T("In Log Dir- devdata.txt"), wxDefaultPosition, wxDefaultSize);
+    itemFlexGridSizer04->Add(m_pDevfilename, 0, wxALIGN_RIGHT | wxALL, 0);
+
+    m_pSetDevSoundBtn = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
+        wxT(" Beep at print"), wxDefaultPosition, wxDefaultSize);
+    m_pSetDevSoundBtn->SetValue(b_IsDevPrintSound);
+    itemFlexGridSizer04->Add(m_pSetDevSoundBtn, 0, wxEXPAND | wxALL, 0);
 
     wxStdDialogButtonSizer* DialogButtonSizer = CreateStdDialogButtonSizer( wxOK | wxCANCEL );
     itemBoxSizerMainPanel->Add( DialogButtonSizer, 0, wxALIGN_RIGHT | wxALL, 5 );
@@ -2181,7 +2268,7 @@ DashboardPreferencesDialog::DashboardPreferencesDialog( wxWindow *parent, wxWind
     UpdateDashboardButtonsState();
     UpdateButtonsState();
     //SetMinSize( wxSize( 450, -1 ) );
-    SetMinSize( wxSize( 200, -1 ) );
+    SetMinSize( wxSize( 150, -1 ) );
     Fit();
 }
 
@@ -2236,6 +2323,8 @@ void DashboardPreferencesDialog::SaveDashboardConfig()
     g_iDashDepthUnit = m_pChoiceDepthUnit->GetSelection() + 3;
     g_iDashDistanceUnit = m_pChoiceDistanceUnit->GetSelection() - 1;
     g_iDashWindSpeedUnit = m_pChoiceWindSpeedUnit->GetSelection();
+    b_IsDeviation = m_pSetDeviationBtn->IsChecked(); // Momo Dev table
+    b_IsDevPrintSound = m_pSetDevSoundBtn->IsChecked();
     if( curSel != -1 ) {
         DashboardWindowContainer *cont = m_Config.Item( curSel );
         cont->m_bIsVisible = m_pCheckBoxIsVisible->IsChecked();
@@ -3031,7 +3120,7 @@ void DashboardWindow::SetInstrumentList( wxArrayInt list )
                 break;
             case ID_DBP_I_SOG:
                 instrument = new DashboardInstrument_Single( this, wxID_ANY,
-                        getInstrumentCaption( id ), OCPN_DBP_STC_SOG, _T("%5.2f") );
+                        getInstrumentCaption( id ), OCPN_DBP_STC_SOG, _T("%4.1f") );
                 break;
             case ID_DBP_D_SOG:
                 instrument = new DashboardInstrument_Speedometer( this, wxID_ANY,
@@ -3042,7 +3131,7 @@ void DashboardWindow::SetInstrumentList( wxArrayInt list )
                 ( (DashboardInstrument_Dial *) instrument )->SetOptionMarker( 0.5,
                         DIAL_MARKER_SIMPLE, 2 );
                 ( (DashboardInstrument_Dial *) instrument )->SetOptionExtraValue(
-                        OCPN_DBP_STC_STW, _T("STW\n%.2f"), DIAL_POSITION_BOTTOMLEFT );
+                        OCPN_DBP_STC_STW, _T("STW\n%.1f"), DIAL_POSITION_BOTTOMLEFT );
                 break;
             case ID_DBP_I_COG:
                 instrument = new DashboardInstrument_Single( this, wxID_ANY,
@@ -3060,7 +3149,7 @@ void DashboardWindow::SetInstrumentList( wxArrayInt list )
                 ( (DashboardInstrument_Dial *) instrument )->SetOptionLabel( 30,
                         DIAL_LABEL_ROTATED );
                 ( (DashboardInstrument_Dial *) instrument )->SetOptionExtraValue(
-                        OCPN_DBP_STC_SOG, _T("SOG\n%.2f"), DIAL_POSITION_BOTTOMLEFT );
+                        OCPN_DBP_STC_SOG, _T("SOG\n%.1f"), DIAL_POSITION_BOTTOMLEFT );
                 break;
             case ID_DBP_D_HDT:
                 instrument = new DashboardInstrument_Compass( this, wxID_ANY,
@@ -3070,11 +3159,11 @@ void DashboardWindow::SetInstrumentList( wxArrayInt list )
                 ( (DashboardInstrument_Dial *) instrument )->SetOptionLabel( 30,
                         DIAL_LABEL_ROTATED );
                 ( (DashboardInstrument_Dial *) instrument )->SetOptionExtraValue(
-                        OCPN_DBP_STC_STW, _T("STW\n%.2f"), DIAL_POSITION_BOTTOMLEFT );
+                        OCPN_DBP_STC_STW, _T("STW\n%.1f"), DIAL_POSITION_BOTTOMLEFT );
                 break;
             case ID_DBP_I_STW:
                 instrument = new DashboardInstrument_Single( this, wxID_ANY,
-                        getInstrumentCaption( id ), OCPN_DBP_STC_STW, _T("%.2f") );
+                        getInstrumentCaption( id ), OCPN_DBP_STC_STW, _T("%.1f") );
                 break;
             case ID_DBP_I_HDT: //true heading
                 // TODO: Option True or Magnetic
@@ -3096,7 +3185,7 @@ void DashboardWindow::SetInstrumentList( wxArrayInt list )
                 break;
             case ID_DBP_I_AWS:
                 instrument = new DashboardInstrument_Single( this, wxID_ANY,
-                        getInstrumentCaption( id ), OCPN_DBP_STC_AWS, _T("%.2f") );
+                        getInstrumentCaption( id ), OCPN_DBP_STC_AWS, _T("%.1f") );
                 break;
             case ID_DBP_D_AWS:
                 instrument = new DashboardInstrument_Speedometer( this, wxID_ANY,
@@ -3105,7 +3194,7 @@ void DashboardWindow::SetInstrumentList( wxArrayInt list )
                         DIAL_LABEL_HORIZONTAL );
                 ( (DashboardInstrument_Dial *) instrument )->SetOptionMarker( 1,
                         DIAL_MARKER_SIMPLE, 5 );
-                ( (DashboardInstrument_Dial *) instrument )->SetOptionMainValue( _T("A %.2f"),
+                ( (DashboardInstrument_Dial *) instrument )->SetOptionMainValue( _T("A %.1f"),
                         DIAL_POSITION_BOTTOMLEFT );
                 ( (DashboardInstrument_Dial *) instrument )->SetOptionExtraValue(
                         OCPN_DBP_STC_TWS, _T("T %.1f"), DIAL_POSITION_BOTTOMRIGHT );
@@ -3113,7 +3202,7 @@ void DashboardWindow::SetInstrumentList( wxArrayInt list )
             case ID_DBP_D_TW: //True Wind angle +-180° on boat axis
                 instrument = new DashboardInstrument_TrueWindAngle( this, wxID_ANY,
                         getInstrumentCaption( id ), OCPN_DBP_STC_TWA );
-                ( (DashboardInstrument_Dial *) instrument )->SetOptionMainValue( _T("%.0f"),
+                ( (DashboardInstrument_Dial *) instrument )->SetOptionMainValue( _T("%.1f"),
                         DIAL_POSITION_BOTTOMLEFT );
                 ( (DashboardInstrument_Dial *) instrument )->SetOptionExtraValue(
                         OCPN_DBP_STC_TWS, _T("%.1f"), DIAL_POSITION_INSIDE );
@@ -3184,7 +3273,7 @@ void DashboardWindow::SetInstrumentList( wxArrayInt list )
                 break;
             case ID_DBP_I_TWS: // true wind speed
                 instrument = new DashboardInstrument_Single( this, wxID_ANY,
-                        getInstrumentCaption( id ), OCPN_DBP_STC_TWS, _T("%2.2f") );
+                        getInstrumentCaption( id ), OCPN_DBP_STC_TWS, _T("%2.1f") );
                 break;
             case ID_DBP_I_AWA: //apparent wind angle
                 instrument = new DashboardInstrument_Single( this, wxID_ANY,
@@ -3192,7 +3281,7 @@ void DashboardWindow::SetInstrumentList( wxArrayInt list )
                 break;
             case ID_DBP_I_VMG:
                 instrument = new DashboardInstrument_Single( this, wxID_ANY,
-                        getInstrumentCaption( id ), OCPN_DBP_STC_VMG, _T("%5.2f") );
+                        getInstrumentCaption( id ), OCPN_DBP_STC_VMG, _T("%5.1f") );
                 break;
             case ID_DBP_D_VMG:
                 instrument = new DashboardInstrument_Speedometer( this, wxID_ANY,

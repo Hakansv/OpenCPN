@@ -319,7 +319,7 @@ void RoutePropDlgImpl::UpdatePoints()
         if( in == 0) {
             DistanceBearingMercator(pnode->GetData()->GetLatitude(), pnode->GetData()->GetLongitude(), gLat, gLon, &bearing, &distance);
             if( m_pRoute->m_PlannedDeparture.IsValid() ) {
-                eta = wxString::Format("Start: %s", toUsrDateTime(m_pRoute->m_PlannedDeparture, m_tz_selection, pnode->GetData()->m_lon).Format(ETA_FORMAT_STR).c_str());
+                eta = wxString::Format("Start: %s", toUsrDateTime(m_pRoute->m_PlannedDeparture, m_tz_selection, pnode->GetData()->m_lon).FormatISOCombined(' ')); // .Format(ETA_FORMAT_STR).c_str());
                 eta.Append( wxString::Format(_T(" (%s)"), GetDaylightString(getDaylightStatus(pnode->GetData()->m_lat, pnode->GetData()->m_lon, m_pRoute->m_PlannedDeparture)).c_str()) );
                 eta_dt = m_pRoute->m_PlannedDeparture;
             } else {
@@ -334,7 +334,7 @@ void RoutePropDlgImpl::UpdatePoints()
             distance = pnode->GetData()->GetDistance();
             bearing = pnode->GetData()->GetCourse();
             if( pnode->GetData()->GetETA().IsValid() ) {
-                eta = toUsrDateTime( pnode->GetData()->GetETA(), m_tz_selection, pnode->GetData()->m_lon).Format(ETA_FORMAT_STR);
+                eta = toUsrDateTime( pnode->GetData()->GetETA(), m_tz_selection, pnode->GetData()->m_lon).FormatISOCombined(' '); // .Format(ETA_FORMAT_STR);
                 eta.Append( wxString::Format(_T(" (%s)"), GetDaylightString(getDaylightStatus(pnode->GetData()->m_lat, pnode->GetData()->m_lon, pnode->GetData()->GetETA())).c_str()) );
                 eta_dt = pnode->GetData()->GetETA();
             } else {

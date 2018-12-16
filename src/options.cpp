@@ -3157,7 +3157,7 @@ void options::CreatePanel_Routes(size_t parent, int border_size,
 
 
   wxFlexGridSizer* pRouteGrid =
-      new wxFlexGridSizer(1, 2, group_item_spacing, group_item_spacing);
+      new wxFlexGridSizer(2, 2, group_item_spacing, group_item_spacing);
   pRouteGrid->AddGrowableCol(1);
   routeSizer->Add(pRouteGrid, 0, wxALL | wxEXPAND, border_size);
 

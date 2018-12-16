@@ -190,6 +190,8 @@ private:
       int                  mHDT_Watchdog;
       int                  mGPS_Watchdog;
       int                  mVar_Watchdog;
+      int                  mMWV_Watchdog;
+      int                  mDPT_DBT_Watchdog;
 
       iirfilter            mSOGFilter;
       iirfilter            mCOGFilter;
@@ -229,8 +231,11 @@ public:
       wxChoice                     *m_pChoiceDepthUnit;
       wxSpinCtrlDouble             *m_pSpinDBTOffset;
       wxChoice                     *m_pChoiceDistanceUnit;
+      wxCheckBox                   *m_pSetDeviationBtn;
+      wxCheckBox                   *m_pSetDevSoundBtn;
+      wxStaticText                 *m_pDevfilename;
       wxChoice                     *m_pChoiceWindSpeedUnit;
-
+      
 private:
       void UpdateDashboardButtonsState(void);
       void UpdateButtonsState(void);
