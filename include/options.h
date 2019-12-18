@@ -589,6 +589,8 @@ class options : private Uncopyable,
   wxCheckBox *pTransparentToolbar;
   wxCheckBox *pAdvanceRouteWaypointOnArrivalOnly, *pTrackShowIcon;
   wxCheckBox *pTrackDaily, *pTrackHighlite;
+  wxCheckBox *pXTEmultplyCheckbox;
+  wxTextCtrl *m_pXTEMultiplicator;
 #if wxCHECK_VERSION(2, 9, 0)
 #if wxUSE_TIMEPICKCTRL  
 #ifdef __WXGTK__

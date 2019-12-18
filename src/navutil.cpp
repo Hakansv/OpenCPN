@@ -297,6 +297,9 @@ extern double           g_n_gps_antenna_offset_x;
 extern int              g_n_ownship_min_mm;
 extern double           g_n_arrival_circle_radius;
 
+extern bool             g_bXTE_multiply;
+extern double           g_dXTE_multiplier;
+
 extern bool             g_bPreserveScaleOnX;
 extern bool             g_bsimplifiedScalebar;
 
@@ -612,6 +615,9 @@ int MyConfig::LoadMyConfig()
     g_navobjbackups = 5;
     g_benableAISNameCache = true;
     g_n_arrival_circle_radius = 0.05;
+
+    g_bXTE_multiply = 0;
+    g_dXTE_multiplier = 1.5;
     
     g_AISShowTracks_Mins = 20;
     g_AISShowTracks_Limit = 300.0;
@@ -796,6 +802,9 @@ int MyConfig::LoadMyConfigRaw( bool bAsTemplate )
     Read( _T ( "DebugS57" ), &g_bDebugS57 );         // Show LUP and Feature info in object query
     Read( _T ( "DebugBSBImg" ), &g_BSBImgDebug );
     Read( _T ( "DebugGPSD" ), &g_bDebugGPSD );
+
+    Read(_T("XTE_Multiply"), &g_bXTE_multiply);
+    Read(_T("XTE_multiplyer"), &g_dXTE_multiplier);
 
     Read( _T ( "DefaultFontSize"), &g_default_font_size );
     Read( _T ( "DefaultFontFacename"), &g_default_font_facename );
@@ -2383,6 +2392,9 @@ void MyConfig::UpdateSettings()
     Write( _T ( "TrackRotateAt" ), g_track_rotate_time );
     Write( _T ( "TrackRotateTimeType" ), g_track_rotate_time_type );
     Write( _T ( "HighlightTracks" ), g_bHighliteTracks );
+
+    Write( _T ( "XTE_Multiply" ), g_bXTE_multiply );
+    Write( _T ( "XTE_multiplyer" ), g_dXTE_multiplier );
 
     Write( _T ( "InitialStackIndex" ), g_restore_stackindex );
     Write( _T ( "InitialdBIndex" ), g_restore_dbindex );
