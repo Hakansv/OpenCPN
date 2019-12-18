@@ -401,6 +401,8 @@ void GetglEntryPoints( OCPN_GLCaps *pcaps )
             ocpnGetProcAddress( "glBufferData", extensions[i]);
         pcaps->m_glDeleteBuffers = (PFNGLDELETEBUFFERSPROC)
             ocpnGetProcAddress( "glDeleteBuffers", extensions[i]);
+        pcaps->m_glGetBufferParameteriv = (PFNGLBUFFERPARAMETERSIVPROC)
+            ocpnGetProcAddress( "glGetBufferParameteriv", extensions[i]);
 
              
     }
@@ -493,6 +495,8 @@ static void GetglEntryPoints( void )
             ocpnGetProcAddress( "glBufferData", extensions[i]);
         s_glDeleteBuffers = (PFNGLDELETEBUFFERSPROC)
             ocpnGetProcAddress( "glDeleteBuffers", extensions[i]);
+        s_glGetBufferParameteriv = (PFNGLBUFFERPARAMETERSIVPROC)
+            ocpnGetProcAddress( "glGetBufferParameteriv", extensions[i]);
 
             
     }
@@ -1350,11 +1354,20 @@ void glChartCanvas::SetupOpenGL()
     g_b_EnableVBO = false;
 #endif
 
+#if defined( __WXMSW__ )
+        g_b_EnableVBO = false;
+        wxLogMessage( _T("OpenGL-> DISABLING VBO for Intel test.") );
+#endif
+
     if(g_b_EnableVBO)
         wxLogMessage( _T("OpenGL-> Using Vertexbuffer Objects") );
     else
         wxLogMessage( _T("OpenGL-> Vertexbuffer Objects unavailable") );
-    
+
+// #if defined(__WXOSX__)
+//     wxLogMessage( _T("OpenGL-> DISABLING VBO for Mac/Intel test.") );
+//     g_b_EnableVBO = false;
+// #endif    
     
     //      Can we use the stencil buffer in a FBO?
 #ifdef ocpnUSE_GLES 
