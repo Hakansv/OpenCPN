@@ -568,7 +568,7 @@ void dashboard_pi::Notify()
 
     mDPT_DBT_Watchdog--;
     if (mDPT_DBT_Watchdog <= 0) {
-        SendSentenceToAllInstruments(OCPN_DBP_STC_DPT, 0.0, _T("?"));
+        SendSentenceToAllInstruments(OCPN_DBP_STC_DPT, 0.0, _T("---"));
     }
 }
 
