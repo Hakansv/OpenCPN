@@ -432,8 +432,10 @@ int dashboard_pi::Init( void )
     mHDT_Watchdog = 2;
     mGPS_Watchdog = 2;
     mVar_Watchdog = 2;
-    mMWV_Watchdog = 2;
+    mMWVA_Watchdog = 2;
+    mMWVT_Watchdog = 2;
     mDPT_DBT_Watchdog = 2;
+    mSTW_Watchdog = 2;
 
     g_pFontTitle = new wxFont( 10, wxFONTFAMILY_SWISS, wxFONTSTYLE_ITALIC, wxFONTWEIGHT_NORMAL );
     g_pFontData = new wxFont( 14, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL, wxFONTWEIGHT_NORMAL );
@@ -557,18 +559,28 @@ void dashboard_pi::Notify()
         mSatsInView = 0;
         SendSentenceToAllInstruments( OCPN_DBP_STC_SAT, 0, _T("") );
     }
-    
-    mMWV_Watchdog--;
-    if (mMWV_Watchdog <= 0) {
+    mMWVA_Watchdog--;
+    if (mMWVA_Watchdog <= 0) {
         SendSentenceToAllInstruments(OCPN_DBP_STC_AWA, NAN, _T("-"));
         SendSentenceToAllInstruments(OCPN_DBP_STC_AWS, NAN, _T("-"));
+    }
+
+    mMWVT_Watchdog--;
+    if (mMWVT_Watchdog <= 0) {
         SendSentenceToAllInstruments(OCPN_DBP_STC_TWA, NAN, _T("-"));
         SendSentenceToAllInstruments(OCPN_DBP_STC_TWS, NAN, _T("-"));
+        SendSentenceToAllInstruments(OCPN_DBP_STC_TWS2, NAN, _T("-"));
     }
 
     mDPT_DBT_Watchdog--;
     if (mDPT_DBT_Watchdog <= 0) {
         SendSentenceToAllInstruments(OCPN_DBP_STC_DPT, 0.0, _T("---"));
+        SendSentenceToAllInstruments(OCPN_DBP_STC_DPT, NAN, _T("-"));
+    }
+    
+    mSTW_Watchdog--;
+    if (mSTW_Watchdog <= 0) {
+        SendSentenceToAllInstruments(OCPN_DBP_STC_STW, NAN, _T("-"));
     }
 }
 
@@ -965,6 +977,7 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
                                               getUsrSpeedUnit_Plugin( g_iDashWindSpeedUnit ) );
                 SendSentenceToAllInstruments( OCPN_DBP_STC_TWS2, toUsrSpeed_Plugin( m_NMEA0183.Mwd.WindSpeedKnots, g_iDashWindSpeedUnit ),
                         getUsrSpeedUnit_Plugin( g_iDashWindSpeedUnit ) );
+                mMWVT_Watchdog = gps_watchdog_timeout_ticks;
                 //m_NMEA0183.Mwd.WindSpeedms
             }
         }
@@ -996,6 +1009,7 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
                             SendSentenceToAllInstruments( OCPN_DBP_STC_AWS,
                                     toUsrSpeed_Plugin( m_NMEA0183.Mwv.WindSpeed * m_wSpeedFactor, g_iDashWindSpeedUnit ),
                                     getUsrSpeedUnit_Plugin( g_iDashWindSpeedUnit ) );
+                            mMWVA_Watchdog = gps_watchdog_timeout_ticks;
                         }
                     } else if( m_NMEA0183.Mwv.Reference == _T("T") ) // Theoretical (aka True)
                     {
@@ -1019,9 +1033,9 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
                             SendSentenceToAllInstruments( OCPN_DBP_STC_TWS2,
                                     toUsrSpeed_Plugin( m_NMEA0183.Mwv.WindSpeed * m_wSpeedFactor, g_iDashWindSpeedUnit ),
                                     getUsrSpeedUnit_Plugin( g_iDashWindSpeedUnit ) );
+                            mMWVT_Watchdog = gps_watchdog_timeout_ticks;
                         }
                     }
-                    mMWV_Watchdog = gps_watchdog_timeout_ticks;
                 }
             }
         }
@@ -1136,6 +1150,7 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
                 if( m_NMEA0183.Vhw.Knots < 999. ) {
                     SendSentenceToAllInstruments( OCPN_DBP_STC_STW, toUsrSpeed_Plugin( m_NMEA0183.Vhw.Knots, g_iDashSpeedUnit ),
                             getUsrSpeedUnit_Plugin( g_iDashSpeedUnit ) );
+                    mSTW_Watchdog = gps_watchdog_timeout_ticks;
                 }
 
                 if( !std::isnan(m_NMEA0183.Vhw.DegreesMagnetic) )
@@ -1184,6 +1199,7 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
                             m_NMEA0183.Vwr.WindDirectionMagnitude, awaunit );
                     SendSentenceToAllInstruments( OCPN_DBP_STC_AWS, toUsrSpeed_Plugin( m_NMEA0183.Vwr.WindSpeedKnots, g_iDashWindSpeedUnit ),
                             getUsrSpeedUnit_Plugin( g_iDashWindSpeedUnit ) );
+                    mMWVA_Watchdog = gps_watchdog_timeout_ticks;
                     /*
                      double m_NMEA0183.Vwr.WindSpeedms;
                      double m_NMEA0183.Vwr.WindSpeedKmh;
@@ -1206,6 +1222,7 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
                             m_NMEA0183.Vwt.WindDirectionMagnitude, vwtunit );
                     SendSentenceToAllInstruments( OCPN_DBP_STC_TWS, toUsrSpeed_Plugin( m_NMEA0183.Vwt.WindSpeedKnots, g_iDashWindSpeedUnit ),
                             getUsrSpeedUnit_Plugin( g_iDashWindSpeedUnit ) );
+                    mMWVT_Watchdog = gps_watchdog_timeout_ticks;
                     /*
                      double           m_NMEA0183.Vwt.WindSpeedms;
                      double           m_NMEA0183.Vwt.WindSpeedKmh;

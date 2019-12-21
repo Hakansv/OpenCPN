@@ -177,10 +177,10 @@ void DashboardInstrument_Depth::DrawForeground(wxGCDC* dc)
       GetGlobalColor(_T("DASHF"), &cl);
       dc->SetTextForeground( cl );
       dc->SetFont(*g_pFontData);
-      if (m_DepthUnit != _T("---") ) { //Watchdog
+      if (m_DepthUnit != _T("-") & m_Depth != NAN) { //Watchdog
           dc->DrawText(wxString::Format(_T("%.1f "), m_Depth) + m_DepthUnit, 10, m_TitleHeight); 
       } else
-          dc->DrawText(m_DepthUnit, 10, m_TitleHeight);
+          dc->DrawText(_T("---"), 10, m_TitleHeight);
 
       dc->SetFont(*g_pFontLabel);
       int width, height;
