@@ -559,6 +559,7 @@ void dashboard_pi::Notify()
         mSatsInView = 0;
         SendSentenceToAllInstruments( OCPN_DBP_STC_SAT, 0, _T("") );
     }
+
     mMWVA_Watchdog--;
     if (mMWVA_Watchdog <= 0) {
         SendSentenceToAllInstruments(OCPN_DBP_STC_AWA, NAN, _T("-"));
@@ -574,7 +575,6 @@ void dashboard_pi::Notify()
 
     mDPT_DBT_Watchdog--;
     if (mDPT_DBT_Watchdog <= 0) {
-        SendSentenceToAllInstruments(OCPN_DBP_STC_DPT, 0.0, _T("---"));
         SendSentenceToAllInstruments(OCPN_DBP_STC_DPT, NAN, _T("-"));
     }
     
