@@ -9395,6 +9395,7 @@ void options::ShowNMEACommon(bool visible) {
   m_TalkerIdText->Show(visible);
   m_cbCheckCRC->Show(visible);
   m_cbCheckSKDiscover->Show(visible);
+  m_ButtonSKDiscover->Show(visible);
   if (visible) {
     const bool output = m_cbOutput->IsChecked();
     m_stPrecision->Enable(output);
@@ -9546,6 +9547,10 @@ void options::SetDSFormOptionVizStates(void) {
     m_StaticTextSKServerStatus->Show();
   
   if (m_rbTypeSerial->GetValue()) {
+    m_cbCheckSKDiscover->Hide();
+    m_ButtonSKDiscover->Hide();
+    m_StaticTextSKServerStatus->Hide();
+
   } else if (m_rbNetProtoGPSD->GetValue()) {
     m_cbCheckSKDiscover->Hide();
     m_cbInput->Hide();
@@ -9863,6 +9868,8 @@ void options::OnAddDatasourceClick(wxCommandEvent& event) {
   m_buttonRemove->Hide();//Disable();
   m_buttonAdd->Hide(); //Disable();
 
+  SetDSFormRWStates();
+  
   RecalculateSize();
   
   //  Scroll the panel to allow the user to see more of the NMEA parameter settings area
