@@ -7823,7 +7823,8 @@ void options::OnApplyClick(wxCommandEvent& event) {
   //  Record notice of any changes to last applied template
   UpdateTemplateTitleText();
   
-  ::wxEndBusyCursor();
+  if (::wxIsBusy()) //FIXME: Not sure why this is needed here
+      ::wxEndBusyCursor();
 }
 
 void options::OnXidOkClick(wxCommandEvent& event) {
