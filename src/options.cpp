@@ -3112,7 +3112,7 @@ void options::CreatePanel_Ownship(size_t parent, int border_size,
                          wxALIGN_RIGHT, border_size);
 
   wxFlexGridSizer* pTrackGrid =
-      new wxFlexGridSizer(1, 2, group_item_spacing, group_item_spacing);
+      new wxFlexGridSizer(0, 2, group_item_spacing, group_item_spacing);
   pTrackGrid->AddGrowableCol(1);
   trackSizer->Add(pTrackGrid, 0, wxALL | wxEXPAND, border_size);
 
@@ -3131,7 +3131,7 @@ void options::CreatePanel_Ownship(size_t parent, int border_size,
   wxStaticBoxSizer* ownshipcalcSizer = new wxStaticBoxSizer(ownshipcalcText, wxVERTICAL);
   ownShip->Add(ownshipcalcSizer, 0, wxTOP | wxALL | wxEXPAND, border_size);
 
-  wxFlexGridSizer* dispOwnShipCalcOptionsGrid = new wxFlexGridSizer(2, 2, group_item_spacing, group_item_spacing);
+  wxFlexGridSizer* dispOwnShipCalcOptionsGrid = new wxFlexGridSizer(0, 2, group_item_spacing, group_item_spacing);
   ownshipcalcSizer->Add(dispOwnShipCalcOptionsGrid, 0, wxTOP | wxALL | wxEXPAND, border_size);
 
   dispOwnShipCalcOptionsGrid->AddGrowableCol(1);
