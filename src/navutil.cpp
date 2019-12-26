@@ -368,7 +368,6 @@ extern wxString         g_default_wp_icon;
 extern wxString         g_default_routepoint_icon;
 
 extern ChartGroupArray  *g_pGroupArray;
-extern int              g_GroupIndex;
 
 extern bool             g_bDebugOGL;
 extern int              g_tcwin_scale;
@@ -879,8 +878,6 @@ int MyConfig::LoadMyConfigRaw( bool bAsTemplate )
     
     Read( _T ( "ShowFPS" ), &g_bShowFPS );
     
-    Read( _T ( "ActiveChartGroup" ), &g_GroupIndex );
-
     Read( _T( "NMEAAPBPrecision" ), &g_NMEAAPBPrecision );
     
     Read( _T( "TalkerIdText" ), &g_TalkerIdText );
@@ -2398,7 +2395,6 @@ void MyConfig::UpdateSettings()
 
     Write( _T ( "InitialStackIndex" ), g_restore_stackindex );
     Write( _T ( "InitialdBIndex" ), g_restore_dbindex );
-    Write( _T ( "ActiveChartGroup" ), g_GroupIndex );
 
     Write( _T( "NMEAAPBPrecision" ), g_NMEAAPBPrecision );
     
