@@ -2517,7 +2517,7 @@ void glChartCanvas::ShipDraw(ocpnDC& dc)
         if( g_GLOptions.m_GLPolygonSmoothing )
             glEnable( GL_POLYGON_SMOOTH );
     
-        if( m_pParentCanvas->GetVP().chart_scale > 300000 )             // According to S52, this should be 50,000
+        if( m_pParentCanvas->GetVP().chart_scale > 400000 )             // According to S52, this should be 50,000
         {
             double nominal_line_width_pix = wxMax(1.0, floor(m_pParentCanvas->GetPixPerMM() / 2 ));             //0.5 mm nominal, but not less than 1 pixel
         
@@ -2534,7 +2534,7 @@ void glChartCanvas::ShipDraw(ocpnDC& dc)
             float nominal_ownship_size_pixels = wxMax(20.0, m_pParentCanvas->GetPixPerMM() * nominal_ownship_size_mm);   // nominal length, but not less than 20 pixel
             float v = (nominal_ownship_size_pixels * scale_factor) / 3;
 
-            wxPen ppPen1( GetGlobalColor( _T ( "YELO1" ) ), v / 10 , wxPENSTYLE_SOLID );
+            wxPen ppPen1( GetGlobalColor( _T ( "URED" ) ), v / 10 , wxPENSTYLE_SOLID );
             dc.SetPen( ppPen1 );
             dc.SetBrush( wxBrush( GetGlobalColor( _T ( "URED" ) ), wxBRUSHSTYLE_TRANSPARENT ) );
 

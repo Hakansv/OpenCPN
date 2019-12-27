@@ -5752,7 +5752,7 @@ void ChartCanvas::ShipDraw( ocpnDC& dc )
     // TODO: fix to include actual size of boat that will be rendered
     int img_height = 0;
     if( bb_screen.PointInBox( lShipMidPoint, 20 ) ) {
-        if( GetVP().chart_scale > 300000 )             // According to S52, this should be 50,000
+        if( GetVP().chart_scale > 400000 )             // According to S52, this should be 50,000
         {
             ShipDrawLargeScale(dc, lShipMidPoint);
             img_height = 20;
