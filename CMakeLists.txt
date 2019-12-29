@@ -704,9 +704,10 @@ if (NOT QT_ANDROID)
     set(wxWidgets_EXCLUDE_COMMON_LIBRARIES TRUE)
   endif (MSVC)
 
-  if (GTK2_FOUND)
-    set(wxWidgets_CONFIG_OPTIONS ${wxWidgets_CONFIG_OPTIONS} --toolkit=gtk2)
-  elseif (GTK3_FOUND)
+#  if (GTK2_FOUND)
+  set(wxWidgets_CONFIG_OPTIONS ${wxWidgets_CONFIG_OPTIONS} --toolkit=gtk2)
+
+  if (GTK3_FOUND)
     set(wxWidgets_CONFIG_OPTIONS ${wxWidgets_CONFIG_OPTIONS} --toolkit=gtk3)
   endif ()
 
@@ -1144,8 +1145,8 @@ target_link_libraries(${PACKAGE_NAME} PRIVATE ssl::sha1)
 # Linux: set up GTK
 #
 if (NOT WIN32 AND NOT APPLE AND NOT QT_ANDROID)
-  include(OcpnFindGtk)
-  target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::gtk)
+#  include(OcpnFindGtk)
+#  target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::gtk)
 endif (NOT WIN32 AND NOT APPLE AND NOT QT_ANDROID)
 
 # Search for opengles, short of running a program to test the speed of
