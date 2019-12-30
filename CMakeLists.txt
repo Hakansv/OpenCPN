@@ -605,9 +605,9 @@ message(STATUS "Using python executable: ${Python_EXECUTABLE}")
 #
 # Linux: set up GTK (wxWidgets prerequisite).
 #
-if (NOT WIN32 AND NOT APPLE AND NOT QT_ANDROID)
-  include(OcpnFindGtk)
-endif ()
+#if (NOT WIN32 AND NOT APPLE AND NOT QT_ANDROID)
+#  include(OcpnFindGtk)
+#endif ()
 
 # set a build flag for arm architecture, to catch any rPI runtime changes
 # required
@@ -705,11 +705,12 @@ if (NOT QT_ANDROID)
   endif (MSVC)
 
 #  if (GTK2_FOUND)
-  set(wxWidgets_CONFIG_OPTIONS ${wxWidgets_CONFIG_OPTIONS} --toolkit=gtk2)
+#  set(wxWidgets_CONFIG_OPTIONS ${wxWidgets_CONFIG_OPTIONS} --toolkit=gtk2)
 
-  if (GTK3_FOUND)
-    set(wxWidgets_CONFIG_OPTIONS ${wxWidgets_CONFIG_OPTIONS} --toolkit=gtk3)
-  endif ()
+# if (GTK3_FOUND)
+#    set(wxWidgets_CONFIG_OPTIONS ${wxWidgets_CONFIG_OPTIONS} --toolkit=gtk3)
+#  endif ()
+    message(STATUS "Main: ${wxWidgets_FIND_COMPONENTS}")
 
   find_package(wxWidgets COMPONENTS ${wxWidgets_FIND_COMPONENTS})
   if (wxWidgets_FOUND AND OCPN_USE_WEBVIEW)
@@ -719,7 +720,7 @@ if (NOT QT_ANDROID)
     add_definitions(-DwxUSE_WEBVIEW=0)
     list(REMOVE_ITEM wxWidgets_FIND_COMPONENTS webview)
     message(STATUS "Could not find wxWidgets webview add-on")
-    find_package(wxWidgets REQUIRED COMPONENTS ${wxWidgets_FIND_COMPONENTS})
+    find_package(wxWidgets COMPONENTS ${wxWidgets_FIND_COMPONENTS})
   endif ()
   if (MSYS)
     # Convert msys to windows paths, and handle the missing /usr
@@ -2790,3 +2791,14 @@ if (MSVC)
     "${CMAKE_BINARY_DIR}/$<CONFIG>/${PACKAGE_NAME}-${PACKAGE_VERSION}.pdb"
   )
 endif (MSVC)
+
+# uninstall target
+if(NOT TARGET uninstall)
+    configure_file(
+        "${CMAKE_SOURCE_DIR}/cmake/uninstall.cmake.in"
+        "${CMAKE_BINARY_DIR}/uninstall.cmake"
+        IMMEDIATE @ONLY)
+
+    add_custom_target(uninstall
+        COMMAND ${CMAKE_COMMAND} -P ${CMAKE_BINARY_DIR}/uninstall.cmake)
+endif()
