@@ -531,6 +531,7 @@ void dashboard_pi::Notify()
     if( mHDx_Watchdog <= 0 ) {
         mHdm = NAN;
         SendSentenceToAllInstruments( OCPN_DBP_STC_HDM, mHdm, _T("\u00B0") );
+        mPriHeadingM = 99;
     }
 
     mHDT_Watchdog--;
@@ -576,6 +577,7 @@ void dashboard_pi::Notify()
     mDPT_DBT_Watchdog--;
     if (mDPT_DBT_Watchdog <= 0) {
         SendSentenceToAllInstruments(OCPN_DBP_STC_DPT, NAN, _T("-"));
+        mPriDepth = 99;
     }
     
     mSTW_Watchdog--;
