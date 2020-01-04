@@ -1365,7 +1365,6 @@ int MyConfig::LoadMyConfigRaw( bool bAsTemplate )
         TideCurrentDataSet.Clear();
         wxString str, val;
         long dummy;
-        int iDir = 0;
         bool bCont = GetFirstEntry( str, dummy );
         while( bCont ) {
             Read( str, &val );              // Get a file name
@@ -1468,7 +1467,6 @@ int MyConfig::LoadMyConfigRaw( bool bAsTemplate )
         g_MMSI_Props_Array.Empty();
         wxString str, val;
         long dummy;
-        int iDir = 0;
         bool bCont = pConfig->GetFirstEntry( str, dummy );
         while( bCont ) {
             pConfig->Read( str, &val );              // Get an entry
@@ -1984,7 +1982,6 @@ void MyConfig::LoadConfigGroups( ChartGroupArray *pGroupArray )
 
 void MyConfig::LoadCanvasConfigs( bool bApplyAsTemplate )
 {
-    int n_canvas;
     wxString s;
     canvasConfig *pcc;
     
@@ -3172,7 +3169,6 @@ RoutePoint *WaypointExists( const wxString& name, double lat, double lon )
     RoutePoint *pret = NULL;
 //    if( g_bIsNewLayer ) return NULL;
     wxRoutePointListNode *node = pWayPointMan->GetWaypointList()->GetFirst();
-    bool Exists = false;
     while( node ) {
         RoutePoint *pr = node->GetData();
 
@@ -3180,7 +3176,6 @@ RoutePoint *WaypointExists( const wxString& name, double lat, double lon )
 
         if( name == pr->GetName() ) {
             if( fabs( lat - pr->m_lat ) < 1.e-6 && fabs( lon - pr->m_lon ) < 1.e-6 ) {
-                Exists = true;
                 pret = pr;
                 break;
             }

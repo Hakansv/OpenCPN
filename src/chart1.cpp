@@ -842,6 +842,7 @@ static void SetSystemColors( ColorScheme cs );
 
 extern "C" bool CheckSerialAccess( void );
 
+#if 0
 // Refresh the Piano Bar
 static void refresh_Piano()
 {
@@ -853,6 +854,7 @@ static void refresh_Piano()
 //     piano_active_chart_index_array.push_back( pCurrentStack->GetCurrentEntrydbIndex() );
 //     g_Piano->SetActiveKeyArray( piano_active_chart_index_array );
 }
+#endif
 
 #ifndef __OCPN__ANDROID__
 // Connection class, for use by both communicating instances
@@ -1335,7 +1337,6 @@ static char *get_X11_property (Display *disp, Window win,
     int ret_format;
     unsigned long ret_nitems;
     unsigned long ret_bytes_after;
-    unsigned long tmp_size;
     unsigned char *ret_prop;
 
     xa_prop_name = XInternAtom(disp, prop_name, False);
@@ -2335,8 +2336,6 @@ bool MyApp::OnInit()
     //  Yield to pick up the OnSize() calls that result from Maximize()
     Yield();
     
-    bool b_SetInitialPoint = false;
-
     //   Build the initial chart dir array
     ArrayOfCDI ChartDirArray;
     pConfig->LoadChartDirArray( ChartDirArray );
@@ -2377,10 +2376,6 @@ bool MyApp::OnInit()
 		}
 
         if( ndirs ) pConfig->UpdateChartDirs( ChartDirArray );
-
-        //    As a favor to new users, poll the database and
-        //    move the initial viewport so that a chart will come up.
-        if( ndirs ) b_SetInitialPoint = true;
 
     }
 #endif
@@ -3499,7 +3494,6 @@ void MyFrame::SetGPSCompassScale()
 ChartCanvas *MyFrame::GetCanvasUnderMouse()
 {
     wxPoint screenPoint = ::wxGetMousePosition();
-    ChartCanvas *canvas = NULL;
     canvasConfig *cc;
     
     switch(g_canvasConfig){
@@ -3540,7 +3534,7 @@ int MyFrame::GetCanvasIndexUnderMouse()
         case 1:
             cc = g_canvasConfigArray.Item(0);
             if(cc ){
-                ChartCanvas *canvas = cc->canvas;
+                //ChartCanvas *canvas = cc->canvas;
                 if(canvas->GetScreenRect().Contains(/*canvas->ScreenToClient*/(screenPoint)))
                     return 0;
             }
@@ -4112,8 +4106,10 @@ void MyFrame::SetCanvasSizes( wxSize frameSize )
     if(!g_canvasArray.GetCount())
         return;
     
+#if 0
     int cccw = frameSize.x;
     int ccch = frameSize.y;
+#endif
     
     // .. for each canvas...
     switch( g_canvasConfig){
@@ -5813,12 +5809,10 @@ void MyFrame::UpdateGlobalMenuItems( ChartCanvas *cc)
         m_pMenuBar->FindItem( ID_MENU_ENC_TEXT )->Check( cc->GetShowENCText() );
         m_pMenuBar->FindItem( ID_MENU_ENC_SOUNDINGS )->Check( cc->GetShowENCDepth() );
 
-        bool light_state = false;
         if( ps52plib ) {
             for( unsigned int iPtr = 0; iPtr < ps52plib->pOBJLArray->GetCount(); iPtr++ ) {
                 OBJLElement *pOLE = (OBJLElement *) ( ps52plib->pOBJLArray->Item( iPtr ) );
                 if( !strncmp( pOLE->OBJLName, "LIGHTS", 6 ) ) {
-                    light_state = (pOLE->nViz == 1);
                     break;
                 }
             }
@@ -5921,7 +5915,6 @@ void MyFrame::UpdateCanvasConfigDescriptors()
                 cc->DBindex = chart->GetQuiltReferenceChartIndex();
                 cc->GroupID = chart->m_groupIndex;
                 cc->canvasSize = chart->GetSize();
-                int yyp = 4;
             }
             
         }
@@ -6126,6 +6119,7 @@ int MyFrame::DoOptionsDialog()
 
     bool b_refresh = true;
     
+#if 0
     bool ccRightSizeChanged = false;
     if( g_canvasConfig > 0 ){
         canvasConfig *cc = g_canvasConfigArray.Item(0);
@@ -6133,9 +6127,9 @@ int MyFrame::DoOptionsDialog()
             wxSize cc1Size = cc->canvasSize;
             if(cc1Size.x != cc1SizeBefore.x)
                 ccRightSizeChanged = true;
-            
         }
     }
+#endif
                 
     if( (g_canvasConfig != last_canvasConfig) || ( rr & GL_CHANGED) ){
         UpdateCanvasConfigDescriptors();
@@ -6510,8 +6504,6 @@ bool MyFrame::CheckGroup( int igroup )
 
     if( !pGroup->m_element_array.size() )   //  truly empty group is OK
         return true;
-
-    bool b_chart_in_group = false;
 
     for( auto& elem : pGroup->m_element_array ) {
 
@@ -7789,7 +7781,6 @@ void MyFrame::OnFrameCOGTimer( wxTimerEvent& event )
 void MyFrame::DoCOGSet( void )
 {
     // ..For each canvas...
-    bool b_rotate = false;
     for(unsigned int i=0 ; i < g_canvasArray.GetCount() ; i++){
         ChartCanvas *cc = g_canvasArray.Item(i);
         if(cc)
@@ -8551,7 +8542,7 @@ void MyFrame::OnEvtPlugInMessage( OCPN_MsgEvent & event )
     {
         wxJSONValue  root;
         wxJSONReader reader;
-        bool route = true, error = false;
+        bool route = true;
 
         int numErrors = reader.Parse( message_JSONText, &root );
         if ( numErrors > 0 )
@@ -9620,7 +9611,6 @@ void MyFrame::applySettingsString( wxString settings)
     int last_UIScaleFactor = g_GUIScaleFactor;
     bool previous_expert = g_bUIexpert;
     int last_ChartScaleFactorExp = g_ChartScaleFactor;
-    bool bPrevNavMode = g_bCourseUp;
     ArrayOfCDI *pNewDirArray = new ArrayOfCDI;
     
     int rr = g_Platform->platformApplyPrivateSettingsString( settings, pNewDirArray);
@@ -10060,25 +10050,19 @@ bool MyFrame::AddDefaultPositionPlugInTools()
         if( pttc->position == -1 )                  // PlugIn has requested default positioning
                 {
             wxBitmap *ptool_bmp;
-            wxBitmap *ptool_bmp_Rollover;
 
             switch( global_color_scheme ){
                 case GLOBAL_COLOR_SCHEME_DAY:
                     ptool_bmp = pttc->bitmap_day;
-                    ptool_bmp_Rollover = pttc->bitmap_Rollover_day;
-                    ;
                     break;
                 case GLOBAL_COLOR_SCHEME_DUSK:
                     ptool_bmp = pttc->bitmap_dusk;
-                    ptool_bmp_Rollover = pttc->bitmap_Rollover_dusk;
                     break;
                 case GLOBAL_COLOR_SCHEME_NIGHT:
                     ptool_bmp = pttc->bitmap_night;
-                    ptool_bmp_Rollover = pttc->bitmap_Rollover_night;
                     break;
                 default:
                     ptool_bmp = pttc->bitmap_day;
-                    ptool_bmp_Rollover = pttc->bitmap_Rollover_day;
                     break;
             }
 
@@ -11172,7 +11156,6 @@ static void InitializeUserColors( void )
     char TableName[20];
     colTable *ctp;
     colTable *ct;
-    int colIdx = 0;
     int R, G, B;
 
     UserColorTableArray = new wxArrayPtrVoid;
@@ -11202,7 +11185,6 @@ static void InitializeUserColors( void )
                 ctp = (colTable *) ( UserColorTableArray->Item( it ) );
                 if( !strcmp( TableName, ctp->tableName->mb_str() ) ) {
                     ct = ctp;
-                    colIdx = 0;
                     break;
                 }
             }
