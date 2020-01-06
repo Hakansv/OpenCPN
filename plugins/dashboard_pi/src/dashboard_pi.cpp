@@ -565,6 +565,7 @@ void dashboard_pi::Notify()
     if (mMWVA_Watchdog <= 0) {
         SendSentenceToAllInstruments(OCPN_DBP_STC_AWA, NAN, _T("-"));
         SendSentenceToAllInstruments(OCPN_DBP_STC_AWS, NAN, _T("-"));
+        mPriAWA = 99; 
     }
 
     mMWVT_Watchdog--;
@@ -572,6 +573,7 @@ void dashboard_pi::Notify()
         SendSentenceToAllInstruments(OCPN_DBP_STC_TWA, NAN, _T("-"));
         SendSentenceToAllInstruments(OCPN_DBP_STC_TWS, NAN, _T("-"));
         SendSentenceToAllInstruments(OCPN_DBP_STC_TWS2, NAN, _T("-"));
+        mPriTWA = 99;
     }
 
     mDPT_DBT_Watchdog--;
@@ -797,55 +799,57 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
 
                 }
                 if( mPriHeadingM >= 1 ) {
-                    mPriHeadingM = 1;
-                    mHdm = m_NMEA0183.Hdg.MagneticSensorHeadingDegrees;
-                    SendSentenceToAllInstruments( OCPN_DBP_STC_HDM, mHdm, _T("\u00B0") );
+					if (m_NMEA0183.Hdg.MagneticSensorHeadingDegrees < 999.) {
+                        mPriHeadingM = 1;
+                        mHdm = m_NMEA0183.Hdg.MagneticSensorHeadingDegrees;
+                        SendSentenceToAllInstruments(OCPN_DBP_STC_HDM, mHdm, _T("\u00B0"));
                     
-                    //Print HDM, HDT and COG to file for deviation table when COG is stable
-                    if (b_IsDeviation)  //When checked in preferences
-                    {                        
-                        static int printdelay = 1;
-                        if (printdelay > 6) 
-                        {
-                            wxStandardPathsBase& std_path = wxStandardPathsBase::Get();
-                            wxString s = wxFileName::GetPathSeparator();
-                            wxString stdPath = std_path.GetConfigDir();
-                            int mHdt = mHdm + mVar;
-                            wxString tid = wxDateTime::Now().Format(wxT("%Y-%m-%d %H:%M:%S"), wxDateTime::CET);
-                            wxString devdataPath = stdPath + s + wxT("devdata.txt");
-                            
-                            std::ofstream outfile(devdataPath.mb_str(), std::ios_base::app); //wx_str()
-                            if (outfile.is_open()) {
-                                outfile << tid << "," << "HDM:" << "," << mHdm << "," << "HDT:" << "," << mHdt << "," << "COG:" << "," << devCOG << "\n";                                
-                            }
-                            outfile.close();
+						//Print HDM, HDT and COG to file for deviation table when COG is stable
+						if (b_IsDeviation)  //When checked in preferences
+						{                        
+							static int printdelay = 1;
+							if (printdelay > 6) 
+							{
+								wxStandardPathsBase& std_path = wxStandardPathsBase::Get();
+								wxString s = wxFileName::GetPathSeparator();
+								wxString stdPath = std_path.GetConfigDir();
+								int mHdt = mHdm + mVar;
+								wxString tid = wxDateTime::Now().Format(wxT("%Y-%m-%d %H:%M:%S"), wxDateTime::CET);
+								wxString devdataPath = stdPath + s + wxT("devdata.txt");
+								
+								std::ofstream outfile(devdataPath.mb_str(), std::ios_base::app); //wx_str()
+								if (outfile.is_open()) {
+									outfile << tid << "," << "HDM:" << "," << mHdm << "," << "HDT:" << "," << mHdt << "," << "COG:" << "," << devCOG << "\n";                                
+								}
+								outfile.close();
 #ifdef __WXMSW__
-                            if (b_IsDevPrintSound) Beep(400, 500);
+								if (b_IsDevPrintSound) Beep(400, 500);
 #endif  //__WXMSW
-                            printdelay = 1;                            
-                        }
-                        else if (devCOG > 0 && devSOG > 3)  //Stable COG and enough speed.
-                        {
-                            switch (printdelay) {
-                            case 1:
-                                ComCOG = devCOG;
-                                printdelay++;
-                                return;
-                            case 2:
-                            case 3:
-                            case 4:
-                            case 5:
-                            case 6:
-                                if ((ComCOG == devCOG) ||
-                                    (((devCOG > ComCOG) && (devCOG - ComCOG) < 1)) ||
-                                    (((devCOG < ComCOG) && (ComCOG - devCOG) < 1))) 
-                                {
-                                    printdelay++;
-                                    return;                                    
-                                }
-                            default: printdelay = 1; //Back to scratch                            
-                            }                            
-                        }                        
+								printdelay = 1;                            
+							}
+							else if (devCOG > 0 && devSOG > 3)  //Stable COG and enough speed.
+							{
+								switch (printdelay) {
+								case 1:
+									ComCOG = devCOG;
+									printdelay++;
+									return;
+								case 2:
+								case 3:
+								case 4:
+								case 5:
+								case 6:
+									if ((ComCOG == devCOG) ||
+										(((devCOG > ComCOG) && (devCOG - ComCOG) < 1)) ||
+										(((devCOG < ComCOG) && (ComCOG - devCOG) < 1))) 
+									{
+										printdelay++;
+										return;                                    
+									}
+								default: printdelay = 1; //Back to scratch                            
+								}                            
+							}
+						}							
                     }
                 }
                 if( !std::isnan(m_NMEA0183.Hdg.MagneticSensorHeadingDegrees) )
@@ -871,9 +875,11 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
         else if( m_NMEA0183.LastSentenceIDReceived == _T("HDM") ) {
             if( m_NMEA0183.Parse() ) {
                 if( mPriHeadingM >= 2 ) {
-                    mPriHeadingM = 2;
-                    mHdm = m_NMEA0183.Hdm.DegreesMagnetic;
-                    SendSentenceToAllInstruments( OCPN_DBP_STC_HDM, mHdm, _T("\u00B0M") );
+                    if (m_NMEA0183.Hdm.DegreesMagnetic < 999.) {
+                        mPriHeadingM = 2;
+                        mHdm = m_NMEA0183.Hdm.DegreesMagnetic;
+                        SendSentenceToAllInstruments(OCPN_DBP_STC_HDM, mHdm, _T("\u00B0M"));
+                    }
                 }
                 if( !std::isnan(m_NMEA0183.Hdm.DegreesMagnetic) )
                     mHDx_Watchdog = gps_watchdog_timeout_ticks;
@@ -1145,9 +1151,11 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
                     }
                 }
                 if( mPriHeadingM >= 3 ) {
-                    mPriHeadingM = 3;
-                    SendSentenceToAllInstruments( OCPN_DBP_STC_HDM, m_NMEA0183.Vhw.DegreesMagnetic,
-                            _T("\u00B0M") );
+                    if (m_NMEA0183.Vhw.DegreesMagnetic < 999.) {
+                        mPriHeadingM = 3;
+                        SendSentenceToAllInstruments(OCPN_DBP_STC_HDM, m_NMEA0183.Vhw.DegreesMagnetic,
+                            _T("\u00B0M"));
+                    }
                 }
                 if( m_NMEA0183.Vhw.Knots < 999. ) {
                     SendSentenceToAllInstruments( OCPN_DBP_STC_STW, toUsrSpeed_Plugin( m_NMEA0183.Vhw.Knots, g_iDashSpeedUnit ),
@@ -1192,20 +1200,22 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
          * to the vessel's heading, and wind speed measured relative to the moving vessel. */
         else if( m_NMEA0183.LastSentenceIDReceived == _T("VWR") ) {
             if( m_NMEA0183.Parse() ) {
-                if( mPriAWA >= 2 ) {
-                    mPriAWA = 2;
+                if (mPriAWA >= 2) {
+                    if (m_NMEA0183.Vwr.WindDirectionMagnitude < 200) {
+                        mPriAWA = 2;
 
-                    wxString awaunit;
-                    awaunit = m_NMEA0183.Vwr.DirectionOfWind == Left ? _T("\u00B0L") : _T("\u00B0R");
-                    SendSentenceToAllInstruments( OCPN_DBP_STC_AWA,
-                            m_NMEA0183.Vwr.WindDirectionMagnitude, awaunit );
-                    SendSentenceToAllInstruments( OCPN_DBP_STC_AWS, toUsrSpeed_Plugin( m_NMEA0183.Vwr.WindSpeedKnots, g_iDashWindSpeedUnit ),
-                            getUsrSpeedUnit_Plugin( g_iDashWindSpeedUnit ) );
-                    mMWVA_Watchdog = gps_watchdog_timeout_ticks;
-                    /*
-                     double m_NMEA0183.Vwr.WindSpeedms;
-                     double m_NMEA0183.Vwr.WindSpeedKmh;
-                     */
+                        wxString awaunit;
+                        awaunit = m_NMEA0183.Vwr.DirectionOfWind == Left ? _T("\u00B0L") : _T("\u00B0R");
+                        SendSentenceToAllInstruments(OCPN_DBP_STC_AWA,
+                            m_NMEA0183.Vwr.WindDirectionMagnitude, awaunit);
+                        SendSentenceToAllInstruments(OCPN_DBP_STC_AWS, toUsrSpeed_Plugin(m_NMEA0183.Vwr.WindSpeedKnots, g_iDashWindSpeedUnit),
+                            getUsrSpeedUnit_Plugin(g_iDashWindSpeedUnit));
+                        mMWVA_Watchdog = gps_watchdog_timeout_ticks;
+                        /*
+                            double m_NMEA0183.Vwr.WindSpeedms;
+                            double m_NMEA0183.Vwr.WindSpeedKmh;
+                            */
+                    }
                 }
             }
         }
@@ -1217,18 +1227,20 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
         else if( m_NMEA0183.LastSentenceIDReceived == _T("VWT") ) {
             if( m_NMEA0183.Parse() ) {
                 if( mPriTWA >= 2 ) {
-                    mPriTWA = 2;
-                    wxString vwtunit;
-                    vwtunit = m_NMEA0183.Vwt.DirectionOfWind == Left ? _T("\u00B0L") : _T("\u00B0R");
-                    SendSentenceToAllInstruments( OCPN_DBP_STC_TWA,
-                            m_NMEA0183.Vwt.WindDirectionMagnitude, vwtunit );
-                    SendSentenceToAllInstruments( OCPN_DBP_STC_TWS, toUsrSpeed_Plugin( m_NMEA0183.Vwt.WindSpeedKnots, g_iDashWindSpeedUnit ),
-                            getUsrSpeedUnit_Plugin( g_iDashWindSpeedUnit ) );
-                    mMWVT_Watchdog = gps_watchdog_timeout_ticks;
-                    /*
-                     double           m_NMEA0183.Vwt.WindSpeedms;
-                     double           m_NMEA0183.Vwt.WindSpeedKmh;
-                     */
+                    if (m_NMEA0183.Vwt.WindDirectionMagnitude < 200) {
+                        mPriTWA = 2;
+                        wxString vwtunit;
+                        vwtunit = m_NMEA0183.Vwt.DirectionOfWind == Left ? _T("\u00B0L") : _T("\u00B0R");
+                        SendSentenceToAllInstruments(OCPN_DBP_STC_TWA,
+                            m_NMEA0183.Vwt.WindDirectionMagnitude, vwtunit);
+                        SendSentenceToAllInstruments(OCPN_DBP_STC_TWS, toUsrSpeed_Plugin(m_NMEA0183.Vwt.WindSpeedKnots, g_iDashWindSpeedUnit),
+                            getUsrSpeedUnit_Plugin(g_iDashWindSpeedUnit));
+                        mMWVT_Watchdog = gps_watchdog_timeout_ticks;
+                        /*
+                         double           m_NMEA0183.Vwt.WindSpeedms;
+                         double           m_NMEA0183.Vwt.WindSpeedKmh;
+                         */
+                    }
                 }
             }
         }
