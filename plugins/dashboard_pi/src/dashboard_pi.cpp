@@ -1453,8 +1453,9 @@ void dashboard_pi::ShowPreferencesDialog( wxWindow* parent )
     dialog->GetHandle()->setStyleSheet( qtStyleSheet);
 #endif
     
+#ifdef __OCPN__ANDROID__
     wxWindow *ccwin = GetOCPNCanvasWindow();
-    
+
     if( ccwin ){
         int xmax = ccwin->GetSize().GetWidth();
         int ymax = ccwin->GetParent()->GetSize().GetHeight();  // This would be the Frame itself
@@ -1463,7 +1464,8 @@ void dashboard_pi::ShowPreferencesDialog( wxWindow* parent )
         
         dialog->Move(0,0);
     }
-    
+#endif
+
     if( dialog->ShowModal() == wxID_OK ) {
         delete g_pFontTitle;
         g_pFontTitle = new wxFont( dialog->m_pFontPickerTitle->GetSelectedFont() );
