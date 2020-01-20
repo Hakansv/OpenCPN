@@ -1161,6 +1161,10 @@ bool PlugInManager::UpdatePlugIns()
     {
         PlugInContainer *pic = plugin_array[i];
 
+        // Installed and loaded?
+        if(!pic->m_pplugin)
+            continue;
+        
         if(pic->m_bEnabled && !pic->m_bInitState)
         {
             wxString msg(_T("PlugInManager: Initializing PlugIn: "));
@@ -5229,7 +5233,7 @@ void PluginListPanel::OnPluginPanelAction( wxCommandEvent& event )
                  cleanup(manifestPath, metaSave.name);
              }
 
-            //  Reload all plugins, which will bring in the action results.
+             //  Reload all plugins, which will bring in the action results.
             g_pi_manager->LoadAllPlugIns( false );
             ReloadPluginPanels(g_pi_manager->GetPlugInArray());
             SelectByName(name);
@@ -5261,8 +5265,14 @@ void PluginListPanel::OnPluginPanelAction( wxCommandEvent& event )
 
         case  ActionVerb::UNINSTALL_MANAGED_VERSION:
         {
+            wxString message;
+            message.Printf("%s %s\n", g_actionPIC->m_ManagedMetadata.name.c_str(), g_actionPIC->m_ManagedMetadata.version.c_str());
+
             wxLogMessage("Uninstalling %s", g_actionPIC->m_ManagedMetadata.name.c_str());
             PluginHandler::getInstance()->uninstall(g_actionPIC->m_ManagedMetadata.name);
+
+            message += _("successfully un-installed");
+            OCPNMessageBox(this, message, _("Un-Installation complete"), wxICON_INFORMATION | wxOK);
 
             //  Reload all plugins, which will bring in the action results.
             g_pi_manager->LoadAllPlugIns( false );
@@ -5464,7 +5474,8 @@ void PluginPanel::SetSelected( bool selected )
             
         m_pButtonUninstall->Show(unInstallPossible);
         
-        m_rgSizer->Show(true);
+        if(m_pPlugin->m_pplugin)                        // Only if installed...
+            m_rgSizer->Show(true);
         
         if(m_pPlugin->m_ManagedMetadata.info_url.size()){
             m_info_btn->SetURL(m_pPlugin->m_ManagedMetadata.info_url.c_str());
