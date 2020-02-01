@@ -114,6 +114,9 @@ extern Route            *pAISMOBRoute;
 extern bool             g_btouch;
 extern float            g_ChartScaleFactorExp;
 
+extern bool             g_bXTE_multiply;
+extern double           g_dXTE_multiplier;
+
 bool g_bPluginHandleAutopilotRoute;
 
 //    List definitions for Waypoint Manager Icons
@@ -644,6 +647,18 @@ bool Routeman::UpdateAutopilot()
    double r_Sog(0.0), r_Cog(0.0);
    if (!std::isnan(gSog)) r_Sog = gSog;
    if (!std::isnan(gCog)) r_Cog = gCog;
+
+   //If active multiply XTE with given factor.
+   if (g_bXTE_multiply) {
+       static bool b_arrived;
+       if (b_arrived) { // zero XTE once at first turn after arrival
+           CurrentXTEToActivePoint = 0.0;
+           b_arrived = false;
+       }
+       CurrentXTEToActivePoint *= g_dXTE_multiplier;
+       if (m_bArrival) b_arrived = true; 
+   }
+   
 
    // Send active leg info directly to plugins
 
