@@ -894,8 +894,6 @@ bool PlugInManager::LoadPlugInDirectory(const wxString& plugin_dir, bool load_en
     //  Enable the compatibility dialogs if requested, and has not been already done once.
     m_benable_blackdialog = b_enable_blackdialog && !m_benable_blackdialog_done;
 
-<<<<<<< HEAD
-=======
 #if _DEBUG //Has for debug use
 #ifdef __WXMSW__        
     wxString m_opencpn_environment = _T("C:\\Builds\\OCPN\\OpenCPN\\");
@@ -1014,7 +1012,6 @@ bool PlugInManager::LoadPlugInDirectory(const wxString& plugin_dir, bool load_en
     m_plugin_location = plugin_dir;
 #endif  //__WXMSW
 #else
->>>>>>> f3f66450ed2c0fd21ff5931849b1baa7341faec1
     m_plugin_location = plugin_dir;
 #endif  //Debug
 
