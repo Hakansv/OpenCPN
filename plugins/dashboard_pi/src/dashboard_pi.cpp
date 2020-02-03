@@ -1630,22 +1630,20 @@ void dashboard_pi::updateSKItem(wxJSONValue &item, wxString &sfixtime) {
             SendSentenceToAllInstruments(OCPN_DBP_STC_TWD, m_twdM, _T("\u00B0M"));
             mWDN_Watchdog = gps_watchdog_timeout_ticks;
         }
-        else if (update_path == _T("navigation.trip.log")) { //Now NM TODO Change to m in next SK release.
-            double m_tlog = value.AsDouble();
+        else if (update_path == _T("navigation.trip.log")) { //m
+            double m_tlog = METERS2NM(value.AsDouble());
             SendSentenceToAllInstruments(OCPN_DBP_STC_VLW1, 
                 toUsrDistance_Plugin(m_tlog, g_iDashDistanceUnit),
                 getUsrDistanceUnit_Plugin(g_iDashDistanceUnit));
         }
-        else if (update_path == _T("navigation.log")) { //Now NM sumlog TODO Change to m in next SK release.
-            double m_slog = value.AsDouble();
+        else if (update_path == _T("navigation.log")) { //m
+            double m_slog = METERS2NM(value.AsDouble());
             SendSentenceToAllInstruments(OCPN_DBP_STC_VLW2,
                 toUsrDistance_Plugin(m_slog, g_iDashDistanceUnit),
                 getUsrDistanceUnit_Plugin(g_iDashDistanceUnit));
         }
         else if (update_path == _T("environment.outside.pressure")) { //Pa
             double m_press = PA2HPA(value.AsDouble());
-            // Mismatch from SignalK. Unit should be Pa but some sources (MDA) use hPa. Fixed in next releae > 1.20.0
-            if (m_press < 100) m_press *= 100;
             SendSentenceToAllInstruments(OCPN_DBP_STC_MDA, m_press, _T("hPa"));
             mMDA_Watchdog = no_nav_watchdog_timeout_ticks;
         }
