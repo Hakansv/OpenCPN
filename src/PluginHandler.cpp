@@ -163,10 +163,17 @@ std::string PluginHandler::fileListPath(std::string name)
 }
 
 
-bool PluginHandler::isCompatible(const PluginMetadata& metadata)
+bool PluginHandler::isCompatible(const PluginMetadata& metadata,
+                                 const char* os, const char* os_version)
+
 {
-    std::string compatOS(PKG_TARGET);
-    std::string compatOsVersion(PKG_TARGET_VERSION);
+    // Get the specified system definition,
+    //   or the baked in (build system) values,
+    //   or the environment override,
+    //   or the config file override
+    
+    std::string compatOS(os);
+    std::string compatOsVersion(os_version);
     if (getenv("OPENCPN_COMPAT_TARGET") != 0) {
         // Undocumented test hook.
         compatOS = getenv("OPENCPN_COMPAT_TARGET");
@@ -185,19 +192,26 @@ bool PluginHandler::isCompatible(const PluginMetadata& metadata)
     }
     compatOS = ocpn::tolower(compatOS);
     compatOsVersion = ocpn::tolower(compatOsVersion);
+    
+    //  Compare to the required values in the metadata
+    
     std::string plugin_os = ocpn::tolower(metadata.target);
     if (compatOS  != plugin_os) {
         return false;
     }
-    if (std::string(plugin_os) == "windows") {
+    if (plugin_os == "msvc") {
         return true;
     }
 
+    //  OS matches so far, so must compare versions
     std::string plugin_os_version = ocpn::tolower(metadata.target_version);
+
+    if (plugin_os == "ubuntu") {
+        return plugin_os_version == compatOsVersion;            // Full version comparison required
+    }
 
     auto meta_vers = ocpn::split(plugin_os_version.c_str(), ".")[0];
     auto target_vers = ocpn::split(compatOsVersion.c_str(), ".")[0];
-    printf("%d \n", meta_vers == target_vers);
     return meta_vers == target_vers;
 }
 
@@ -314,16 +328,20 @@ static void win_entry_set_install_path(struct archive_entry* entry,
 
     // Map remaining path to installation directory
     if (ocpn::endswith(path, ".dll") || ocpn::endswith(path, ".exe")) {
-        path = installPaths["bin"] + "\\" + basename(path);
+        slashpos = path.find_first_of('/');
+        path = path.substr(slashpos + 1);
+        path = installPaths["bin"] + "\\" + path;
     } else if (ocpn::startswith(path, "share")) {
         // The "share" directory should be a direct sibling of "plugins" directory
-        const string winPluginBaseDir = g_Platform->GetWinPluginBaseDir().ToStdString();
-        path = winPluginBaseDir + "\\" + path;
+        wxFileName fn(installPaths["share"].c_str(), "");       // should point to .../opencpn/plugins
+        fn.RemoveLastDir();     // should point to ".../opencpn
+        path = fn.GetFullPath().ToStdString() + path;
     } else if (ocpn::startswith(path, "plugins")) {
         slashpos = path.find_first_of('/');
-       // Data path already end in plugins/, drop prefix.
+       // share path already ends in plugins/, drop prefix from archive entry.
         path = path.substr(slashpos + 1);
         path = installPaths["share"] + "\\" + path;
+
     } else if (archive_entry_filetype(entry) == AE_IFREG) {
         path = installPaths["unknown"] + "\\" + path;
     }
