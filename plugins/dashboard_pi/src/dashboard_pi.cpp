@@ -1349,10 +1349,10 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
                         if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("PTCH")
                             || m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("PITCH")) {
                             if (m_NMEA0183.Xdr.TransducerInfo[i].MeasurementData > 0) {
-                                xdrunit = _T("\u00B0 Up");
+                                xdrunit = _T("\u00B0\u2191") + _("Up");
                             }
                             else if (m_NMEA0183.Xdr.TransducerInfo[i].MeasurementData < 0) {
-                                xdrunit = _T("\u00B0 Down");
+                                xdrunit = _T("\u00B0\u2193") + _("Down");
                                 xdrdata *= -1;
                             }
                             else {
@@ -1364,10 +1364,10 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
                         // XDR Heel
                         else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("ROLL")) {
                             if (m_NMEA0183.Xdr.TransducerInfo[i].MeasurementData > 0) {
-                                xdrunit = _T("\u00B0 Stbd");
+                                xdrunit = _T("\u00B0\u003E") + _("Stbd");
                             }
                             else if (m_NMEA0183.Xdr.TransducerInfo[i].MeasurementData < 0) {
-                                xdrunit = _T("\u00B0 Port");
+                                xdrunit = _T("\u00B0\u003C") + _("Port");
                                 xdrdata *= -1;
                             }
                             else {
@@ -1581,7 +1581,7 @@ void dashboard_pi::updateSKItem(wxJSONValue &item, wxString &sfixtime) {
                 mMWVA_Watchdog = gps_watchdog_timeout_ticks;
             }
         }
-        else if (update_path == _T("environment.wind.angleTrueWater")) { //negative to port angleTrueGround
+        else if (update_path == _T("environment.wind.angleTrueWater")) { //neg to port TODO: .angleTrueGround
             if (mPriTWA >= 1) {
                 double m_twaangle = GEODESIC_RAD2DEG(value.AsDouble());
                 wxString m_twaunit = _T("\u00B0R");
@@ -1592,9 +1592,9 @@ void dashboard_pi::updateSKItem(wxJSONValue &item, wxString &sfixtime) {
                 SendSentenceToAllInstruments(OCPN_DBP_STC_TWA, m_twaangle, m_twaunit);
             }
         }
-        else if (update_path == _T("environment.wind.speedTrue")) { //Over Ground
+        else if (update_path == _T("environment.wind.speedTrue")) { // TODO .speedOverGround
             if (mPriTWA >= 1) {
-                mPriTWA = 1;
+                mPriTWA = 1; // Set prio only here. No need to catch angle if no speed.
                 double m_twaspeed_kn = MS2KNOTS(value.AsDouble());
                 SendSentenceToAllInstruments(OCPN_DBP_STC_TWS, 
                     toUsrSpeed_Plugin(m_twaspeed_kn, g_iDashWindSpeedUnit),
@@ -1664,7 +1664,7 @@ void dashboard_pi::updateSKItem(wxJSONValue &item, wxString &sfixtime) {
                 mUTC_Watchdog = gps_watchdog_timeout_ticks;
             }
         }
-        else if (update_path == _T("environment.outside.temperature")) { //TODO check path: MTA/XDR N/A in SignK. 
+        else if (update_path == _T("environment.outside.temperature")) {
             if (mPriATMP >= 1) {
                 double m_airtemp = KELVIN2C(value.AsDouble());
                 if (m_airtemp > -60 && m_airtemp < 200 && !std::isnan(m_airtemp)) {
@@ -1702,15 +1702,23 @@ void dashboard_pi::updateSKItem(wxJSONValue &item, wxString &sfixtime) {
             mMDA_Watchdog = no_nav_watchdog_timeout_ticks;
         }
         else if (update_path == _T("navigation.attitude")) { //rad
-            if (value["roll"].AsString() != wxEmptyString) {
+            if (value["roll"].AsString() != "0") {
                 double m_heel = GEODESIC_RAD2DEG(value["roll"].AsDouble());
-                wxString h_unit = m_heel > 0 ? _T("\u00B0 Stbd") : _T("\u00B0 Port");
+                wxString h_unit = _T("\u00B0\u003E") + _("Stbd");
+                if (m_heel < 0) {
+                    h_unit = _T("\u00B0\u003C") + _("Port");
+                    m_heel *= -1;
+                }
                 SendSentenceToAllInstruments(OCPN_DBP_STC_HEEL, m_heel, h_unit);
                 mHEEL_Watchdog = gps_watchdog_timeout_ticks;
             }
-            if (value["pitch"].AsString() != wxEmptyString) {
+            if (value["pitch"].AsString() != "0") {
                 double m_pitch = GEODESIC_RAD2DEG(value["pitch"].AsDouble());
-                wxString p_unit = m_pitch > 0 ? _T("\u00B0 Up") : _T("\u00B0 Down");
+                wxString p_unit = _T("\u00B0\u2191") + _("Up");
+                if (m_pitch < 0) {
+                    p_unit = _T("\u00B0\u2193") + _("Down");
+                    m_pitch *= -1;
+                }
                 SendSentenceToAllInstruments(OCPN_DBP_STC_PITCH, m_pitch, p_unit);
                 mPITCH_Watchdog = gps_watchdog_timeout_ticks;
             }            
