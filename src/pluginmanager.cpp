@@ -5363,8 +5363,6 @@ void PluginListPanel::UpdateSelections()
     
 void PluginListPanel::SelectPlugin( PluginPanel *pi )
 {
-    if (pi == 0 || m_PluginSelected == pi)
-        return;
 
     if (m_PluginSelected){
         m_PluginSelected->SetSelected(false);
