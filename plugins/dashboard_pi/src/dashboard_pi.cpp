@@ -2660,18 +2660,31 @@ DashboardPreferencesDialog::DashboardPreferencesDialog( wxWindow *parent, wxWind
     m_pUseTrueWinddata->SetValue(g_iDashUsetruewinddata);
     itemFlexGridSizer04->Add(m_pUseTrueWinddata, 1, wxALIGN_LEFT, border_size);
 
+    //Hack: Add a empty textbox to fill column 2 and move to next row
+    wxStaticText* movetonextrow = new wxStaticText(itemPanelNotebook02, wxID_ANY, _(""),
+        wxDefaultPosition, wxDefaultSize, 0);
+    itemFlexGridSizer04->Add(movetonextrow, 1, wxALIGN_RIGHT, border_size);
+
     m_pSetDeviationBtn = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
         wxT(" Spara deviationsdata till fil"), wxDefaultPosition, wxDefaultSize);
     m_pSetDeviationBtn->SetValue(b_IsDeviation);
     itemFlexGridSizer04->Add(m_pSetDeviationBtn, 0, wxEXPAND | wxALL, 0);
-
-    m_pDevfilename = new wxStaticText(itemPanelNotebook02, wxID_ANY, _T("In Log Dir- devdata.txt"), wxDefaultPosition, wxDefaultSize);
-    itemFlexGridSizer04->Add(m_pDevfilename, 0, wxALIGN_RIGHT | wxALL, 0);
-
+ 
+#if defined(__WXMSW__)
     m_pSetDevSoundBtn = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
         wxT(" Beep at print"), wxDefaultPosition, wxDefaultSize);
     m_pSetDevSoundBtn->SetValue(b_IsDevPrintSound);
     itemFlexGridSizer04->Add(m_pSetDevSoundBtn, 0, wxEXPAND | wxALL, 0);
+#else
+    //Hack: Add a empty textbox to fill column 2 and move to next row
+    wxStaticText* movetonextrow2 = new wxStaticText(itemPanelNotebook02, wxID_ANY, _(""),
+        wxDefaultPosition, wxDefaultSize, 0);
+    itemFlexGridSizer04->Add(movetonextrow2, 1, wxALIGN_RIGHT, border_size);
+#endif
+    
+    m_pDevfilename = new wxStaticText(itemPanelNotebook02, wxID_ANY, 
+        _T("       in Log Directory - devdata.txt"), wxDefaultPosition, wxDefaultSize);
+    itemFlexGridSizer04->Add(m_pDevfilename, 0, wxALIGN_LEFT | wxALL, 0);
     
     wxStdDialogButtonSizer* DialogButtonSizer = CreateStdDialogButtonSizer( wxOK | wxCANCEL );
     itemBoxSizerMainPanel->Add( DialogButtonSizer, 0, wxALIGN_RIGHT | wxALL, 5 );
