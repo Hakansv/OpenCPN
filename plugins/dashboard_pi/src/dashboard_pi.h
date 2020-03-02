@@ -260,7 +260,8 @@ public:
       wxCheckBox                   *m_pSetDevSoundBtn;
       wxStaticText                 *m_pDevfilename;
       wxChoice                     *m_pChoiceWindSpeedUnit;
-      
+      wxCheckBox                   *m_pUseTrueWinddata;
+
 private:
       void UpdateDashboardButtonsState(void);
       void UpdateButtonsState(void);
