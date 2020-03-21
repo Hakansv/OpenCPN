@@ -5117,22 +5117,15 @@ CatalogMgrPanel::CatalogMgrPanel(wxWindow* parent)
 
      topSizer->Add( new wxStaticLine(this), 0, wxGROW|wxLEFT|wxRIGHT, 4);
 
-      wxStaticBox* itemStaticBoxSizer4Static = new wxStaticBox( this, wxID_ANY, _("Plugin Catalog") );
-      wxStaticBoxSizer* itemStaticBoxSizer4 = new wxStaticBoxSizer( itemStaticBoxSizer4Static, wxVERTICAL );
-      topSizer->Add( itemStaticBoxSizer4, 1, wxEXPAND | wxALL, 2 );
-
-//     wxBoxSizer* itemStaticBoxSizer4 = new wxBoxSizer( wxVERTICAL );
-//     topSizer->Add( itemStaticBoxSizer4, 1, wxEXPAND | wxALL, 2 );
+     wxStaticBox* itemStaticBoxSizer4Static = new wxStaticBox( this, wxID_ANY, _("Plugin Catalog") );
+     wxStaticBoxSizer* itemStaticBoxSizer4 = new wxStaticBoxSizer( itemStaticBoxSizer4Static, wxVERTICAL );
+     topSizer->Add( itemStaticBoxSizer4, 1, wxEXPAND | wxALL, 2 );
 
      // First line
-     //wxBoxSizer* rowSizer1 = new wxBoxSizer( wxHORIZONTAL );
-     //itemStaticBoxSizer4->Add( rowSizer1, 0, wxEXPAND | wxALL, 0 );
-     
      m_catalogText = new wxStaticText( this, wxID_STATIC, _T(""));
      itemStaticBoxSizer4->Add( m_catalogText, 1, wxALIGN_LEFT );
      m_catalogText->SetLabel(GetCatalogText(false));
 
- 
      // Next line
      wxBoxSizer* rowSizer2 = new wxBoxSizer( wxHORIZONTAL );
      itemStaticBoxSizer4->Add( rowSizer2, 1, wxEXPAND | wxALL, 1 );
@@ -5324,7 +5317,7 @@ PluginListPanel::PluginListPanel(wxWindow *parent, wxWindowID id,
  */
 void PluginListPanel::Clear()
 {
-    while (auto it = GetChildren().GetFirst()) {
+    for (auto it = GetChildren().GetFirst(); it; it = it->GetNext()) {
         if (dynamic_cast<PluginPanel*>(it->GetData())) {
             it->GetData()->Destroy();
         }
@@ -5564,7 +5557,7 @@ PluginPanel::PluginPanel(PluginListPanel *parent, wxWindowID id, const wxPoint &
     m_pName->SetFont(font);
     itemBoxSizer03->Add(m_pName, 0, wxEXPAND|wxALL, 5);
 
-    m_pVersion = new wxStaticText( this, wxID_ANY, p_plugin->GetVersion().to_string() );
+    m_pVersion = new wxStaticText( this, wxID_ANY, _T("") /*p_plugin->GetVersion().to_string()*/ );
     itemBoxSizer03->Add(m_pVersion, 0, wxEXPAND|wxALL, 5);
     if (m_pPlugin->m_pluginStatus == PluginStatus::ManagedInstallAvailable) {
         m_pVersion->Hide();
@@ -5651,9 +5644,18 @@ void PluginPanel::OnPluginSelected( wxMouseEvent &event )
 void PluginPanel::SetSelected( bool selected )
 {
     m_bSelected = selected;
+ 
+    m_pVersion->SetLabel( m_pPlugin->GetVersion().to_string() );
+ 
+    if(m_pPlugin->m_ManagedMetadata.version.size()){
+       // Is this a fully managed and current plugin?
+       // If so, as a special case...
+       //  We show the version from the metadata, thus handling managed plugins with API < 117 
+        
+       if( (m_pPlugin->m_pluginStatus == PluginStatus::ManagedInstalledCurrentVersion) )
+            m_pVersion->SetLabel( m_pPlugin->m_ManagedMetadata.version );
+    }
     
-    if(m_pPlugin->m_ManagedMetadata.version.size())
-        m_pVersion->SetLabel( m_pPlugin->GetVersion().to_string() );
 
     if (selected) {
         m_status_icon->SetBackgroundColour(GetGlobalColor(_T("DILG1")));
