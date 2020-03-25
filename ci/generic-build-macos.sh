@@ -34,6 +34,8 @@ for pkg in cairo cmake libexif python3 wget xz; do
     brew list $pkg 2>/dev/null | head -10 || brew install $pkg
 done
 
+brew cask install packages
+
 export MACOSX_DEPLOYMENT_TARGET=10.9
 
 # We need to build own libarchive
@@ -68,6 +70,7 @@ make install # Dunno why the second is needed but it is, otherwise
              # plugin data is not included in the bundle
 
 make create-dmg
+make create-pkg
 
 # install the stuff needed by upload.
 sudo -H python3 -m ensurepip
