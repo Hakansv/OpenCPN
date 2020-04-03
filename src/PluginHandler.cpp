@@ -76,6 +76,7 @@ extern wxString       g_winPluginDir;
 extern MyConfig*      pConfig;
 extern OCPNPlatform*  g_Platform;
 extern bool           g_bportable;
+extern MyFrame        *gFrame;
 
 extern wxString       g_compatOS;
 extern wxString       g_compatOsVersion;
@@ -699,6 +700,33 @@ void PluginHandler::cleanup(const std::string& filelist,
             }
         }
     }
+    
+        // Make another limited recursive pass, and remove any empty directories
+    bool done = false;
+    int iloop = 0;
+    while(!done && (iloop < 6) ){
+        done = true;
+        std::ifstream dirs(filelist.c_str());
+        while (!dirs.eof()) {
+            char line[256];
+            dirs.getline(line, sizeof(line));
+            
+            wxFileName wxFile(line);
+            if(wxFile.IsDir() && wxFile.DirExists()){
+                wxDir dir(wxFile.GetFullPath());
+                if(!dir.HasFiles() && !dir.HasSubDirs()){
+                    wxFile.Rmdir( wxPATH_RMDIR_RECURSIVE );
+                    done = false;
+                }
+            }
+        }
+        dirs.close();
+        
+        iloop++;
+    }
+
+    
+    
     std::string path = PluginHandler::fileListPath(plugname);
     if (ocpn::exists(path)) {
         remove(path.c_str());
@@ -847,6 +875,32 @@ bool PluginHandler::uninstall(const std::string plugin_name)
         }
     }
     files.close();
+    
+    // Make another limited recursive pass, and remove any empty directories
+    bool done = false;
+    int iloop = 0;
+    while(!done && (iloop < 6) ){
+        done = true;
+        ifstream dirs(path);
+        while (!dirs.eof()) {
+            char line[256];
+            dirs.getline(line, sizeof(line));
+            string dirc(line);
+            
+            wxFileName wxFile(line);
+            if(wxFile.IsDir() && wxFile.DirExists()){
+                wxDir dir(wxFile.GetFullPath());
+                if(!dir.HasFiles() && !dir.HasSubDirs()){
+                    wxFile.Rmdir( wxPATH_RMDIR_RECURSIVE );
+                    done = false;
+                }
+            }
+        }
+        dirs.close();
+        
+        iloop++;
+    }
+    
     int r = remove(path.c_str());
     if (r != 0) {
         wxLogWarning("Cannot remove file %s: %s", path.c_str(), strerror(r));
@@ -873,27 +927,17 @@ bool PluginHandler::installPluginFromCache( PluginMetadata plugin )
         bool bOK = installPlugin( plugin, cacheFile.ToStdString());
         if(!bOK){
             wxLogWarning("Cannot install tarball file %s", cacheFile.c_str());
-            auto dlg = new wxMessageDialog(
-                    NULL,
-                    "",
-                    _("Installation error"),
-                    wxOK | wxCENTRE | wxICON_ERROR);
-            std::string text = "Please check system log for more info.";
-            dlg->SetMessage(text);
-            dlg->ShowModal();
-            dlg->Destroy();
+             wxString message = _("Please check system log for more info.");
+            OCPNMessageBox(gFrame, message, _("Installation error"), wxICON_ERROR | wxOK | wxCENTRE);
 
             return false;
         }
         
-        wxMessageDialog *dlg = new wxMessageDialog(
-            NULL,
-            plugin.name + " " + plugin.version
-            + _(" successfully installed from cache"),
-             _("Installation complete"),
-             wxOK | wxCENTRE | wxICON_INFORMATION);
-        dlg->ShowModal();
-        dlg->Destroy();
+        wxString message;
+        message.Printf("%s %s\n", plugin.name.c_str(),  plugin.version.c_str());
+        message += _(" successfully installed from cache");
+        OCPNMessageBox(gFrame, message, _("Installation complete"), wxICON_INFORMATION | wxOK | wxCENTRE);
+
         return true;
    }
  
