@@ -5161,12 +5161,21 @@ CatalogMgrPanel::CatalogMgrPanel(wxWindow* parent)
      wxArrayString channels;
      channels.Add(_T( "Master" ));
      channels.Add(_T( "Beta" ));
-     channels.Add(_T( "Alpha" ));
-     channels.Add(_T( "Custom..." ));
+     pConfig->SetPath( _T("/PlugIns/") );
+     wxString expert = pConfig->Read( "CatalogExpert", "0");
+     if(expert.IsSameAs(_T("1"))){
+        channels.Add(_T( "Alpha" ));
+        channels.Add(_T( "Custom..." ));
+     }
+     
      m_choiceChannel = new wxChoice(this, wxID_ANY, wxDefaultPosition, wxDefaultSize, channels);
      rowSizer2->Add( m_choiceChannel, 0, wxALIGN_RIGHT );
      m_choiceChannel->Bind(wxEVT_CHOICE, &CatalogMgrPanel::OnChannelSelected, this);
-     m_choiceChannel->SetSelection(GetChannelIndex(&channels));
+     int selection = GetChannelIndex(&channels);
+     if(!expert){
+         if(selection > 1) selection = 0;
+     }
+     m_choiceChannel->SetSelection( selection );
 
      SetUpdateButtonLabel();
 
@@ -5202,11 +5211,6 @@ static const char* const DOWNLOAD_REPO_PROTO = "https://raw.githubusercontent.co
 
 void CatalogMgrPanel::OnUpdateButton( wxCommandEvent &event)
 {
-        for(unsigned int i = 0 ; i < g_pi_manager->GetPlugInArray()->GetCount() ; i++){
-            PlugInContainer *pic = g_pi_manager->GetPlugInArray()->Item(i);
-            int yyp = 4;
-    }
-
     std::string url;
     
     // Craft the url
@@ -5239,6 +5243,26 @@ void CatalogMgrPanel::OnUpdateButton( wxCommandEvent &event)
         OCPNMessageBox(this, _("Unable to copy catalog file"), _("OpenCPN Catalog update"), wxICON_ERROR);
         return;
     }
+    
+    // If this is the "master" catalog, also copy to plugin cache
+    if(m_choiceChannel->GetString(m_choiceChannel->GetSelection()).StartsWith(_T("Master"))){
+        wxString metaCache = g_Platform->GetPrivateDataDir() + wxFileName::GetPathSeparator() + _T("plugins");
+        if(!wxDirExists( metaCache ))
+            wxMkdir( metaCache );
+        metaCache += wxFileName::GetPathSeparator();
+        metaCache += _T("cache");
+        if(!wxDirExists( metaCache ))
+            wxMkdir( metaCache );
+        metaCache += wxFileName::GetPathSeparator();
+        metaCache += _T("metadata");
+        if(!wxDirExists( metaCache ))
+            wxMkdir( metaCache );
+            
+        if(!wxCopyFile (wxString(filePath.c_str()), metaCache + wxFileName::GetPathSeparator() + _T("ocpn-plugins.xml"))){
+            OCPNMessageBox(this, _("Unable to copy catalog file to cache"), _("OpenCPN Catalog update"), wxICON_ERROR);
+            return;
+        }
+    }       
 
     // Record in the config file the name of the catalog downloaded
     pConfig->SetPath( _T("/PlugIns/") );
@@ -5251,11 +5275,6 @@ void CatalogMgrPanel::OnUpdateButton( wxCommandEvent &event)
     auto pluginHandler = PluginHandler::getInstance();
     pluginHandler->setMetadata("");
 
-    for(unsigned int i = 0 ; i < g_pi_manager->GetPlugInArray()->GetCount() ; i++){
-            PlugInContainer *pic = g_pi_manager->GetPlugInArray()->Item(i);
-            int yyp = 4;
-    }
-            
     //  Reload all plugins, which will also update the status fields
     g_pi_manager->LoadAllPlugIns( false );
 
