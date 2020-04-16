@@ -1357,6 +1357,16 @@ options::~options(void) {
   delete m_pSerialArray;
   delete m_pGroupArray;
   delete m_topImgList;
+  
+  // Take care of the plugin manager...
+ 
+  delete m_pPlugInCtrl;
+  if(g_pi_manager)
+    g_pi_manager->SetListPanelPtr( NULL );
+#ifndef __OCPN__ANDROID__      
+  delete m_PluginCatalogMgrPanel;
+#endif
+  
 }
 
 // with AIS it's called very often
@@ -1473,6 +1483,7 @@ void options::Init(void) {
   b_oldhaveWMM = b_haveWMM;
   
   lastPage = 0;
+  m_bneedNew =false;
 
   m_cs = (ColorScheme) 0;
   
@@ -7926,6 +7937,9 @@ void options::OnApplyClick(wxCommandEvent& event) {
     gFrame->RefreshAllCanvas();
   }
 
+  // Some layout changes requiring a new options instance?
+  if(m_bneedNew)
+    m_returnChanges |= NEED_NEW_OPTIONS;
   
   //  Record notice of any changes to last applied template
   UpdateTemplateTitleText();

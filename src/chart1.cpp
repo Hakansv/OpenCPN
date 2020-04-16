@@ -6320,8 +6320,8 @@ int MyFrame::DoOptionsDialog()
         g_pi_manager->NotifyAuiPlugIns();
 #endif    
     
-    //  Force reload of options dialog to pick up font changes
-    if(rr & FONT_CHANGED){
+    //  Force reload of options dialog to pick up font changes or other major layout changes
+    if( (rr & FONT_CHANGED) || (rr & NEED_NEW_OPTIONS) ){
         delete g_options;
         g_options = NULL;
         g_pOptions = NULL;
@@ -8840,7 +8840,7 @@ void MyFrame::setHeadingTrue(double heading)
 {
     wxLogDebug(wxString::Format(_T("setHeadingTrue: %f"), heading));
     gHdt = heading;
-    if (!wxIsNaN(heading)) {
+    if (!std::isnan(heading)) {
         g_bHDT_Rx = true;
         gHDT_Watchdog = gps_watchdog_timeout_ticks;
     }
@@ -8851,7 +8851,7 @@ void MyFrame::setHeadingMagnetic(double heading)
 {
     wxLogDebug(wxString::Format(_T("setHeadingMagnetic: %f"), heading));
     gHdm = heading;
-    if (!wxIsNaN(heading)) {
+    if (!std::isnan(heading)) {
         gHDx_Watchdog = gps_watchdog_timeout_ticks;
     }
 
