@@ -49,15 +49,16 @@ typedef __LA_INT64_T la_int64_t;      //  "older" libarchive versions support
 #undef Yield                 // from win.h, conflicts with mingw headers
 #endif
 
-#include "Downloader.h"
-#include "OCPNPlatform.h"
-#include "PluginHandler.h"
-#include "PluginPaths.h"
-#include "pluginmanager.h"
-#include "navutil.h"
-#include "ocpn_utils.h"
 #include "catalog_parser.h"
 #include "catalog_handler.h"
+#include "Downloader.h"
+#include "logger.h"
+#include "navutil.h"
+#include "OCPNPlatform.h"
+#include "ocpn_utils.h"
+#include "PluginHandler.h"
+#include "pluginmanager.h"
+#include "PluginPaths.h"
 
 #ifdef _WIN32
 static std::string SEP("\\");
@@ -347,9 +348,17 @@ static void win_entry_set_install_path(struct archive_entry* entry,
         archive_entry_set_pathname(entry, "");
         return;
     }
+    if (ocpn::startswith(path, "./")) {
+        path = path.substr(1);
+    }
 
     // Remove top-level directory part
     int slashpos = path.find_first_of('/', 1);
+    if(slashpos < 0){
+        archive_entry_set_pathname(entry, "");
+        return;
+    }
+        
     string prefix = path.substr(0, slashpos);
     path = path.substr(prefix.size() + 1);
 
@@ -390,6 +399,9 @@ static void flatpak_entry_set_install_path(struct archive_entry* entry,
         archive_entry_set_pathname(entry, "");
         return;
     }
+    if (ocpn::startswith(path, "./")) {
+        path = path.substr(2);
+    }
     int slashpos = path.find_first_of('/', 1);
     string prefix = path.substr(0, slashpos);
     path = path.substr(prefix.size() + 1);
@@ -418,7 +430,11 @@ static void linux_entry_set_install_path(struct archive_entry* entry,
         archive_entry_set_pathname(entry, "");
         return;
     }
+
     int slashpos = path.find_first_of('/', 1);
+    if(ocpn::startswith(path, "./"))
+        slashpos = path.find_first_of('/', 2);  // skip the './'
+
     string prefix = path.substr(0, slashpos);
     path = path.substr(prefix.size() + 1);
     if (ocpn::startswith(path, "usr/")) {
@@ -465,7 +481,10 @@ static void apple_entry_set_install_path(struct archive_entry* entry,
     const string base = PluginPaths::getInstance()->Homedir()
         + "/Library/Application Support/OpenCPN";
 
-    const string path = archive_entry_pathname(entry);
+    string path = archive_entry_pathname(entry);
+    if(ocpn::startswith(path, "./"))
+        path = path.substr(2);
+
     string dest("");
     size_t slashes = count(path.begin(), path.end(), '/');
     if (slashes < 3) {
@@ -520,8 +539,7 @@ static void entry_set_install_path(struct archive_entry* entry,
     }
     const std::string dest = archive_entry_pathname(entry);
     if(dest.size()){
-        std::cout << "Installing " << src << " into " << dest << std::endl;
-        wxLogMessage( _T("Installing ") + wxString(src.c_str()) + _T(" into ") + wxString(dest.c_str()));
+        DEBUG_LOG << "Installing " << src << " into " << dest << std::endl;
     }
 }
 
@@ -862,7 +880,7 @@ bool PluginHandler::installPlugin(PluginMetadata plugin)
     path = std::string(fname);
     std::ofstream stream;
     stream.open(path.c_str(), std::ios::out|std::ios::binary|std::ios::trunc);
-    std::cout << "Downloading: " << plugin.name << std::endl;
+    DEBUG_LOG << "Downloading: " << plugin.name << std::endl;
     auto downloader = Downloader(plugin.tarball_url);
     downloader.download(&stream);
 
