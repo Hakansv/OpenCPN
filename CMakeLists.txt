@@ -168,6 +168,9 @@ macro (BUNDLE_TCDATA_OPT onoff)
   )
 endmacro (BUNDLE_TCDATA_OPT)
 
+macro (BUNDLE_GSHHS_OPT onoff)
+    option(OCPN_BUNDLE_GSHHS "Bundle minimal GSHHS data files" ${onoff})
+endmacro (BUNDLE_GSHHS_OPT)
 
 # If on Windows or Apple, build the monolithic package, to override use a non-
 # sense values from the commandline (due to cmake inability to distinguish
@@ -176,10 +179,13 @@ endmacro (BUNDLE_TCDATA_OPT)
 if (APPLE OR WIN32)
   bundle_docs_opt("ON")
   bundle_tcdata_opt("ON")
+  bundle_gshhs_opt("ON")
 else (APPLE OR WIN32)
   bundle_docs_opt("OFF")
   bundle_tcdata_opt("OFF")
+  bundle_gshhs_opt("ON")
 endif (APPLE OR WIN32)
+
 
 option(OCPN_VERBOSE "Make verbose builds"  ON)
 option(OCPN_PEDANTIC "Enable more compiler warnings" OFF)
@@ -187,6 +193,7 @@ option(OCPN_PEDANTIC "Enable more compiler warnings" OFF)
 set(OCPN_PACKAGE_RELEASE "1" CACHE STRING "Package release number")
 
 option(OCPN_USE_GL "Enable OpenGL support" ON)
+option(OCPN_USE_GLES_SHIM "Enable GLESv1 Shim library" OFF)
 
 if (MSVC OR (NOT APPLE AND NOT QT_ANDROID AND NOT MINGW))
   option(OCPN_USE_CRASHREPORT "Enable crash reporting" ON)
@@ -1161,7 +1168,7 @@ else ()
   set(wxWidgets_FIND_COMPONENTS net xml html adv aui core base webview)
 endif ()
 
-if (ARCH MATCHES "arm*" AND (NOT QT_ANDROID))
+if (ARCH MATCHES "arm*" AND (NOT QT_ANDROID) AND (OCPN_USE_GLES_SHIM MATCHES "ON"))
   find_path(OPENGLESv1_INCLUDE_DIR GLES/gl.h)
   if (OPENGLESv1_INCLUDE_DIR)
     message(STATUS "Found OpenGLESv1")
@@ -1397,7 +1404,7 @@ endif (OCPN_USE_NEWSERIAL)
 
 # Search for opengles, short of running a program to test the speed of
 # acceleration, I simply use gles on "native linux" arm systems
-if (ARCH MATCHES "arm*" AND (NOT QT_ANDROID))
+if (ARCH MATCHES "arm*" AND (NOT QT_ANDROID) AND (OCPN_USE_GLES_SHIM MATCHES "ON"))
   find_path(OPENGLESv1_INCLUDE_DIR GLES/gl.h)
   if (OPENGLESv1_INCLUDE_DIR)
     message(STATUS "Found OpenGLESv1")
@@ -1681,12 +1688,14 @@ if (MSVC)
   target_sources(${PACKAGE_NAME} PRIVATE src/opencpn.rc)
 endif ()
 
-set(
-  gshhs
-    data/gshhs/poly-c-1.dat
-    data/gshhs/wdb_borders_c.b
-    data/gshhs/wdb_rivers_c.b
-)
+if (OCPN_BUNDLE_GSHHS MATCHES "ON")
+    set(
+        gshhs
+        data/gshhs/poly-c-1.dat
+        data/gshhs/wdb_borders_c.b
+        data/gshhs/wdb_rivers_c.b
+    )
+ENDif (OCPN_BUNDLE_GSHHS MATCHES "ON")
 
 # Various data files
 
@@ -2076,7 +2085,6 @@ if (NOT APPLE)
       DESTINATION ${PREFIX_PKGDATA}
   )
 
-  install(FILES ${gshhs} DESTINATION ${PREFIX_PKGDATA}/gshhs)
   install(FILES ${uiData} DESTINATION ${PREFIX_PKGDATA}/uidata)
   install(
     DIRECTORY data/svg/markicons/
@@ -2108,6 +2116,10 @@ if (NOT APPLE)
   if (OCPN_BUNDLE_TCDATA MATCHES "ON")
     install(FILES ${tcData} DESTINATION ${PREFIX_PKGDATA}/tcdata)
   endif ()
+
+  if (OCPN_BUNDLE_GSHHS MATCHES "ON")
+    install(FILES ${gshhs} DESTINATION ${PREFIX_PKGDATA}/gshhs)
+  endif ()  
 
   file(GLOB LICENSES "${CMAKE_SOURCE_DIR}/COPYING.*")
   install(FILES ${LICENSES} LICENSING DESTINATION "${PREFIX_PKGDATA}")
