@@ -394,6 +394,7 @@ message(STATUS "CMAKE_CXX_FLAGS_RELEASE: ${CMAKE_CXX_FLAGS_RELEASE}")
 message(
   STATUS "CMAKE_CXX_FLAGS_RELWITHDEBINFO: ${CMAKE_CXX_FLAGS_RELWITHDEBINFO}"
 )
+
 # ADD_COMPILE_OPTIONS( "-Wall" "-ansi" "-pedantic" "-Wno-variadic-macros" )
 # TODO: Should we use  -fno-stack-protector IF NOT DEBUGGING CFLAGS="-O2
 # -march=native"
@@ -560,7 +561,11 @@ if (OCPN_CI_BUILD)
   include(Utils)
   today(DATE)
   commit_id(COMMIT)
+  build_num(BUILD_NUMBER)
   set(VERSION_TAIL "+${COMMIT}")
+  if (NOT BUILD_NUMBER STREQUAL "")
+      set(VERSION_TAIL "-${BUILD_NUMBER}${VERSION_TAIL}")
+  endif ()
   set(VERSION_DATE "${DATE}")
 endif (OCPN_CI_BUILD)
 
@@ -568,6 +573,8 @@ set(
   PACKAGE_VERSION
   "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}${VERSION_TAIL}"
 )
+message(STATUS "Build num: ${BUILD_NUM}")
+message(STATUS "Building version ${PACKAGE_VERSION}")
 
 # Detect the Apple Version of the build machine
 if (APPLE)
@@ -1641,6 +1648,7 @@ endif (UNIX AND NOT APPLE)
 include(TargetSetup)
 if ("${wxWidgets_LIBRARIES}" MATCHES "gtk3u" AND PKG_TARGET STREQUAL "ubuntu")
   set(PKG_TARGET "${PKG_TARGET}-gtk3")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__WXGTK3__")
 endif ()
 configure_file(config.h.in ${CMAKE_BINARY_DIR}/include/config.h)
 include_directories(BEFORE "${CMAKE_BINARY_DIR}/include")
@@ -2166,7 +2174,10 @@ if (NOT APPLE)
       DESTINATION ${PREFIX_DATA}/icons/hicolor/scalable/apps
     )
     install(FILES data/opencpn.desktop DESTINATION ${PREFIX_DATA}/applications)
-    install(FILES data/opencpn.appdata.xml DESTINATION ${PREFIX_DATA}/appdata)
+    install(
+      FILES ${CMAKE_BINARY_DIR}/opencpn.appdata.xml
+      DESTINATION ${PREFIX_DATA}/appdata
+    )
     install(FILES opencpn.1 DESTINATION ${PREFIX_DATA}/man/man1)
   endif (UNIX)
 
@@ -2615,6 +2626,15 @@ if (OCPN_BUNDLE_TCDATA MATCHES "ON")
 else (OCPN_BUNDLE_TCDATA MATCHES "ON")
   message(STATUS "*** Package will NOT include tide and current data ***")
 endif (OCPN_BUNDLE_TCDATA MATCHES "ON")
+
+#
+# Appstream data (linux in general, in particular flatpak).
+#
+configure_file(
+  "${CMAKE_SOURCE_DIR}/data/opencpn.appdata.xml.in"
+  "${CMAKE_BINARY_DIR}/opencpn.appdata.xml"
+  @ONLY
+)
 
 #
 # Debian package setup
