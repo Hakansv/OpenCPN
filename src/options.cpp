@@ -5574,9 +5574,10 @@ void options::CreatePanel_AIS(size_t parent, int border_size,
   pRollover = new wxCheckBox(panelAIS, ID_ROLLOVERBOX, _("Enable route/AIS info block"));
   rolloverSizer->Add(pRollover, 1, wxALL, 2 * group_item_spacing);
 
-  wxStaticText* pStatic_Dummy4 =
-      new wxStaticText(panelAIS, -1, _("\"Ship Name\" MMSI (Call Sign)"));
-  rolloverSizer->Add(pStatic_Dummy4, 1, wxALL, 2 * group_item_spacing);
+  pRollover->Connect( wxEVT_COMMAND_CHECKBOX_CLICKED,  wxCommandEventHandler(options::OnAISRolloverClick), NULL, this);
+   
+  pStatic_CallSign = new wxStaticText(panelAIS, -1, _("\"Ship Name\" MMSI (Call Sign)"));
+  rolloverSizer->Add(pStatic_CallSign, 1, wxALL, 2 * group_item_spacing);
 
   m_pCheck_Rollover_Class =
       new wxCheckBox(panelAIS, -1, _("[Class] Type (Status)"));
@@ -6285,6 +6286,15 @@ void options::SetColorScheme(ColorScheme cs) {
 #endif
 }
 
+void options::OnAISRolloverClick(wxCommandEvent &event)
+{
+    m_pCheck_Rollover_Class->Enable(event.IsChecked());
+    m_pCheck_Rollover_COG->Enable(event.IsChecked());
+    m_pCheck_Rollover_CPA->Enable(event.IsChecked());
+    pStatic_CallSign->Enable(event.IsChecked());
+}
+
+
 void options::OnCanvasConfigSelectClick( int ID, bool selected)
 {
     switch(ID){
@@ -6375,6 +6385,12 @@ void options::SetInitialSettings(void) {
   pMobile->SetValue(g_btouch);
   pResponsive->SetValue(g_bresponsive);
   pRollover->SetValue(g_bRollover);
+  m_pCheck_Rollover_Class->Enable(g_bRollover);
+  m_pCheck_Rollover_COG->Enable(g_bRollover);
+  m_pCheck_Rollover_CPA->Enable(g_bRollover);
+  pStatic_CallSign->Enable(g_bRollover);
+
+ 
   pZoomButtons->SetValue( g_bShowMuiZoomButtons );
 
   //pOverzoomEmphasis->SetValue(!g_fog_overzoom);
