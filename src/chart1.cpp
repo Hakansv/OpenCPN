@@ -415,6 +415,7 @@ float                     g_selection_radius_touch_mm = 10.0;
 int                       g_GUIScaleFactor;
 int                       g_ChartScaleFactor;
 float                     g_ChartScaleFactorExp;
+int                       g_last_ChartScaleFactor;
 int                       g_ShipScaleFactor;
 float                     g_ShipScaleFactorExp;
 
@@ -6026,7 +6027,7 @@ int MyFrame::DoOptionsDialog()
         return 0;
 
     g_boptionsactive = true;
-    int last_ChartScaleFactorExp = g_ChartScaleFactor;
+    g_last_ChartScaleFactor = g_ChartScaleFactor;
         
     
     if(NULL == g_options) {
@@ -6172,7 +6173,7 @@ int MyFrame::DoOptionsDialog()
     bool ret_val = false;
     rr = g_options->GetReturnCode();
     
-    if(last_ChartScaleFactorExp != g_ChartScaleFactor)
+    if(g_last_ChartScaleFactor != g_ChartScaleFactor)
         rr |= S52_CHANGED;
 
     bool b_refresh = true;
@@ -6504,7 +6505,7 @@ bool MyFrame::ProcessOptionsDialog( int rr, ArrayOfCDI *pNewDirArray )
     if(g_pi_manager){
         g_pi_manager->SendBaseConfigToAllPlugIns();
         int rrt = rr & S52_CHANGED;
-        g_pi_manager->SendS52ConfigToAllPlugIns( rrt == S52_CHANGED);
+        g_pi_manager->SendS52ConfigToAllPlugIns( (rrt == S52_CHANGED) || (g_last_ChartScaleFactor != g_ChartScaleFactor));
     }
        
     
@@ -6543,7 +6544,8 @@ bool MyFrame::ProcessOptionsDialog( int rr, ArrayOfCDI *pNewDirArray )
     
     g_bEnableZoomToCursor = ztc;
     
-
+    g_last_ChartScaleFactor = g_ChartScaleFactor;
+    
     return b_need_refresh;
 }
 
@@ -9672,7 +9674,7 @@ void MyFrame::applySettingsString( wxString settings)
     //  Save some present values
     int last_UIScaleFactor = g_GUIScaleFactor;
     bool previous_expert = g_bUIexpert;
-    int last_ChartScaleFactorExp = g_ChartScaleFactor;
+    g_last_ChartScaleFactor = g_ChartScaleFactor;
     ArrayOfCDI *pNewDirArray = new ArrayOfCDI;
     
     int rr = g_Platform->platformApplyPrivateSettingsString( settings, pNewDirArray);
@@ -9681,7 +9683,7 @@ void MyFrame::applySettingsString( wxString settings)
     pConfig->UpdateSettings();
 
     //  Might need to rebuild symbols
-    if(last_ChartScaleFactorExp != g_ChartScaleFactor)
+    if(g_last_ChartScaleFactor != g_ChartScaleFactor)
         rr |= S52_CHANGED;
     
     if(rr & S52_CHANGED){
