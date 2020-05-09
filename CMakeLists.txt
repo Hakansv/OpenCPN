@@ -207,7 +207,12 @@ else ()
 endif ()
 
 if (NOT WIN32 AND NOT APPLE AND NOT QT_ANDROID)
-  option(OCPN_FORCE_GTK3 "Force the build to use GTK3" OFF)
+  find_library(GTK2U NAMES wx_gtk2u_core)
+  if (GTK2U)
+    option(OCPN_FORCE_GTK3 "Force the build to use GTK3 [OFF]" "OFF")
+  else ()
+    option(OCPN_FORCE_GTK3 "Force the build to use GTK3 [ON]" "ON")
+  endif ()
 endif ()
 
 if (NOT WIN32 AND NOT APPLE)
@@ -2204,10 +2209,13 @@ if (NOT APPLE)
       DESTINATION ${PREFIX_DATA}/icons/hicolor/scalable/apps
     )
     install(FILES data/opencpn.desktop DESTINATION ${PREFIX_DATA}/applications)
+    install(DIRECTORY DESTINATION ${PREFIX_DATA}/metainfo)
     install(
-      FILES ${CMAKE_BINARY_DIR}/opencpn.appdata.xml
-      DESTINATION ${PREFIX_DATA}/appdata
+       FILES ${CMAKE_BINARY_DIR}/opencpn.appdata.xml
+       DESTINATION ${PREFIX_DATA}/metainfo
+       RENAME opencpn.metainfo.xml
     )
+
     install(FILES opencpn.1 DESTINATION ${PREFIX_DATA}/man/man1)
   endif (UNIX)
 
