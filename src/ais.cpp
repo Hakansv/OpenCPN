@@ -1713,9 +1713,9 @@ static void AISDrawTarget( AIS_Target_Data *td, ocpnDC& dc, ViewPort& vp, ChartC
                 dc.GetTextExtent( tgt_name, &w, &h );
 
                 if ( ( td->COG > 90 ) && ( td->COG < 180 ) )
-                    dc.DrawText( tgt_name, TargetPoint.x+10, TargetPoint.y-h );
+                    dc.DrawText( tgt_name, TargetPoint.x+6, TargetPoint.y-h );
                 else
-                    dc.DrawText( tgt_name, TargetPoint.x+10, TargetPoint.y+0.5*h );
+                    dc.DrawText( tgt_name, TargetPoint.x+6, TargetPoint.y+0.5*h );
 
             } //If name do not empty
         } // if scale
