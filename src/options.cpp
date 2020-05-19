@@ -4438,6 +4438,8 @@ void options::CreatePanel_VectorCharts(size_t parent, int border_size,
     itemButtonSetStd = new wxButton(ps57Ctl, ID_SETSTDLIST, _("Reset to STANDARD"));
     btnRow2->Add(itemButtonSetStd, 1, wxALL | wxEXPAND, group_item_spacing);
     marinersSizer->Add(btnRow2);
+    
+
   }
 
   else {                // compact
@@ -6794,8 +6796,8 @@ void options::SetInitialVectorSettings(void)
             pDispCat->SetSelection(nset);
         
         bool benableMarStd = MARINERS_STANDARD == ps52plib->GetDisplayCategory();
-        if(g_useMUI)
-            benableMarStd = true;
+//        if(g_useMUI)
+//           benableMarStd = true;
         
         if( ps57CtlListBox )
             ps57CtlListBox->Enable(benableMarStd);
