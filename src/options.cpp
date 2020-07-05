@@ -9606,6 +9606,8 @@ void options::OnUploadFormatChange(wxCommandEvent& event) {
     m_cbFurunoGP3X->SetValue(FALSE);
   else if (event.GetEventObject() == m_cbFurunoGP3X && event.IsChecked())
     m_cbGarminUploadHost->SetValue(FALSE);
+ 
+  OnConnValChange(event);
   event.Skip();
 }
 
