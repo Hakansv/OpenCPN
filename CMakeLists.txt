@@ -161,15 +161,6 @@ include(FindPkgConfig)
 include(CMakeDependentOption)
 
 #
-# Early Architecture detect, needed for some options
-#
-
-include(GetArch)
-getarch()
-message(STATUS "*** Build Architecture is ${ARCH}")
-
-
-#
 # Options
 #
 
@@ -228,12 +219,11 @@ if (NOT WIN32 AND NOT APPLE AND NOT QT_ANDROID)
   endif ()
 endif ()
 
-if (NOT WIN32 AND NOT APPLE AND NOT ARCH MATCHES "arm*")
+if (NOT WIN32 AND NOT APPLE AND NOT CMAKE_SYSTEM_PROCESSOR MATCHES "arm*")
   set(PA_DEFAULT "ON")
 else ()
   set(PA_DEFAULT "OFF")
 endif ()
-
 option(
   OCPN_ENABLE_PORTAUDIO "Use portaudio(3) to play sounds if available"
   ${PA_DEFAULT}
@@ -351,6 +341,10 @@ endmacro (USE_BUNDLED_LIB)
 #
 # Language, compiler and static checkers setup
 #
+
+include(GetArch)
+getarch()
+message(STATUS "*** Build Architecture is ${ARCH}")
 
 set(CMAKE_CXX_STANDARD 11)
 message(STATUS "Setting C++11 standard via cmake standard mechanism")
@@ -1516,7 +1510,23 @@ if (QT_ANDROID)
     PRIVATE ${CMAKE_SOURCE_DIR}/buildandroid/libarchive/include)
   target_link_libraries(${PACKAGE_NAME}
     PRIVATE ${CMAKE_SOURCE_DIR}/buildandroid/libarchive/libarchive.a)
-else (QT_ANDROID)
+elseif ( APPLE )
+    find_package(PkgConfig QUIET)
+    if(PKG_CONFIG_FOUND)
+        pkg_check_modules(LIBARCHIVE_PKGCONF archive)
+    endif(PKG_CONFIG_FOUND)
+
+    # Include dir
+    find_path(LIBARCHIVE_INCLUDE_DIR  NAMES archive.h  PATHS ${LIBARCHIVE_PKGCONF_INCLUDE_DIRS} )       
+    # Library
+    find_library(LIBARCHIVE_LIBRARY NAMES archive PATHS /usr/local/lib   )
+    
+    target_include_directories(${PACKAGE_NAME} PRIVATE ${LIBARCHIVE_INCLUDE_DIR})
+    target_link_libraries(${PACKAGE_NAME} PRIVATE ${LIBARCHIVE_LIBRARY})
+    message(STATUS "    LibArchive include found at: " ${LIBARCHIVE_INCLUDE_DIR} )
+    message(STATUS "    LibArchive library found at: " ${LIBARCHIVE_LIBRARY} )
+
+else ()
   find_package(LibArchive REQUIRED)
   target_include_directories(${PACKAGE_NAME} PRIVATE ${LibArchive_INCLUDE_DIRS})
   target_link_libraries(${PACKAGE_NAME} PRIVATE ${LibArchive_LIBRARIES})
