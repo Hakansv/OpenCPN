@@ -1511,22 +1511,9 @@ if (QT_ANDROID)
   target_link_libraries(${PACKAGE_NAME}
     PRIVATE ${CMAKE_SOURCE_DIR}/buildandroid/libarchive/libarchive.a)
 elseif ( APPLE )
-    find_package(PkgConfig QUIET)
-    if(PKG_CONFIG_FOUND)
-        pkg_check_modules(LIBARCHIVE_PKGCONF archive)
-    endif(PKG_CONFIG_FOUND)
-
-    # Include dir
-    find_path(LIBARCHIVE_INCLUDE_DIR  NAMES archive.h  PATHS ${LIBARCHIVE_PKGCONF_INCLUDE_DIRS} )       
-    # Library
-    find_library(LIBARCHIVE_LIBRARY NAMES archive PATHS /usr/local/lib   )
-    
-    target_include_directories(${PACKAGE_NAME} PRIVATE ${LIBARCHIVE_INCLUDE_DIR})
+    #  TODO This is a hack, due to the way libarchive is built and installed in CI build environment 
+    target_include_directories(${PACKAGE_NAME} PRIVATE /usr/local/include)
     target_link_libraries(${PACKAGE_NAME} PRIVATE /usr/local/lib/libarchive.dylib)
-    message(STATUS "    LibArchive include found at: " ${LIBARCHIVE_INCLUDE_DIR} )
-    message(STATUS "    LibArchive library found at: " ${LIBARCHIVE_LIBRARY} )
-
-    
 else ()
   find_package(LibArchive REQUIRED)
   target_include_directories(${PACKAGE_NAME} PRIVATE ${LibArchive_INCLUDE_DIRS})
