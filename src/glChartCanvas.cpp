@@ -690,7 +690,11 @@ void glChartCanvas::OnSize( wxSizeEvent& event )
 
          SetSize( m_pParentCanvas->GetSize() );
         if( m_bsetup ){
-            wxLogMessage(_T("BuildFBO 3"));
+            static bool b_firstprint;
+            if (!b_firstprint) {
+                wxLogMessage(_T("BuildFBO 3"));
+                b_firstprint = true;
+            }
 
              BuildFBO();
      }
@@ -1171,10 +1175,13 @@ void glChartCanvas::BuildFBO( )
     }
 
     //  All OK
-    
-    wxString msg;
-    msg.Printf( _T("OpenGL Framebuffer OK, size = %d"), m_cache_tex_x );
-    wxLogMessage(msg);
+    static bool b_firstprint;
+    if (!b_firstprint) {
+        wxString msg;
+        msg.Printf(_T("OpenGL Framebuffer OK, size = %d"), m_cache_tex_x);
+        wxLogMessage(msg);
+        b_firstprint = true;
+    }
     
     /* invalidate cache */
     Invalidate();

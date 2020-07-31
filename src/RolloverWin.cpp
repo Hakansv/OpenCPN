@@ -303,9 +303,14 @@ void RolloverWin::Draw(ocpnDC &dc)
 #ifdef ocpnUSE_GL
 //#ifndef __WXOSX__    
     if(g_bopengl && m_texture) {
-        wxString msg;
-        msg.Printf(_T("Draw texture  %d"), m_texture);
-        wxLogMessage(msg);
+        static bool b_firstprint;
+        if (!b_firstprint) {
+            wxString msg;
+            msg.Printf(_T("Draw texture  %d"), m_texture);
+            wxLogMessage(msg);
+            b_firstprint = true;
+        }
+        
         
         glEnable(g_texture_rectangle_format);
         glBindTexture( g_texture_rectangle_format, m_texture );
