@@ -207,6 +207,8 @@ extern bool             g_bShowCompassWin;
 extern AIS_Decoder      *g_pAIS;
 extern bool             g_bShowAreaNotices;
 extern int              g_Show_Target_Name_Scale;
+extern bool             g_bCPAWarn;
+extern bool             g_bTCPA_Max;
 
 extern MyFrame          *gFrame;
 
@@ -3223,6 +3225,20 @@ void ChartCanvas::OnKeyDown( wxKeyEvent &event )
                 Refresh( false );
            }
            break;
+
+        case 23:                      // Ctrl W Toggle CPA alarm
+            if (event.ControlDown()) {
+                g_bCPAWarn = !g_bCPAWarn;
+                wxString mes = "ON";
+                if (!g_bCPAWarn) {
+                    g_bTCPA_Max = false;
+                    mes = "OFF";
+                } else g_bTCPA_Max = true;
+
+                OCPNMessageBox(this, _("CPA Alarm is swithced " + mes),
+                    _("CPA " + mes), 4, 3);
+            }
+            break;
 
         default:
             break;
