@@ -3229,14 +3229,16 @@ void ChartCanvas::OnKeyDown( wxKeyEvent &event )
         case 23:                      // Ctrl W Toggle CPA alarm
             if (event.ControlDown()) {
                 g_bCPAWarn = !g_bCPAWarn;
-                wxString mes = "ON";
+                wxString mes = _("ON");
                 if (!g_bCPAWarn) {
                     g_bTCPA_Max = false;
-                    mes = "OFF";
-                } else g_bTCPA_Max = true;
+                    mes = _("OFF");
+                } else 
+                    g_bTCPA_Max = true;
 
-                OCPNMessageBox(this, _("CPA Alarm is swithced " + mes),
-                    _("CPA " + mes), 4, 3);
+                OCPNMessageBox(this, 
+                    _("CPA Alarm is switched") + _T(" ") + mes.MakeLower(),
+                    _("CPA") + _T(" ") + mes, 4, 3);
             }
             break;
 
