@@ -3236,9 +3236,12 @@ void ChartCanvas::OnKeyDown( wxKeyEvent &event )
                 } else 
                     g_bTCPA_Max = true;
 
-                OCPNMessageBox(this, 
-                    _("CPA Alarm is switched") + _T(" ") + mes.MakeLower(),
-                    _("CPA") + _T(" ") + mes, 4, 3);
+                if (STAT_FIELD_SCALE >= 4 && parent_frame->GetStatusBar())
+                    parent_frame->SetStatusText(_("CPA alarm ") + mes, STAT_FIELD_SCALE);
+                else
+                    OCPNMessageBox(this,
+                        _("CPA Alarm is switched") + _T(" ") + mes.MakeLower(),
+                        _("CPA") + _T(" ") + mes, 4, 2);
             }
             break;
 
