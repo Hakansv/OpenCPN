@@ -913,7 +913,12 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
 								
 								std::ofstream outfile(devdataPath.mb_str(), std::ios_base::app); //wx_str()
 								if (outfile.is_open()) {
-									outfile << tid << "," << "HDM:" << "," << mHdm << "," << "HDT:" << "," << mHdt << "," << "COG:" << "," << devCOG << "\n";                                
+									outfile << tid << "," 
+                                        << "HDM:" << "," << mHdm << "," 
+                                        << "HDT:" << "," << mHdt << "," 
+                                        << "COG:" << "," << devCOG << ","
+                                        << "Adjust:" << "," << (devCOG - mHdt) 
+                                        << "\n";                         
 								}
 								outfile.close();
 #ifdef __WXMSW__
