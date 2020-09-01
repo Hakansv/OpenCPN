@@ -5447,18 +5447,24 @@ void CatalogMgrPanel::OnUpdateButton( wxCommandEvent &event)
     
     std::string message;
     if (status != CatalogHandler::ServerStatus::OK) {
-        message = _("Cannot dpownload data from url");
+        message = _("Cannot download data from url");
         OCPNMessageBox(this, message, _("OpenCPN Catalog update"), wxICON_ERROR);
         return;
     }
     
     //TODO Validate xml using xsd here....
-    
+#ifdef __OCPN__ANDROID__
+    if(!AndroidSecureCopyFile (wxString(filePath.c_str()), g_Platform->GetPrivateDataDir() + wxFileName::GetPathSeparator() + _T("ocpn-plugins.xml"))){
+        OCPNMessageBox(this, _("Unable to copy catalog file"), _("OpenCPN Catalog update"), wxICON_ERROR);
+        return;
+    }
+#else
     // Copy the downloaded file to proper local location
     if(!wxCopyFile (wxString(filePath.c_str()), g_Platform->GetPrivateDataDir() + wxFileName::GetPathSeparator() + _T("ocpn-plugins.xml"))){
         OCPNMessageBox(this, _("Unable to copy catalog file"), _("OpenCPN Catalog update"), wxICON_ERROR);
         return;
     }
+#endif    
     
     // If this is the "master" catalog, also copy to plugin cache
     if(m_choiceChannel->GetString(m_choiceChannel->GetSelection()).StartsWith(_T("Master"))){
@@ -5474,10 +5480,17 @@ void CatalogMgrPanel::OnUpdateButton( wxCommandEvent &event)
         if(!wxDirExists( metaCache ))
             wxMkdir( metaCache );
             
+#ifdef __OCPN__ANDROID__
+        if(!AndroidSecureCopyFile (wxString(filePath.c_str()), metaCache + wxFileName::GetPathSeparator() + _T("ocpn-plugins.xml"))){
+            OCPNMessageBox(this, _("Unable to copy catalog file to cache"), _("OpenCPN Catalog update"), wxICON_ERROR);
+            return;
+        }
+#else
         if(!wxCopyFile (wxString(filePath.c_str()), metaCache + wxFileName::GetPathSeparator() + _T("ocpn-plugins.xml"))){
             OCPNMessageBox(this, _("Unable to copy catalog file to cache"), _("OpenCPN Catalog update"), wxICON_ERROR);
             return;
         }
+#endif
     }       
 
     // Record in the config file the name of the catalog downloaded
@@ -6146,7 +6159,7 @@ PluginPanel::PluginPanel(wxPanel *parent, wxWindowID id, const wxPoint &pos, con
     topSizer->Add(itemBoxSizer01, 0, wxEXPAND);
     Bind(wxEVT_LEFT_DOWN, &PluginPanel::OnPluginSelected, this);
 
-    double iconSize = GetCharWidth() * 4;
+    double iconSize = GetCharWidth() * 35 / 10;
     wxImage plugin_icon;
     ocpnStyle::Style *style = g_StyleManager->GetCurrentStyle();
     if (m_pPlugin->m_bitmap) {
@@ -6172,9 +6185,9 @@ PluginPanel::PluginPanel(wxPanel *parent, wxWindowID id, const wxPoint &pos, con
     }
     m_itemStaticBitmap = new wxStaticBitmap(this, wxID_ANY, bitmap);
         
-    itemBoxSizer01->Add(m_itemStaticBitmap, 0, wxEXPAND|wxALL, 5);
+    itemBoxSizer01->Add(m_itemStaticBitmap, 0, wxEXPAND|wxALL, 10);
     m_itemStaticBitmap->Bind(wxEVT_LEFT_DOWN, &PluginPanel::OnPluginSelected, this);
-    
+
     wxBoxSizer* itemBoxSizer02 = new wxBoxSizer(wxVERTICAL);
     itemBoxSizer01->Add(itemBoxSizer02, 1, wxEXPAND|wxALL, 0);
 
@@ -6229,6 +6242,8 @@ PluginPanel::PluginPanel(wxPanel *parent, wxWindowID id, const wxPoint &pos, con
 
     }
     else{
+        itemBoxSizer02->AddSpacer(GetCharHeight() / 2);
+
         wxFlexGridSizer* itemBoxSizer03 = new wxFlexGridSizer(3,0,0);
         itemBoxSizer03->AddGrowableCol(2);
         itemBoxSizer02->Add(itemBoxSizer03, 0, wxEXPAND);
