@@ -154,11 +154,15 @@ void RolloverWin::SetBitmap( int rollover )
     
     #ifdef ocpnUSE_GL
     if(usegl) {
+        static unsigned int sentRTexture, sentNTexture;
         if(!m_texture) {
             glGenTextures( 1, &m_texture );
-            wxString msg;
-            msg.Printf(_T("New texture  %d"), m_texture);
-            wxLogMessage(msg);
+            if (sentNTexture != m_texture) {
+                wxString msg;
+                msg.Printf(_T("New texture  %d"), m_texture);
+                wxLogMessage(msg);
+                sentNTexture = m_texture;
+            }
 
             glBindTexture( g_texture_rectangle_format, m_texture );
             glTexParameterf( g_texture_rectangle_format, GL_TEXTURE_MIN_FILTER, GL_NEAREST );
@@ -168,10 +172,13 @@ void RolloverWin::SetBitmap( int rollover )
             
         } else
             glBindTexture( g_texture_rectangle_format, m_texture );
- 
-        wxString msg;
-        msg.Printf(_T("Render texture  %d"), m_texture);
-        wxLogMessage(msg);
+        
+        if (sentRTexture != m_texture) {
+            wxString msg;
+            msg.Printf(_T("Render texture  %d"), m_texture);
+            wxLogMessage(msg);
+            sentRTexture = m_texture;
+        }
 
         // make texture data
         wxImage image = m_pbm->ConvertToImage();
