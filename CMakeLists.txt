@@ -867,6 +867,7 @@ endif (QT_ANDROID)
 
 set(
   HDRS
+  include/config_var.h
   include/AboutFrame.h
   include/AboutFrameImpl.h
   include/about.h
@@ -882,6 +883,7 @@ set(
   include/catalog_handler.h
   include/catalog_mgr.h
   include/catalog_parser.h
+  include/cat_settings.h
   include/chart1.h
   include/ChartDataInputStream.h
   include/chartdb.h
@@ -993,6 +995,7 @@ set(
 
 set(
   SRCS
+  src/config_var.cpp
   src/about.cpp
   src/AboutFrame.cpp
   src/AboutFrameImpl.cpp
@@ -1010,6 +1013,7 @@ set(
   src/catalog_handler.cpp
   src/catalog_mgr.cpp
   src/catalog_parser.cpp
+  src/cat_settings.cpp
   src/chart1.cpp
   src/ChartDataInputStream.cpp
   src/chartdb.cpp
@@ -2321,7 +2325,7 @@ macro (GETTEXT_BUILD_MO _poFile _lang)
     COMMAND ${GETTEXT_MSGFMT_EXECUTABLE} --check -o ${_gmoFile} ${_absFile}
     COMMAND
       ${CMAKE_COMMAND} -E copy ${_gmoFile}
-      ${CMAKE_CURRENT_BINARY_DIR}/Resources/${PACKAGE_NAME}_${_lang}.lproj/${PACKAGE_NAME}.mo
+      ${CMAKE_CURRENT_BINARY_DIR}/Resources/opencpn_${_lang}.lproj/opencpn.mo
     DEPENDS ${_absFile}
     COMMENT "i18n [${_poBasename}]: Created mo file."
   )

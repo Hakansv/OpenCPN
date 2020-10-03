@@ -455,18 +455,16 @@ class CatalogMgrPanel: public wxPanel
         CatalogMgrPanel(wxWindow* parent);
         ~CatalogMgrPanel();
         void OnUpdateButton(wxCommandEvent &event);
-        void OnChannelSelected(wxCommandEvent &event);
         void SetListPanelPtr(PluginListPanel *listPanel){ m_PluginListPanel = listPanel; }
         void OnTarballButton(wxCommandEvent &event);
+        void OnPluginSettingsButton(wxCommandEvent &event);
     protected:
         wxString GetCatalogText(bool);
-        unsigned int GetChannelIndex(const wxArrayString* channels);
         void SetUpdateButtonLabel();
 
         wxButton *m_updateButton, *m_advancedButton, *m_tarballButton;
-        wxStaticText *m_catalogText, *m_customText;
-        wxChoice *m_choiceChannel;
-        wxTextCtrl *m_tcCustomURL;
+        wxButton* m_adv_button;
+        wxStaticText *m_catalogText;
         wxWindow* m_parent;
         PluginListPanel *m_PluginListPanel;
 };
@@ -526,6 +524,9 @@ public:
       ~PluginPanel();
 
       void OnPluginSelected( wxMouseEvent &event );
+      void OnPluginSelectedUp( wxMouseEvent &event );
+      void DoPluginSelect();
+
       void SetSelected( bool selected );
       void OnPluginPreferences( wxCommandEvent& event );
       void OnPluginEnableToggle( wxCommandEvent& event );

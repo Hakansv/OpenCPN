@@ -1609,6 +1609,10 @@ wxString OCPNPlatform::GetPluginDataPath()
         return m_pluginDataPath;
     }
     wxString dirs("");
+#ifdef __OCPN__ANDROID__
+    wxString pluginDir = GetPrivateDataDir() + "/plugins";
+    dirs += pluginDir;
+#else    
     auto const osSystemId = wxPlatformInfo::Get().GetOperatingSystemId();
     if (g_Platform->isFlatpacked()) {
         dirs="~/.var/app/org.opencpn.OpenCPN/data/opencpn/plugins";
@@ -1624,6 +1628,8 @@ wxString OCPNPlatform::GetPluginDataPath()
         dirs +=
             "~/Library/Application Support/OpenCPN/Contents/SharedSupport/plugins";
     }
+#endif
+    
     m_pluginDataPath = ExpandPaths(dirs, this);
     if (m_pluginDataPath != "") {
         m_pluginDataPath += ";";
