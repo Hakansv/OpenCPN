@@ -9216,6 +9216,13 @@ void ChartGroupsUI::OnInsertChartItem(wxCommandEvent& event) {
   modified = TRUE;
   allAvailableCtl->GetTreeCtrl()->UnselectAll();
   m_pAddButton->Disable();
+  
+  wxGenericDirCtrl* pDirCtrl = (m_DirCtrlArray[m_GroupSelectedPage]);
+  if(pDirCtrl){
+      wxTreeCtrl* ptree = pDirCtrl->GetTreeCtrl();
+      if( ptree )
+          ptree->Refresh();
+  }
 }
 
 void ChartGroupsUI::OnRemoveChartItem(wxCommandEvent& event) {
@@ -9263,9 +9270,15 @@ void ChartGroupsUI::OnRemoveChartItem(wxCommandEvent& event) {
         lastSelectedCtl->Unselect();
         lastSelectedCtl = 0;
         m_pRemoveButton->Disable();
-        wxLogMessage(_T("Disable"));
+
+        wxGenericDirCtrl* pDirCtrl = (m_DirCtrlArray[m_GroupSelectedPage]);
+        if(pDirCtrl){
+            wxTreeCtrl* ptree = pDirCtrl->GetTreeCtrl();
+            if( ptree )
+                ptree->Refresh();
+        }
       }
-    }
+     }
   }
   event.Skip();
 }
