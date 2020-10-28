@@ -1035,6 +1035,14 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
                            _T("hPa") ); //Convert to hpa befor sending to instruments.
                     mMDA_Watchdog = gps_watchdog_timeout_ticks;
                 }
+                if (m_NMEA0183.Mda.AirTemp < 100.0) {
+                    if (mPriATMP >= 4) {
+                        mPriATMP = 4;
+                        SendSentenceToAllInstruments(OCPN_DBP_STC_ATMP, m_NMEA0183.Mda.AirTemp,
+                            _T("C"));
+                        mATMP_Watchdog = gps_watchdog_timeout_ticks;
+                    }
+                }
 
             }
 
