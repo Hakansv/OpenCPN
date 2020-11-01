@@ -2835,7 +2835,7 @@ DashboardPreferencesDialog::DashboardPreferencesDialog( wxWindow *parent, wxWind
     m_pSetDeviationBtn->SetValue(b_IsDeviation);
     itemFlexGridSizer04->Add(m_pSetDeviationBtn, 0, wxEXPAND | wxALL, 0);
  
-#if defined(__WXMSW__)
+#ifdef __WXMSW__
     m_pSetDevSoundBtn = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
         wxT(" Beep at print"), wxDefaultPosition, wxDefaultSize);
     m_pSetDevSoundBtn->SetValue(b_IsDevPrintSound);
@@ -2924,7 +2924,9 @@ void DashboardPreferencesDialog::SaveDashboardConfig()
     g_iDashDistanceUnit = m_pChoiceDistanceUnit->GetSelection() - 1;
     g_iDashWindSpeedUnit = m_pChoiceWindSpeedUnit->GetSelection();
     b_IsDeviation = m_pSetDeviationBtn->IsChecked(); // Momo Dev table
+#ifdef __WXMSW__
     b_IsDevPrintSound = m_pSetDevSoundBtn->IsChecked();
+#endif
     g_iDashUsetruewinddata = m_pUseTrueWinddata->GetValue();
 
     if( curSel != -1 ) {
