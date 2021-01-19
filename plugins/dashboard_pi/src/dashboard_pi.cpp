@@ -427,6 +427,7 @@ int dashboard_pi::Init( void )
     mPriDepth = 99;
     mPriSTW = 99;
     mPriWTP = 99;
+    mPriSats = 99;
     m_config_version = -1;
     mHDx_Watchdog = 2;
     mHDT_Watchdog = 2;
@@ -582,7 +583,7 @@ void dashboard_pi::Notify()
         SendSatInfoToAllInstruments( 0, 1, sats );
         SendSatInfoToAllInstruments( 0, 2, sats );
         SendSatInfoToAllInstruments( 0, 3, sats );
-
+        mPriSats = 99;
         mSatsInView = 0;
         SendSentenceToAllInstruments( OCPN_DBP_STC_SAT, NAN, _T("") );
         mGPS_Watchdog = gps_watchdog_timeout_ticks;
@@ -857,16 +858,19 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
         }
 
         else if( m_NMEA0183.LastSentenceIDReceived == _T("GSV") ) {
-            if( m_NMEA0183.Parse() ) {
-                // m_NMEA0183.Gsv.NumberOfMessages;
-                if (m_NMEA0183.Gsv.MessageNumber == 1) { 
-                    //Some GNSS print SatsInView in message #1 only
-                    mSatsInView = m_NMEA0183.Gsv.SatsInView;
-                    SendSentenceToAllInstruments (OCPN_DBP_STC_SAT, m_NMEA0183.Gsv.SatsInView, _T (""));
+            if (mPriSats >= 2) {
+                if (m_NMEA0183.Parse ()) {
+                    // m_NMEA0183.Gsv.NumberOfMessages;
+                    if (m_NMEA0183.Gsv.MessageNumber == 1) {
+                        //Some GNSS print SatsInView in message #1 only
+                        mSatsInView = m_NMEA0183.Gsv.SatsInView;
+                        SendSentenceToAllInstruments (OCPN_DBP_STC_SAT, m_NMEA0183.Gsv.SatsInView, _T (""));
+                    }
+                    SendSatInfoToAllInstruments (mSatsInView,
+                                                 m_NMEA0183.Gsv.MessageNumber, m_NMEA0183.Gsv.SatInfo);
+                    mPriSats = 2;
+                    mGPS_Watchdog = gps_watchdog_timeout_ticks;
                 }
-                SendSatInfoToAllInstruments (mSatsInView, 
-                                             m_NMEA0183.Gsv.MessageNumber, m_NMEA0183.Gsv.SatInfo);
-                mGPS_Watchdog = gps_watchdog_timeout_ticks;
             }
         }
 
@@ -1720,19 +1724,63 @@ void dashboard_pi::updateSKItem(wxJSONValue &item, wxString &sfixtime) {
             SendSentenceToAllInstruments(OCPN_DBP_STC_RSA, m_rudangle, _T("\u00B0"));
             mRSA_Watchdog = gps_watchdog_timeout_ticks;
         }
-        else if (update_path == _T("navigation.gnss.satellites")) { //Number of satellites
-            if (value.IsInt()) {
-                double m_SK_SatsInView = (value.AsInt());
-                mSatsInView = m_SK_SatsInView;
-                SendSentenceToAllInstruments(OCPN_DBP_STC_SAT, m_SK_SatsInView, _T(""));
-                mGPS_Watchdog = gps_watchdog_timeout_ticks;
+        else if (update_path == _T("navigation.satellitesInView")) { //GNSS satellites
+            if (mPriSats >= 1) {
+                if (value.HasMember ("satellitesInView") && value["satellitesInView"].IsInt ()) {
+                    double m_SK_SatsInView = (value["satellitesInView"].AsInt ());
+                    mSatsInView = m_SK_SatsInView;
+                    SendSentenceToAllInstruments (OCPN_DBP_STC_SAT, m_SK_SatsInView, _T (""));
+                    mPriSats = 1;
+                    mGPS_Watchdog = gps_watchdog_timeout_ticks;
+                }
+                if (value.HasMember ("satellites") && value["satellites"].IsArray ()) {
+                    // Update satellites data.                                
+                    int iNumSats = value[_T ("satellites")].Size ();
+                    SAT_INFO SK_SatInfo[4];
+                    for (int idx = 0; idx < 4; idx++) {
+                        SK_SatInfo[idx].SatNumber = 0;
+                        SK_SatInfo[idx].ElevationDegrees = 0;
+                        SK_SatInfo[idx].AzimuthDegreesTrue = 0;
+                        SK_SatInfo[idx].SignalToNoiseRatio = 0;
+                    }
+
+                    if (iNumSats) {
+                        // Arrange SK's array[12] to max three messages like NMEA GSV
+                        int iPRN = 0;
+                        double dElevRad = 0, dAzimRad = 0;
+                        int idx = 0;
+                        int arr = 0;
+                        for (int iMesNum = 0; iMesNum < 3; iMesNum++) {
+                            for (idx = 0; idx < 4; idx++) {
+                                arr = idx + 4 * iMesNum;
+                                iPRN = wxAtoi( value["satellites"][arr]["satID"].AsString() );
+                                if (iPRN < 1) break;
+                                try {
+                                    value["satellites"][arr]["elevation"].AsString().ToDouble(&dElevRad);
+                                    value["satellites"][arr]["azimuth"].AsString().ToDouble(&dAzimRad);
+                                } catch (int e) {
+                                    wxLogDebug(("_T(SignalK not recieving all satellite data: ") + e);
+                                }
+                                SK_SatInfo[idx].SatNumber = iPRN;
+                                SK_SatInfo[idx].ElevationDegrees = GEODESIC_RAD2DEG(dElevRad);
+                                SK_SatInfo[idx].AzimuthDegreesTrue = GEODESIC_RAD2DEG(dAzimRad);
+                                SK_SatInfo[idx].SignalToNoiseRatio =
+                                    wxAtoi( value["satellites"][arr]["SNR"].AsString() );
+                            }
+                            if (idx > 0) SendSatInfoToAllInstruments (
+                                iNumSats, iMesNum + 1, SK_SatInfo);
+                            for (idx = 0; idx < 4; idx++) {
+                                SK_SatInfo[idx].SatNumber = 0;
+                                SK_SatInfo[idx].ElevationDegrees = 0;
+                                SK_SatInfo[idx].AzimuthDegreesTrue = 0;
+                                SK_SatInfo[idx].SignalToNoiseRatio = 0;
+                            }
+                            if (iPRN < 1) break;
+                        }
+                    }
+                }
             }
         }
-        //TODO. Add path from GSV after SignK implementation.
-            /*SendSentenceToAllInstruments(OCPN_DBP_STC_SAT, m_NMEA0183.Gsv.SatsInView, _T(""));
-            SendSatInfoToAllInstruments(m_NMEA0183.Gsv.SatsInView,
-                m_NMEA0183.Gsv.MessageNumber, m_NMEA0183.Gsv.SatInfo);*/
-
         else if (update_path == _T("navigation.datetime")) {
             if (mPriDateTime >= 1) {
                 mPriDateTime = 1;
