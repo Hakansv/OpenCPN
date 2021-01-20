@@ -50,7 +50,6 @@ DashboardInstrument_GPS::DashboardInstrument_GPS( wxWindow *parent, wxWindowID i
       m_cx = 35;
       m_cy = 57;
       m_radius = 35;
-
       m_SatCount = 0;
       for (int idx = 0; idx < 12; idx++)
       {
@@ -82,7 +81,7 @@ void DashboardInstrument_GPS::SetSatInfo(int cnt, int seq, SAT_INFO sats[4])
       // Some GPS receivers may emit more than 12 sats info
       if (seq < 1 || seq > 3)
             return;
-
+      
       int lidx = (seq-1)*4;
       for (int idx = 0; idx < 4; idx++)
       {
@@ -90,6 +89,11 @@ void DashboardInstrument_GPS::SetSatInfo(int cnt, int seq, SAT_INFO sats[4])
             m_SatInfo[lidx+idx].ElevationDegrees = sats[idx].ElevationDegrees;
             m_SatInfo[lidx+idx].AzimuthDegreesTrue = sats[idx].AzimuthDegreesTrue;
             m_SatInfo[lidx+idx].SignalToNoiseRatio = sats[idx].SignalToNoiseRatio;
+      }
+      // Clean out possible leftovers.
+      for (int idx = m_SatCount; idx < 12; idx++) {
+          m_SatInfo[idx].SatNumber = 0;
+          m_SatInfo[idx].SignalToNoiseRatio = 0;
       }
 }
 
