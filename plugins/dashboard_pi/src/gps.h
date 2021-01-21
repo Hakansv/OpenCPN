@@ -55,13 +55,14 @@ class DashboardInstrument_GPS: public DashboardInstrument
 
             wxSize GetSize( int orient, wxSize hint );
             void SetData(int, double, wxString) {};
-            void SetSatInfo(int cnt, int seq, SAT_INFO sats[4]);
+            void SetSatInfo(int cnt, int seq, wxString talk, SAT_INFO sats[4]);
 
       private:
 
       protected:
             int m_cx, m_cy, m_radius;
             int m_SatCount;
+            wxString talkerID;
             SAT_INFO m_SatInfo[12];
 
             void Draw(wxGCDC* dc);

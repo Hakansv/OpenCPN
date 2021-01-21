@@ -51,6 +51,7 @@ DashboardInstrument_GPS::DashboardInstrument_GPS( wxWindow *parent, wxWindowID i
       m_cy = 57;
       m_radius = 35;
       m_SatCount = 0;
+      talkerID = wxEmptyString;
       for (int idx = 0; idx < 12; idx++)
       {
             m_SatInfo[idx].SatNumber = 0;
@@ -75,9 +76,10 @@ wxSize DashboardInstrument_GPS::GetSize( int orient, wxSize hint )
       }
 }
 
-void DashboardInstrument_GPS::SetSatInfo(int cnt, int seq, SAT_INFO sats[4])
+void DashboardInstrument_GPS::SetSatInfo(int cnt, int seq, wxString talk, SAT_INFO sats[4])
 {
       m_SatCount = cnt;
+      talkerID = talk;
       // Some GPS receivers may emit more than 12 sats info
       if (seq < 1 || seq > 3)
             return;
@@ -160,7 +162,6 @@ void DashboardInstrument_GPS::DrawFrame(wxGCDC* dc)
 
       tdc.SelectObject( wxNullBitmap );
 
-
       dc->SetBackgroundMode(wxTRANSPARENT);
 
       dc->DrawLine(3, 100, size.x-3, 100);
@@ -206,7 +207,7 @@ void DashboardInstrument_GPS::DrawBackground(wxGCDC* dc)
             if (m_SatInfo[idx].SatNumber)
                   tdc.DrawText(wxString::Format(_T("%02d"), m_SatInfo[idx].SatNumber), idx*16+5, 0);
       }
-
+      
       tdc.SelectObject( wxNullBitmap );
       dc->DrawBitmap(tbm, 0, 142, false);
 
@@ -264,6 +265,17 @@ void DashboardInstrument_GPS::DrawForeground( wxGCDC* dc )
              dc->DrawBitmap( tbm, posx, posy, false );
         }
     }
+    if (talkerID != wxEmptyString) {
+        wxString talker = wxEmptyString;
+        if (talkerID == _T("GP")) talker = _("GPS"); // 1 >> GSA Sys ID (#18)
+        else if (talkerID == _T("GA")) talker = _("Galileo"); // 3 >> GSA Sys ID (#18)
+        else if (talkerID == _T("GB")) talker = _("BDS"); // 4 >> GSA Sys ID (#18) BeiDou
+        else if (talkerID == _T("GI")) talker = _("NavIC");
+        else if (talkerID == _T("GL")) talker = _("GLONASS"); // 2 >> GSA Sys ID (#18)
+        else if (talkerID == _T("GQ")) talker = _("QZSS");
+        else if (talkerID == _T("GN")) talker = _("GNSS");
 
+        dc->DrawText( talker, 5, 15);
+    }
 }
 

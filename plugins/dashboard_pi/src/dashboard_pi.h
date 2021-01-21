@@ -174,7 +174,7 @@ private:
       
       void ApplyConfig(void);
       void SendSentenceToAllInstruments(int st, double value, wxString unit);
-      void SendSatInfoToAllInstruments(int cnt, int seq, SAT_INFO sats[4]);
+      void SendSatInfoToAllInstruments(int cnt, int seq, wxString talk, SAT_INFO sats[4]);
       void SendUtcTimeToAllInstruments( wxDateTime value );
 
       void ParseSignalK( wxString &msg);
@@ -329,7 +329,7 @@ public:
     bool isInstrumentListEqual( const wxArrayInt& list );
     void SetInstrumentList( wxArrayInt list );
     void SendSentenceToAllInstruments( int st, double value, wxString unit );
-    void SendSatInfoToAllInstruments( int cnt, int seq, SAT_INFO sats[4] );
+    void SendSatInfoToAllInstruments( int cnt, int seq, wxString talk, SAT_INFO sats[4] );
     void SendUtcTimeToAllInstruments( wxDateTime value );
     void ChangePaneOrientation( int orient, bool updateAUImgr );
 /*TODO: OnKeyPress pass event to main window or disable focus*/
