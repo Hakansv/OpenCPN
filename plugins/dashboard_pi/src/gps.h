@@ -60,11 +60,16 @@ class DashboardInstrument_GPS: public DashboardInstrument
       private:
 
       protected:
+#define GNSS_SYSTEM 6
             int m_cx, m_cy, m_radius;
             int m_SatCount;
             wxString talkerID;
             SAT_INFO m_SatInfo[12];
-
+            bool b_shift;
+            wxDateTime m_lastShift;
+            wxDateTime m_Gtime[GNSS_SYSTEM];
+            int m_iMaster;
+            wxString s_gTalker;
             void Draw(wxGCDC* dc);
             void DrawFrame(wxGCDC* dc);
             void DrawBackground(wxGCDC* dc);

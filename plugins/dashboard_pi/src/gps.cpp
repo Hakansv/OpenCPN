@@ -50,8 +50,6 @@ DashboardInstrument_GPS::DashboardInstrument_GPS( wxWindow *parent, wxWindowID i
       m_cx = 35;
       m_cy = 57;
       m_radius = 35;
-      m_SatCount = 0;
-      talkerID = wxEmptyString;
       for (int idx = 0; idx < 12; idx++)
       {
             m_SatInfo[idx].SatNumber = 0;
@@ -59,6 +57,15 @@ DashboardInstrument_GPS::DashboardInstrument_GPS( wxWindow *parent, wxWindowID i
             m_SatInfo[idx].AzimuthDegreesTrue = 0;
             m_SatInfo[idx].SignalToNoiseRatio = 0;
       }
+      m_SatCount = 0;
+      talkerID = wxEmptyString;
+      for ( int i = 0; i < GNSS_SYSTEM; i++) {
+          m_Gtime[i] = 10000;
+      }
+      m_lastShift = wxDateTime::Now();
+      b_shift = false;
+      s_gTalker = wxEmptyString;
+      m_iMaster = 1; //Start with the GPS system
 }
 
 wxSize DashboardInstrument_GPS::GetSize( int orient, wxSize hint )
@@ -80,10 +87,72 @@ void DashboardInstrument_GPS::SetSatInfo(int cnt, int seq, wxString talk, SAT_IN
 {
       m_SatCount = cnt;
       talkerID = talk;
+
       // Some GPS receivers may emit more than 12 sats info
       if (seq < 1 || seq > 3)
-            return;
+          return;
       
+      if (talkerID != wxEmptyString) {
+          // Switch view between the six GNSS system,
+          // mentioned in NMEA0183, when available.
+          // Show each system for 15 seconds.
+          // Time to shift?
+          wxDateTime now = wxDateTime::Now();
+          wxTimeSpan sinceLastShift = now - m_lastShift;
+          if (sinceLastShift.GetSeconds() >= 15){
+              b_shift = true;
+              m_lastShift = now;
+          }          
+          if (b_shift) {
+              //Who's here and in turn to show up next
+              bool secondturn = false;
+              int im = m_iMaster == GNSS_SYSTEM - 1 ? 0 : m_iMaster + 1;
+              for (int i = im; i < GNSS_SYSTEM; i++) {
+                  wxTimeSpan lastUpdate = now - m_Gtime[i];
+                  if (lastUpdate.GetSeconds() < 6) {
+                      m_iMaster = i;
+                      b_shift = false;
+                      break;
+                  }
+                  if (i == 5 && !secondturn) {
+                      i = -1;
+                      secondturn = true;                     
+                  }
+              }
+          }
+          if (talkerID == _T("GP")) {
+              m_Gtime[1] = now;
+              if (m_iMaster != 1) return;
+              s_gTalker = wxString::Format(_T("GPS\n%d"), m_SatCount);
+          }
+          else if (talkerID == _T("GL")){
+              m_Gtime[2] = now;
+              if (m_iMaster != 2) return;
+              s_gTalker = wxString::Format(_T("GLONASS\n%d"), m_SatCount);
+          }
+          else if (talkerID == _T("GA")){
+              m_Gtime[3] = now;
+              if (m_iMaster != 3) return;
+              s_gTalker = wxString::Format(_T("Galileo\n%d"), m_SatCount);
+          }
+          else if (talkerID == _T("GB")) { // BeiDou  BDS
+              m_Gtime[4] = now;
+              if (m_iMaster != 4) return;
+              s_gTalker = wxString::Format(_T("BeiDou\n%d"), m_SatCount);
+          }
+          else if (talkerID == _T("GI")) {
+              m_Gtime[5] = now;
+              if (m_iMaster != 5) return;
+              s_gTalker = wxString::Format(_T("NavIC\n%d"), m_SatCount);
+          }
+          else if (talkerID == _T("GQ")) {
+              m_Gtime[0] = now;
+              if (m_iMaster != 0) return;
+              s_gTalker = wxString::Format(_T("QZSS\n%d"), m_SatCount);
+          }
+          else s_gTalker = wxEmptyString;          
+      }
+            
       int lidx = (seq-1)*4;
       for (int idx = 0; idx < 4; idx++)
       {
@@ -265,17 +334,7 @@ void DashboardInstrument_GPS::DrawForeground( wxGCDC* dc )
              dc->DrawBitmap( tbm, posx, posy, false );
         }
     }
-    if (talkerID != wxEmptyString) {
-        wxString talker = wxEmptyString;
-        if (talkerID == _T("GP")) talker = _("GPS"); // 1 >> GSA Sys ID (#18)
-        else if (talkerID == _T("GA")) talker = _("Galileo"); // 3 >> GSA Sys ID (#18)
-        else if (talkerID == _T("GB")) talker = _("BDS"); // 4 >> GSA Sys ID (#18) BeiDou
-        else if (talkerID == _T("GI")) talker = _("NavIC");
-        else if (talkerID == _T("GL")) talker = _("GLONASS"); // 2 >> GSA Sys ID (#18)
-        else if (talkerID == _T("GQ")) talker = _("QZSS");
-        else if (talkerID == _T("GN")) talker = _("GNSS");
-
-        dc->DrawText( talker, 5, 15);
-    }
+    if (talkerID != wxEmptyString) 
+        dc->DrawText( s_gTalker, 1, 15);
 }
 
