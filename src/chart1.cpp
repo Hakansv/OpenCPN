@@ -364,6 +364,7 @@ wxColour                  g_colourOwnshipRangeRingsColour;
 int                       g_iWpt_ScaMin;
 bool                      g_bUseWptScaMin;
 bool                      g_bShowWptName;
+int                       g_maxzoomin;
 
 bool                      g_bXTE_multiply;
 double                    g_dXTE_multiplier;
