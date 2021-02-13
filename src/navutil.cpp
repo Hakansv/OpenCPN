@@ -813,7 +813,7 @@ int MyConfig::LoadMyConfigRaw( bool bAsTemplate )
     Read( _T ( "DebugS57" ), &g_bDebugS57 );         // Show LUP and Feature info in object query
     Read( _T ( "DebugBSBImg" ), &g_BSBImgDebug );
     Read( _T ( "DebugGPSD" ), &g_bDebugGPSD );
-    Read(_T("MaxZoomScale"), &g_maxzoomin);
+    Read( _T ( "MaxZoomScale" ), &g_maxzoomin);
     g_maxzoomin = wxMax( g_maxzoomin, 50 );
 
     Read(_T("XTE_Multiply"), &g_bXTE_multiply);

@@ -4509,7 +4509,7 @@ void ChartCanvas::DoZoomCanvas( double factor,  bool can_zoom_to_cursor )
             
         }
         else {
-            proposed_scale_onscreen = wxMax( proposed_scale_onscreen, g_maxzoomin); // Has
+            proposed_scale_onscreen = wxMax( proposed_scale_onscreen, g_maxzoomin);
         }
             
         
