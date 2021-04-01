@@ -1227,11 +1227,6 @@ if (OCPN_USE_SYSFS_PORTS)
   set(USE_SYSFS_PORTS 1)
 endif ()
 
-if (WIN32)
-  set(CMAKE_IGNORE_PATH "C:/MinGW/include")
-  message(STATUS "***CMAKE_IGNORE_PATH: ${CMAKE_IGNORE_PATH}")
-endif (WIN32)
-
 find_path(HAVE_UNISTD_H NAMES unistd.h)
 find_path(HAVE_LIBGEN_H NAMES libgen.h)
 find_path(HAVE_DIRENT_H NAMES dirent.h)
