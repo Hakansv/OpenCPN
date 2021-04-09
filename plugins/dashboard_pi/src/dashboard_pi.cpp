@@ -877,6 +877,7 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
                         lon = lon_deg + ( lon_min / 60. );
                         if( m_NMEA0183.Gll.Position.Longitude.Easting == West ) lon = -lon;
                         SendSentenceToAllInstruments( OCPN_DBP_STC_LON, lon, _T("SDMM") );
+
                         mPriPosition = 3;
                     }
 
@@ -1011,6 +1012,23 @@ void dashboard_pi::SetNMEASentence( wxString &sentence )
                                 SendSentenceToAllInstruments(OCPN_DBP_STC_HDT, heading, _T("\u00B0"));
                                 mHDT_Watchdog = gps_watchdog_timeout_ticks;
                             }
+                        }
+                    }
+                    if (!std::isnan(m_NMEA0183.Hdg.MagneticSensorHeadingDegrees))
+                        mHDx_Watchdog = gps_watchdog_timeout_ticks;
+
+                    //      If Variation is available, no higher priority HDT is available,
+                    //      then calculate and propagate calculated HDT
+                    if (!std::isnan(m_NMEA0183.Hdg.MagneticSensorHeadingDegrees)) {
+                        if (!std::isnan(mVar) && (mPriHeadingT >= 6)) {
+                            mPriHeadingT = 6;
+                            double heading = mHdm + mVar;
+                            if (heading < 0)
+                                heading += 360;
+                            else if (heading >= 360.0)
+                                heading -= 360;
+                            SendSentenceToAllInstruments(OCPN_DBP_STC_HDT, heading, _T("\u00B0"));
+                            mHDT_Watchdog = gps_watchdog_timeout_ticks;
                         }
                     }
                 }
