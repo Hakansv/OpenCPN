@@ -6987,7 +6987,7 @@ void MyFrame::OnInitTimer(wxTimerEvent& event)
                 pAnchorWatchPoint2 = pWayPointMan->FindRoutePointByGUID( g_AW2GUID );
             }
 
-            // Import Layer-wise any .gpx files from /Layers directory
+            // Import Layer-wise any .gpx files from /layers directory
             wxString layerdir = g_Platform->GetPrivateDataDir();
             appendOSDirSlash( &layerdir );
             layerdir.Append( _T("layers") );
