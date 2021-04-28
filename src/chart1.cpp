@@ -2550,10 +2550,6 @@ extern ocpnGLOptions g_GLOptions;
     gFrame->GetPrimaryCanvas()->Enable();
     gFrame->GetPrimaryCanvas()->SetFocus();
 
-#ifdef __WXQT__
-    if(gFrame->GetPrimaryCanvas() && gFrame->GetPrimaryCanvas()->GetToolbar())
-        gFrame->GetPrimaryCanvas()->GetToolbar()->Raise();
-#endif
 
     // Setup Tides/Currents to settings present at last shutdown
 // TODO        
@@ -3303,12 +3299,6 @@ void MyFrame::CancelAllMouseRoute()
 
 void MyFrame::NotifyChildrenResize()
 {
-//    // ..For each canvas...
-//    for(unsigned int i=0 ; i < g_canvasArray.GetCount() ; i++){
-//        ChartCanvas *cc = g_canvasArray.Item(i);
-//         if(cc)
-//             cc->DestroyMuiBar();                // A new one will automatically be recreated.
-//    }
 }
     
 void MyFrame::CreateCanvasLayout( bool b_useStoredSize )
@@ -3491,17 +3481,7 @@ void MyFrame::RequestNewToolbars(bool bforcenew)
     if( b_inCloseWindow ) {
         return;
     }
-    
-    // ..For each canvas...
-    if(0){
-        for(unsigned int i=0 ; i < g_canvasArray.GetCount() ; i++){
-            ChartCanvas *cc = g_canvasArray.Item(i);
-            if(cc)
-                cc->RequestNewCanvasToolbar( bforcenew );
-        }
-    }
-   
-    
+ 
     BuildiENCToolbar(bforcenew);
     PositionIENCToolbar();
     
@@ -3807,14 +3787,7 @@ void MyFrame::OnCloseWindow( wxCloseEvent& event )
 
     // Persist the toolbar locations
     if( g_MainToolbar ) {
-        wxPoint tbp_incanvas = GetPrimaryCanvas()->GetToolbarPosition();
-        g_maintoolbar_x = tbp_incanvas.x;
-        g_maintoolbar_y = tbp_incanvas.y;
-        g_maintoolbar_orient = GetPrimaryCanvas()->GetToolbarOrientation();
-        //g_toolbarConfig = GetPrimaryCanvas()->GetToolbarConfigString();
-        if (g_MainToolbar) {
-            g_MainToolbar->GetScreenPosition(&g_maintoolbar_x, &g_maintoolbar_y);
-        }
+        g_MainToolbar->GetFrameRelativePosition(&g_maintoolbar_x, &g_maintoolbar_y);
     }
 
     if(g_iENCToolbar){
@@ -4095,13 +4068,10 @@ void MyFrame::OnCloseWindow( wxCloseEvent& event )
 
 void MyFrame::OnMove( wxMoveEvent& event )
 {
+    
     // ..For each canvas...
     for(unsigned int i=0 ; i < g_canvasArray.GetCount() ; i++){
         ChartCanvas *cc = g_canvasArray.Item(i);
-        if( cc && cc->GetToolbar()) {
-            cc->GetToolbar()->RePosition();
-            cc->ReloadVP();
-        }
         if(cc)
             cc->SetMUIBarPosition();
     }
@@ -4113,7 +4083,7 @@ void MyFrame::OnMove( wxMoveEvent& event )
 
     //  If global toolbar is shown, reposition it...
     if( g_MainToolbar){
-        g_MainToolbar->RePosition();
+        g_MainToolbar->RestoreRelativePosition(  g_maintoolbar_x, g_maintoolbar_y );
         g_MainToolbar->Realize();
     }
     
@@ -4351,22 +4321,6 @@ void MyFrame::ODoSetSize( void )
 
     SetCanvasSizes( GetClientSize() );
 
-    // ..For each canvas...
-    for(unsigned int i=0 ; i < g_canvasArray.GetCount() ; i++){
-        ChartCanvas *cc = g_canvasArray.Item(i);
-        if( cc && cc->GetToolbar()) {
-            wxSize oldSize = cc->GetToolbar()->GetSize();
-            cc->GetToolbar()->RePosition();
-            cc->GetToolbar()->SetGeometry(cc->GetCompass()->IsShown(), cc->GetCompass()->GetRect());
-            cc->GetToolbar()->Realize();
-            
-            if( oldSize != cc->GetToolbar()->GetSize() )
-                cc->GetToolbar()->Refresh( false );
-            
-            cc->GetToolbar()->RePosition();
-        }
-    }
-    
     UpdateGPSCompassStatusBoxes( true );
 
     if( console )
@@ -4391,7 +4345,7 @@ void MyFrame::ODoSetSize( void )
         if((fabs(deltay) > (g_Platform->getDisplaySize().y / 5)))
             g_MainToolbar->Hide();
 #endif        
-        g_MainToolbar->RePosition();
+        g_MainToolbar->RestoreRelativePosition(  g_maintoolbar_x, g_maintoolbar_y );
         //g_MainToolbar->SetGeometry(false, wxRect());
         g_MainToolbar->SetGeometry(GetPrimaryCanvas()->GetCompass()->IsShown(), GetPrimaryCanvas()->GetCompass()->GetRect());
 
@@ -6873,14 +6827,6 @@ void MyFrame::PositionIENCToolbar()
         posn.y = 4;
         g_iENCToolbar->Move(GetPrimaryCanvas()->ClientToScreen(posn));
     }
-    // take care of left docked instrument windows and don't blast the main toolbar on top of them, hinding instruments
-    // this positions the main toolbar directly right of the left docked instruments onto the chart
-    if (g_MainToolbar) {
-      wxPoint posn;
-      posn.x = 2;
-      posn.y = 4;
-      g_MainToolbar->Move(GetPrimaryCanvas()->ClientToScreen(posn));
-    }
 }
 
 // Defered initialization for anything that is not required to render the initial frame
@@ -7308,7 +7254,7 @@ void MyFrame::CheckToolbarPosition()
         bMaximized = true;
         if(g_MainToolbar){
             g_MainToolbar->SetYAuxOffset(g_MainToolbar->GetToolSize().y * 15 / 10 );
-            g_MainToolbar->RePosition();
+            g_MainToolbar->SetDefaultPosition();
             g_MainToolbar->Realize();
         }
         PositionIENCToolbar();
@@ -7318,7 +7264,7 @@ void MyFrame::CheckToolbarPosition()
          if(g_MainToolbar){
             g_MainToolbar->SetYAuxOffset(0);
             g_MainToolbar->SetDockY( -1 );
-            g_MainToolbar->RePosition();
+            g_MainToolbar->SetDefaultPosition();
             g_MainToolbar->Realize();
         }
         PositionIENCToolbar();
@@ -9967,7 +9913,7 @@ void MyFrame::RequestNewMasterToolbar(bool bforcenew)
         g_MainToolbar->SetGrabberEnable( false );
 
         g_MainToolbar->CreateConfigMenu();
-        g_MainToolbar->MoveDialogInScreenCoords(wxPoint(g_maintoolbar_x, g_maintoolbar_y), wxPoint(0, 0));
+        //g_MainToolbar->MoveDialogInScreenCoords(wxPoint(g_maintoolbar_x, g_maintoolbar_y), wxPoint(0, 0));
         g_bmasterToolbarFull = true;
         
     }
@@ -9977,7 +9923,7 @@ void MyFrame::RequestNewMasterToolbar(bool bforcenew)
         if (g_MainToolbar->isSubmergedToGrabber()) {
             g_MainToolbar->SubmergeToGrabber();
         } else {
-            g_MainToolbar->RePosition();
+            g_MainToolbar->RestoreRelativePosition( g_maintoolbar_x, g_maintoolbar_y );
             g_MainToolbar->SetColorScheme(global_color_scheme);
             g_MainToolbar->Show(b_reshow && g_bshowToolbar);
         }
@@ -9987,16 +9933,7 @@ void MyFrame::RequestNewMasterToolbar(bool bforcenew)
         g_MainToolbar->SetAutoHide(g_bAutoHideToolbar);
         g_MainToolbar->SetAutoHideTimer(g_nAutoHideToolbar);
     }
-    
-    //  We need to move the toolbar for the primary (leftmost) ChartCanvas out of the way...
-    ChartCanvas *cc = g_canvasArray[0];
-    if(cc && cc->GetToolbar()){
-        wxRect masterToolbarRect = g_MainToolbar->GetRect();
-        cc->GetToolbar()->SetULDockPosition(wxPoint(masterToolbarRect.width + 8, -1));
-        cc->RequestNewCanvasToolbar( false );
-     }
-        
-        
+
     
 }
 
