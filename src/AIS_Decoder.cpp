@@ -1206,6 +1206,11 @@ AIS_Error AIS_Decoder::Decode( const wxString& str )
             for(unsigned int i=0 ; i < g_MMSI_Props_Array.GetCount() ; i++){
                 MMSIProperties *props =  g_MMSI_Props_Array[i];
                 if(mmsi == props->MMSI){
+                    
+                    // Check to see if this target has been flagged as a "follower"
+                    if(props->m_bFollower)
+                        follower_mmsi = mmsi;
+
                     // Check to see if this MMSI has been configured to be ignored completely...
                     if(props->m_bignore)
                         return AIS_NoError;
@@ -1244,16 +1249,13 @@ AIS_Error AIS_Decoder::Decode( const wxString& str )
                         }
                         return AIS_NoError;
                     }
-                    else if(props->m_bFollower){
-                        follower_mmsi = mmsi;
-                    }
                     else
                         break;
                 }
             }        
 
             //  Grab the stale targets's last report time
-             wxDateTime now = wxDateTime::Now();
+            wxDateTime now = wxDateTime::Now();
             now.MakeGMT();
 
             if( pStaleTarget )
@@ -2522,20 +2524,6 @@ void AIS_Decoder::UpdateAllAlarms( void )
                     continue;
                 }
 
-                //    No alert for my Follower
-                bool hit = false;
-                for(unsigned int i=0 ; i < g_MMSI_Props_Array.GetCount() ; i++){
-                    MMSIProperties *props =  g_MMSI_Props_Array[i];
-                    if(td->MMSI == props->MMSI){
-                        if (props->m_bFollower) {
-                            hit = true;
-                            td->n_alert_state = AIS_NO_ALERT;
-                        }
-                        break;
-                    }
-                }
-                if (hit) continue;
-
                 //    Skip distant targets if requested
                 if( g_bCPAMax ) {
                     if( td->Range_NM > g_CPAMax_NM ) {
@@ -2546,9 +2534,18 @@ void AIS_Decoder::UpdateAllAlarms( void )
 
                 if( ( td->CPA < g_CPAWarn_NM ) && ( td->TCPA > 0 ) && ( td->Class != AIS_ATON ) && ( td->Class != AIS_BASE )) {
                     if( g_bTCPA_Max ) {
-                        if( td->TCPA < g_TCPA_Max ) this_alarm = AIS_ALERT_SET;
-                    } else
-                        this_alarm = AIS_ALERT_SET;
+                        if( td->TCPA < g_TCPA_Max ){ 
+                            if(td->b_isFollower)
+                                this_alarm = AIS_ALERT_NO_DIALOG_SET;
+                            else
+                                this_alarm = AIS_ALERT_SET;
+                        }
+                    } else{
+                        if(td->b_isFollower)
+                            this_alarm = AIS_ALERT_NO_DIALOG_SET;
+                        else
+                            this_alarm = AIS_ALERT_SET;
+                    }
                 }
             }
 
