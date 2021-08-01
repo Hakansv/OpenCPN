@@ -2845,6 +2845,7 @@ void glChartCanvas::DrawFloatingOverlayObjects( ocpnDC &dc )
     m_pParentCanvas->RenderVisibleSectorLights( dc );
 
     m_pParentCanvas->RenderRouteLegs( dc );
+    m_pParentCanvas->RenderShipToActive( dc, true );
     m_pParentCanvas->ScaleBarDraw( dc );
     s57_DrawExtendedLightSectors( dc, m_pParentCanvas->VPoint, m_pParentCanvas->extendedSectorLegs );
 }
