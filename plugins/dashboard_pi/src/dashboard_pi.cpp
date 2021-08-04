@@ -542,13 +542,14 @@ double GetJsonDouble(wxJSONValue &value) {
     double d_ret =0;
     if (value.IsDouble()) {
         d_ret = value.AsDouble();
+        return d_ret;
     }
     else if (value.IsLong()) {
         int i_ret = value.AsLong();
         d_ret = i_ret;
+        return d_ret;
     }
-
-    return d_ret;
+    return nan("");
 }
 
 void dashboard_pi::Notify()
@@ -556,7 +557,21 @@ void dashboard_pi::Notify()
     SendUtcTimeToAllInstruments( mUTCDateTime );
     for( size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++ ) {
         DashboardWindow *dashboard_window = m_ArrayOfDashboardWindow.Item( i )->m_pDashboardWindow;
-        if( dashboard_window ) dashboard_window->Refresh();
+        if( dashboard_window ){
+            dashboard_window->Refresh();
+#ifdef __OCPN__ANDROID__            
+            wxWindowList list = dashboard_window->GetChildren();
+            wxWindowListNode *node = list.GetFirst();
+            for( size_t i = 0; i < list.GetCount(); i++ ) {
+                wxWindow *win = node->GetData();
+//                qDebug() << "Refresh Dash child:" << i;
+                win->Refresh();
+                node = node->GetNext();
+            }
+#endif            
+
+            
+        }
     }
     //  Manage the watchdogs
 
@@ -1635,6 +1650,7 @@ void dashboard_pi::CalculateAndUpdateTWDS( double awsKnots, double awaDegrees)
         // Update the instruments
         //printf("CALC: %4.0f %4.0f\n", tws, twdc);
         SendSentenceToAllInstruments(OCPN_DBP_STC_TWD, twdc, _T("\u00B0"));
+        SendSentenceToAllInstruments(OCPN_DBP_STC_TWA, twdc, _T("\u00B0"));
                                           
         SendSentenceToAllInstruments(OCPN_DBP_STC_TWS,toUsrSpeed_Plugin(tws, g_iDashWindSpeedUnit),
                                                     getUsrSpeedUnit_Plugin(g_iDashWindSpeedUnit));

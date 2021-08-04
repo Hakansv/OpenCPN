@@ -685,6 +685,11 @@ PlugInContainer::PlugInContainer()
 
 SemanticVersion PlugInContainer::GetVersion() 
 {
+     if(m_ManagedMetadata.version.size()){
+         return SemanticVersion::parse(m_ManagedMetadata.version);
+     }
+    
+  
     if(!m_pplugin){
         return SemanticVersion(0,0,0);
     }
@@ -1450,6 +1455,7 @@ bool PlugInManager::LoadPlugInDirectory(const wxString& plugin_dir, bool load_en
                     pic->m_destroy_fn(pic->m_pplugin);
                     pic->m_destroy_fn = NULL;
                     pic->m_pplugin = NULL;
+                    pic->m_bInitState = false;
                     if(pic->m_library.IsLoaded())
                         pic->m_library.Unload();
                 }
@@ -1643,7 +1649,16 @@ bool PlugInManager::UpdatePlugIns()
     for(unsigned int i = 0 ; i < plugin_array.GetCount() ; i++)
     {
         PlugInContainer *pic = plugin_array[i];
-
+       
+        // Try to confirm that the m_pplugin member points to a valid plugin image...
+        if(pic->m_pplugin){
+            opencpn_plugin *ppl = dynamic_cast<opencpn_plugin*>(pic->m_pplugin);
+            if(!ppl){
+                pic->m_pplugin = NULL;
+                pic->m_bInitState = false;
+            }
+        }
+        
         // Installed and loaded?
         if(!pic->m_pplugin){            // Needs a reload?
             if(pic->m_bEnabled){
@@ -1684,6 +1699,7 @@ bool PlugInManager::UpdatePlugIns()
                 pic->m_library.Unload();
             pic->m_pplugin = NULL;
             pic->m_bitmap = NULL;
+            pic->m_bInitState = false;
         }
     }
 
@@ -8830,6 +8846,11 @@ _OCPN_DLStatus OCPN_downloadFile( const wxString& url, const wxString &outputFil
     wxString msg = _T("Downloading file synchronously: ");
     msg += url;  msg += _T(" to: ");  msg += outputFile;
     wxLogMessage(msg);
+    
+    // Validate the write location
+    int vres = validateAndroidWriteLocation( outputFile );
+    if(vres == 0)               // Pending permission dialog
+        return OCPN_DL_ABORTED;
     
     //  Create a single event handler to receive status events
     if(!g_piEventHandler)

@@ -1736,6 +1736,7 @@ bool MyApp::OnInit()
     if( !wxApp::OnInit() ) return false;
 #ifdef __OCPN__ANDROID__
     androidEnableBackButton( false );
+    androidEnableOptionItems( false );
 #endif
 
     GpxDocument::SeedRandom();
@@ -2828,8 +2829,10 @@ END_EVENT_TABLE()
 static void onBellsFinishedCB(void* ptr)
 {
    auto framePtr  = static_cast<MyFrame*>(ptr);
-   wxCommandEvent ev(BELLS_PLAYED_EVTYPE);
-   wxPostEvent(framePtr, ev);
+   if( framePtr){
+    wxCommandEvent ev(BELLS_PLAYED_EVTYPE);
+    wxPostEvent(framePtr, ev);
+   }
 }
 
 
@@ -7187,6 +7190,7 @@ void MyFrame::OnInitTimer(wxTimerEvent& event)
 #ifdef __OCPN__ANDROID__
             androidEnableBackButton( true );
             androidEnableRotation();
+            androidEnableOptionItems( true );
 #endif
 
             if( g_MainToolbar )

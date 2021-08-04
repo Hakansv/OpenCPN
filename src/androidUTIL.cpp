@@ -345,6 +345,8 @@ wxSize          config_size;
 bool            s_bdownloading;
 wxString        s_requested_url;
 wxEvtHandler    *s_download_evHandler;
+wxString        s_download_destination;
+
 bool            g_running;
 bool            g_bstress1;
 extern int      g_GUIScaleFactor;
@@ -364,6 +366,10 @@ int doAndroidPersistState();
 
 bool            bInConfigChange;
 AudioDoneCallback s_soundCallBack;
+void *          s_soundData;
+
+bool            g_detect_smt590;
+int             g_orientation;
 
 //      Some dummy devices to ensure plugins have static access to these classes not used elsewhere
 wxFontPickerEvent       g_dummy_wxfpe;
@@ -401,6 +407,7 @@ class androidUtilHandler : public wxEvtHandler
     wxTimer     m_resizeTimer;
     int         timer_sequence;
     int         m_bskipConfirm;
+    
     DECLARE_EVENT_TABLE()
 };
 
@@ -432,13 +439,13 @@ androidUtilHandler::androidUtilHandler()
     wxFilePickerCtrl *pfpc = new wxFilePickerCtrl();
     
     wxZipEntry *entry = new wxZipEntry();
-    
+
 }
 
        
 void androidUtilHandler::onTimerEvent(wxTimerEvent &event)
 {
-//    qDebug() << "onTimerEvent";
+    qDebug() << "onTimerEvent" << m_action;
 
     switch(m_action){
         case ACTION_RESIZE_PERSISTENTS:            //  Handle rotation/resizing of persistent dialogs
@@ -560,7 +567,11 @@ void androidUtilHandler::onTimerEvent(wxTimerEvent &event)
                     g_pAboutDlgLegacy->Show();
                 }
             }
-            
+
+            if(g_options){
+                g_options->RecalculateSize();
+            }
+
             bInConfigChange = false;
             
             break;
@@ -735,14 +746,38 @@ void androidUtilHandler::OnResizeTimer(wxTimerEvent &event)
         timer_sequence++;
         //  This timer step needs to be long enough to allow Java induced size change to take effect
         //  in another thread.
+        //  The results will be checked in sequence 1.
         m_resizeTimer.Start(1000, wxTIMER_ONE_SHOT);
         return;
     }
 
 
-
     if(timer_sequence == 1){
-        qDebug() << "sequence 1" << config_size.x;
+        qDebug() << "sequence 1";
+        
+        qDebug() << "****config_size: " << config_size.x << config_size.y;
+        
+        wxSize szt = gFrame->GetSize();
+        qDebug() << "****Frame Size: " << szt.x << szt.y;
+
+        // Some Android devices do not correctly process the config change, and properly resize the app.
+        // A slower forced config change is then necessary, with lots of steps.
+        
+        // However, if we can detect the ones that do properly resize the app Frame, we can skip all this.
+
+        wxSize new_size = getAndroidDisplayDimensions();
+        qDebug() << "****NewSize: " << new_size.x << new_size.y;
+
+        if((g_orientation == 1) || (g_orientation == 3)){        // Portrait
+            if( szt.x < szt.y )                  // OK
+                return;
+        }
+        else if((g_orientation == 2) || (g_orientation == 4)){   // Landscape
+            if( szt.x > szt.y )                  // OK
+                return;
+        }
+         
+        qDebug() << "****Force config change"; 
         gFrame->SetSize(config_size);
         timer_sequence++;
         if(!m_bskipConfirm)
@@ -752,6 +787,7 @@ void androidUtilHandler::OnResizeTimer(wxTimerEvent &event)
     }
 
     if(timer_sequence == 2){
+        qDebug() << "sequence 2";
         timer_sequence++;
         m_resizeTimer.Start(10, wxTIMER_ONE_SHOT);
         return;
@@ -827,7 +863,7 @@ void androidUtilHandler::OnScheduledEvent( wxCommandEvent& event )
         case ID_CMD_SOUND_FINISHED:
             //qDebug() << "Trigger SoundFinished";
             if(s_soundCallBack){
-               s_soundCallBack(0);              // No user data
+               s_soundCallBack( s_soundData );   // Wirh user data
                s_soundCallBack = 0;
             }
             break;
@@ -916,6 +952,7 @@ wxSize getAndroidConfigSize()
 
 void resizeAndroidPersistents()
 {
+    qDebug() << "resizeAndroidPersistents()";
     
      if(g_androidUtilHandler){
          g_androidUtilHandler->m_action = ACTION_RESIZE_PERSISTENTS;
@@ -1165,8 +1202,9 @@ extern "C"{
 
 
 extern "C"{
-    JNIEXPORT jint JNICALL Java_org_opencpn_OCPNNativeLib_onConfigChange(JNIEnv *env, jobject obj)
+    JNIEXPORT jint JNICALL Java_org_opencpn_OCPNNativeLib_onConfigChange(JNIEnv *env, jobject obj, int orientation)
     {
+        g_orientation = orientation;
         qDebug() << "onConfigChange";
 
         wxLogMessage(_T("onConfigChange"));
@@ -1269,7 +1307,7 @@ extern "C"{
 
         if(!g_btrackContinuous)
             androidGPSService( GPS_OFF );
-        
+ 
         return 97;
     }
 }
@@ -1279,7 +1317,7 @@ extern "C"{
     {
         qDebug() << "onResume";
         wxLogMessage(_T("onResume"));
-        
+
         int ret = 96;
         
         g_bSleep = false;
@@ -1497,7 +1535,6 @@ extern "C"{
         return 73;
     }
 }
-
 
 extern "C"{
     JNIEXPORT jstring JNICALL Java_org_opencpn_OCPNNativeLib_getVPCorners(JNIEnv *env, jobject obj)
@@ -2195,6 +2232,9 @@ void androidDisplayToast(wxString message)
 
 void androidEnableRotation( void )
 {
+//    if(g_detect_smt590)
+//        return;
+    
     callActivityMethod_vs("EnableRotation");
 }
 
@@ -2202,6 +2242,7 @@ void androidDisableRotation( void )
 {
     callActivityMethod_vs("DisableRotation");
 }
+
 
 bool androidShowDisclaimer( wxString title, wxString msg )
 {
@@ -2416,6 +2457,15 @@ wxString androidGetDeviceInfo()
         if(wxNOT_FOUND != s1.Find(_T("opencpn"))){
             strcpy(&android_plat_spc.hn[0], s1.c_str());
         }
+ 
+        // Look for some specific device identifiers, for special processing as implemented.
+        
+        // (1) Samsung SM-T590 running Android/10{29}
+        if(wxNOT_FOUND != s1.Find(_T("SM-T590"))){
+            if( !strncmp(android_plat_spc.msdk, "29", 2))       // Assumes API comes before Model/Product.
+                g_detect_smt590 = true;
+        }
+        
     }
     
     return g_deviceInfo;
@@ -2548,6 +2598,12 @@ void androidEnableBackButtonCheck(bool benable)
     if(g_backEnabled != benable)
         androidEnableBackButton(benable);
 }
+
+void androidEnableOptionItems(bool benable)
+{
+    callActivityMethod_is("enableOptionItemAction", benable?1:0);
+}
+
 
 
 bool androidGetMemoryStatus( int *mem_total, int *mem_used )
@@ -2803,7 +2859,6 @@ wxSize getAndroidDisplayDimensions( void )
         long b = 1000;        
         if(token.ToLong( &b ))
             sz_ret.y = b;
-        
         token = tk.GetNextToken();              
         token = tk.GetNextToken();
         
@@ -2819,7 +2874,13 @@ wxSize getAndroidDisplayDimensions( void )
         
     }
 
-//    qDebug() << sz_ret.x << sz_ret.y;
+    // Samsung sm-t590/Android 10 has some display problems in portrait mode.....
+    if(g_detect_smt590){
+        if(sz_ret.x < sz_ret.y)
+            sz_ret.y = 1650;
+    }
+    
+    //qDebug() << "getAndroidDisplayDimensions" << sz_ret.x << sz_ret.y;
     
     return sz_ret;
     
@@ -3956,6 +4017,17 @@ wxString doAndroidPOST( const wxString &url, wxString &parms, int timeoutMsec)
     return wxEmptyString;    
 }
     
+int validateAndroidWriteLocation( const wxString& destination )
+{
+        // validate the destination, as it might be on SDCard
+        wxString val_result = callActivityMethod_s2s2i("validateWriteLocation", destination, _T(""), OCPN_ACTION_DOWNLOAD_VALID, 0);
+        if( val_result.IsSameAs(_T("Pending")) )
+            return 0;           //  SAF Dialog is going to run
+        else
+            return 1;           // All well.
+}
+
+ 
     
 int startAndroidFileDownload( const wxString &url, const wxString& destination, wxEvtHandler *evh, long *dl_id )
 {
@@ -3964,7 +4036,8 @@ int startAndroidFileDownload( const wxString &url, const wxString& destination, 
         s_bdownloading = true;
         s_requested_url = url;
         s_download_evHandler = evh;
-    
+        s_download_destination = destination;
+        
         wxString result = callActivityMethod_s2s( "downloadFile", url, destination );
 
         androidShowBusyIcon();
@@ -4012,6 +4085,7 @@ void finishAndroidFileDownload( void )
     s_bdownloading = false;
     s_requested_url.Clear();
     s_download_evHandler = NULL;
+    s_download_destination.Clear();
     androidHideBusyIcon();
     
     return;
@@ -4103,10 +4177,11 @@ wxString getFontQtStylesheet(wxFont *font)
 
     
 
-bool androidPlaySound( wxString soundfile, AudioDoneCallback callBack )
+bool androidPlaySound( wxString soundfile, AudioDoneCallback callBack, void *data )
 {
     //qDebug() << "androidPlay";
-    s_soundCallBack = callBack;    
+    s_soundCallBack = callBack;
+    s_soundData = data;    
     wxString result = callActivityMethod_ss("playSound", soundfile);
     
     return true;
