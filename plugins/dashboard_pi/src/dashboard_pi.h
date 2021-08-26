@@ -271,6 +271,7 @@ public:
       wxStaticText                 *m_pDevfilename;
       wxChoice                     *m_pChoiceWindSpeedUnit;
       wxCheckBox                   *m_pUseTrueWinddata;
+      wxChoice                     *m_pChoiceTempUnit;
 
 private:
       void UpdateDashboardButtonsState(void);
