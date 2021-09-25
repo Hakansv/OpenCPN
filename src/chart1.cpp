@@ -6693,6 +6693,8 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
   msg.Printf(_T("OnInitTimer...%d"), m_iInitCount);
   wxLogMessage(msg);
 
+  wxLog::FlushActive();
+
   switch (m_iInitCount++) {
     case 0: {
       if (g_MainToolbar) g_MainToolbar->EnableTool(ID_SETTINGS, false);
@@ -6999,6 +7001,8 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
   }  // switch
 
   if (!g_bDeferredInitDone) InitTimer.Start(100, wxTIMER_ONE_SHOT);
+
+  wxLog::FlushActive();
 
   RefreshAllCanvas(true);
 }

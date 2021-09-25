@@ -1138,6 +1138,8 @@ bool PlugInManager::LoadPlugInDirectory(const wxString &plugin_dir,
 
   wxLogMessage("Found %d candidates", (int)file_list.GetCount());
   for (unsigned int i = 0; i < file_list.GetCount(); i++) {
+    wxLog::FlushActive();
+
     wxString file_name = file_list[i];
     if (file_name.Contains(_T("draw"))) int yyp = 3;
 
@@ -1219,6 +1221,8 @@ bool PlugInManager::LoadPlugInDirectory(const wxString &plugin_dir,
     wxStopWatch sw;
     if (b_compat) pic = LoadPlugIn(file_name);
 
+    wxLog::FlushActive();
+
     if (pic) {
       if (pic->m_pplugin) {
         plugin_array.Add(pic);
@@ -1238,13 +1242,9 @@ bool PlugInManager::LoadPlugInDirectory(const wxString &plugin_dir,
               if (!pic->m_bToolboxPanel) NotifySetupOptionsPlugin(pic);
             }
           }
-#ifdef __WXGTK__  // 10 milliseconds is very slow at least on linux
-          if (sw.Time() > 10)
-            wxLogMessage(_T("PlugInManager: ") + pic->m_common_name +
-                             _T(" has loaded very slowly: %ld ms"),
-                         sw.Time());
-#endif
         }
+        wxLog::FlushActive();
+
         std::string found_version;
         for (auto p : PluginHandler::getInstance()->getInstalled()) {
           if (p.name == pic->m_common_name.Lower()) {
