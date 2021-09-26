@@ -1212,6 +1212,12 @@ bool PlugInManager::LoadPlugInDirectory(const wxString &plugin_dir,
                      10);
     }
 
+    if (!b_compat){
+      wxString dmsg(wxString::Format(_T("%s: %s"), _T("Jailing"), plugin_file));
+      wxRenameFile(plugin_file, plugin_file + _T(".jail"));
+      wxLogMessage(dmsg);
+    }
+
     // Safe mode? If so, refuse to load.
     if (safe_mode::get_mode()) {
       continue;
@@ -2325,6 +2331,11 @@ PlugInContainer *PlugInManager::LoadPlugIn(wxString plugin_file,
     msg += plugin_file;
     msg += _T(" ");
     wxLogMessage(msg);
+
+    wxString dmsg(wxString::Format(_T("%s: %s"), _T("Jailing"), plugin_file));
+    wxRenameFile(plugin_file, plugin_file + _T(".jail"));
+    wxLogMessage(dmsg);
+
     return NULL;
   }
 
