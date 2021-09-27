@@ -1603,6 +1603,7 @@ wxScrolledWindow* options::AddPage(size_t parent, const wxString& title) {
     /* Only remove the tab from listbook, we still have original content in
      * {page} */
     m_pListbook->InsertPage(parent, nb, toptitle, FALSE, parent);
+    m_pListbook->SetSelection( 0 );   // avoid gtk assertions
     m_pListbook->RemovePage(parent + 1);
     wxString previoustitle = page->GetName();
     page->Reparent(nb);
@@ -1624,6 +1625,7 @@ wxScrolledWindow* options::AddPage(size_t parent, const wxString& title) {
     sw->SetScrollRate(m_scrollRate, m_scrollRate);
     wxString toptitle = m_pListbook->GetPageText(parent);
     m_pListbook->InsertPage(parent, sw, toptitle, FALSE, parent);
+    m_pListbook->SetSelection( 0 );   // avoid gtk assertions
     m_pListbook->DeletePage(parent + 1);
   }
 
@@ -9391,6 +9393,8 @@ void options::DoOnPageChange(size_t page) {
   }
 
   else if (m_pageUI == i) {  // 5 is the index of "User Interface" page
+    if(!m_itemLangListBox)
+      return;
 #if wxUSE_XLOCALE || !wxCHECK_VERSION(3, 0, 0)
 
     if (!m_bVisitLang) {
