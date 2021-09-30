@@ -283,6 +283,10 @@ public:
   wxChoice *m_pChoiceWindSpeedUnit;
   wxCheckBox *m_pUseTrueWinddata;
   wxChoice *m_pChoiceTempUnit;
+  
+  wxCheckBox *m_pSetDeviationBtn;
+  wxCheckBox *m_pSetDevSoundBtn;
+  wxStaticText *m_pDevfilename;
 
 private:
   void UpdateDashboardButtonsState(void);

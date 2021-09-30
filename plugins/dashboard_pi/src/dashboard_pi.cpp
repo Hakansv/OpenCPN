@@ -36,12 +36,13 @@
 // xw 2.8
 #include <wx/filename.h>
 #include <wx/fontdlg.h>
-
+#include <wx/stdpaths.h>
 #include <typeinfo>
 #include "dashboard_pi.h"
 #include "icons.h"
 #include "wx/jsonreader.h"
 #include "wx/jsonwriter.h"
+#include <fstream>
 
 wxFont *g_pFontTitle;
 wxFont *g_pFontData;
@@ -60,6 +61,10 @@ bool g_iDashUsetruewinddata;
 double g_dHDT;
 double g_dSOG, g_dCOG;
 int g_iDashTempUnit;
+
+bool b_IsDeviation;         // For Momo deviation table
+bool b_IsDevPrintSound;
+int devSOG, devCOG, ComCOG; // Dito
 
 #if !defined(NAN)
 static const long long lNaN = 0xfff8000000000000;
@@ -972,7 +977,57 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
               mPriHeadingM = 2;
               mHdm = m_NMEA0183.Hdg.MagneticSensorHeadingDegrees;
               SendSentenceToAllInstruments(OCPN_DBP_STC_HDM, mHdm,
-                                           _T("\u00B0"));
+                                           _T("\u00B0"));                                         
+             
+            //Print HDM, HDT and COG to file for deviation table when COG is stable
+            if (b_IsDeviation)  //When checked in preferences
+            {
+                static int printdelay = 1;
+                if (printdelay > 6) {
+                    wxStandardPathsBase& std_path = wxStandardPathsBase::Get();
+                    wxString s = wxFileName::GetPathSeparator();
+                    wxString stdPath = std_path.GetConfigDir();
+                    int mHdt = mHdm + mVar;
+                    wxString tid = wxDateTime::Now().Format(wxT("%Y-%m-%d %H:%M:%S"), wxDateTime::CET);
+                    wxString devdataPath = stdPath + s + wxT("devdata.txt");
+
+                    std::ofstream outfile(devdataPath.mb_str(), std::ios_base::app); //wx_str()
+                    if (outfile.is_open()) {
+                        outfile << tid << ","
+                            << "HDM:" << "," << mHdm << ","
+                            << "HDT:" << "," << mHdt << ","
+                            << "COG:" << "," << devCOG << ","
+                            << "Adjust:" << "," << (devCOG - mHdt)
+                            << "\n";
+                    }
+                    outfile.close();
+#ifdef __WXMSW__
+                    if (b_IsDevPrintSound) Beep(400, 500);
+#endif  //__WXMSW
+                        printdelay = 1;
+                    }
+                    else if (devCOG > 0 && devSOG > 3)  //Stable COG and enough speed.
+                    {
+                        switch (printdelay) {
+                        case 1:
+                            ComCOG = devCOG;
+                            printdelay++;
+                            return;
+                        case 2:
+                        case 3:
+                        case 4:
+                        case 5:
+                        case 6:
+                            if ((ComCOG == devCOG) ||
+                                (((devCOG > ComCOG) && (devCOG - ComCOG) < 1)) ||
+                                (((devCOG < ComCOG) && (ComCOG - devCOG) < 1))) {
+                                printdelay++;
+                                return;
+                            }
+                        default: printdelay = 1; //Back to scratch                            
+                        }
+                    }
+                }
             }
           }
           if (!std::isnan(m_NMEA0183.Hdg.MagneticSensorHeadingDegrees))
@@ -2152,6 +2207,13 @@ void dashboard_pi::SetPositionFix(PlugIn_Position_Fix &pfix) {
         getUsrSpeedUnit_Plugin(g_iDashSpeedUnit));
     SendSentenceToAllInstruments(OCPN_DBP_STC_COG, mCOGFilter.filter(pfix.Cog),
                                  _T("\u00B0"));
+								 
+    if (b_IsDeviation)  // For Momo deviation table
+    {
+       devCOG = mCOGFilter.filter(pfix.Cog);
+       devSOG = mSOGFilter.filter(pfix.Sog);
+    }
+		
     dMagneticCOG = mCOGFilter.get() - pfix.Var;
     if (dMagneticCOG < 0.0) dMagneticCOG = 360.0 + dMagneticCOG;
     if (dMagneticCOG > 360.0) dMagneticCOG = dMagneticCOG - 360.0;
@@ -3216,6 +3278,33 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
   m_pUseTrueWinddata->SetValue(g_iDashUsetruewinddata);
   itemFlexGridSizer04->Add(m_pUseTrueWinddata, 1, wxALIGN_LEFT, border_size);
 
+   //Hack: Add a empty textbox to fill column 2 and move to next row
+    wxStaticText* movetonextrow = new wxStaticText(itemPanelNotebook02, wxID_ANY, _(""),
+        wxDefaultPosition, wxDefaultSize, 0);
+    itemFlexGridSizer04->Add(movetonextrow, 1, wxALIGN_RIGHT, border_size);
+
+    m_pSetDeviationBtn = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
+        wxT(" Spara deviationsdata till fil"), wxDefaultPosition, wxDefaultSize);
+    m_pSetDeviationBtn->SetValue(b_IsDeviation);
+    itemFlexGridSizer04->Add(m_pSetDeviationBtn, 0, wxEXPAND | wxALL, 0);
+ 
+#ifdef __WXMSW__
+    m_pSetDevSoundBtn = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
+        wxT(" Beep at print"), wxDefaultPosition, wxDefaultSize);
+    m_pSetDevSoundBtn->SetValue(b_IsDevPrintSound);
+    itemFlexGridSizer04->Add(m_pSetDevSoundBtn, 0, wxEXPAND | wxALL, 0);
+#else
+    //Hack: Add a empty textbox to fill column 2 and move to next row
+    wxStaticText* movetonextrow2 = new wxStaticText(itemPanelNotebook02, wxID_ANY, _(""),
+        wxDefaultPosition, wxDefaultSize, 0);
+    itemFlexGridSizer04->Add(movetonextrow2, 1, wxALIGN_RIGHT, border_size);
+#endif
+    
+    m_pDevfilename = new wxStaticText(itemPanelNotebook02, wxID_ANY, 
+        _T("      in Log Directory - devdata.txt"), wxDefaultPosition, wxDefaultSize);
+    itemFlexGridSizer04->Add(m_pDevfilename, 0, wxALIGN_LEFT | wxALL, 0);
+  
+
   wxStdDialogButtonSizer *DialogButtonSizer =
       CreateStdDialogButtonSizer(wxOK | wxCANCEL);
   itemBoxSizerMainPanel->Add(DialogButtonSizer, 0, wxALIGN_RIGHT | wxALL, 5);
@@ -3285,6 +3374,12 @@ void DashboardPreferencesDialog::SaveDashboardConfig() {
   g_iDashDepthUnit = m_pChoiceDepthUnit->GetSelection() + 3;
   g_iDashDistanceUnit = m_pChoiceDistanceUnit->GetSelection() - 1;
   g_iDashWindSpeedUnit = m_pChoiceWindSpeedUnit->GetSelection();
+  
+  b_IsDeviation = m_pSetDeviationBtn->IsChecked(); // Momo Dev table
+#ifdef __WXMSW__
+  b_IsDevPrintSound = m_pSetDevSoundBtn->IsChecked();
+#endif  
+  
   g_iDashUsetruewinddata = m_pUseTrueWinddata->GetValue();
   g_iDashTempUnit = m_pChoiceTempUnit->GetSelection();
   if (curSel != -1) {
