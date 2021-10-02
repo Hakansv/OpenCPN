@@ -2138,6 +2138,7 @@ void MyConfig::LoadConfigCanvas(canvasConfig *cConfig, bool bApplyAsTemplate) {
   Read(_T ( "canvasENCShowLights" ), &cConfig->bShowENCLights, 1);
   Read(_T ( "canvasENCShowVisibleSectorLights" ),
        &cConfig->bShowENCVisibleSectorLights, 0);
+  Read(_T ( "canvasENCShowAnchorInfo" ), &cConfig->bShowENCAnchorInfo, 0);
 
   int sx, sy;
   Read(_T ( "canvasSizeX" ), &sx, 0);
@@ -2241,6 +2242,8 @@ void MyConfig::SaveConfigCanvas(canvasConfig *cConfig) {
     Write(_T ( "canvasENCShowLights" ), cConfig->canvas->GetShowENCLights());
     Write(_T ( "canvasENCShowVisibleSectorLights" ),
           cConfig->canvas->GetShowVisibleSectors());
+    Write(_T ( "canvasENCShowAnchorInfo" ),
+          cConfig->canvas->GetShowENCAnchor());
 
     Write(_T ( "canvasCourseUp" ),
           cConfig->canvas->GetUpMode() == COURSE_UP_MODE);
