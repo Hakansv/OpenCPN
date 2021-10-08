@@ -20,7 +20,7 @@ ls ${HOME}/project/opt_local_cache/bin || echo "OK"
 
 # Check if the cache is with us. If not, re-install macports
 port info zstd || {
-    curl -O https://distfiles.macports.org/MacPorts/MacPorts-2.7.1.tar.bz2
+    curl -k -O https://distfiles.macports.org/MacPorts/MacPorts-2.7.1.tar.bz2
     tar xf MacPorts-2.7.1.tar.bz2
     cd MacPorts-2.7.1/
     ./configure
@@ -39,17 +39,19 @@ pushd buildosx/macports/ports
   portindex
 popd
 
-port deactivate OCPN_curl || {
+sudo port deactivate OCPN_curl || {
   echo "OK"
 }
 
 # Install curl to get the TLS certificate bundle
 # then immediately deactivate curl to make room for OCPN_curl later
-sudo port -q install curl
-sudo port deactivate curl
+#sudo port -q install curl
+#sudo port -N deactivate curl
 
-sudo port deactivate openssl
+#sudo port -N deactivate python39
+#sudo port -N deactivate openssl
 
+sudo port -q install curl-ca-bundle
 
 # install the local port libraries
 #  n.b.  ORDER IS IMPORTANT
