@@ -18,6 +18,14 @@ sudo ln -s ${HOME}/project/opt_local_cache /opt/local
 ls ${HOME}/project/opt_local_cache || echo "OK"
 ls ${HOME}/project/opt_local_cache/bin || echo "OK"
 
+sudo mkdir -p /opt/local/share/curl
+sudo cp buildosx/cacert.pem /opt/local/share/curl/curl-ca-bundle.crt
+sudo mkdir -p /opt/local/etc/openssl
+sudo ln -s /opt/local/share/curl/curl-ca-bundle.crt /opt/local/etc/openssl/cert.pem
+
+#openssl x509 -in /opt/local/share/curl/curl-ca-bundle.crt -out mycert.pem -outform PEM
+#sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain "mycert.pem"
+
 # Check if the cache is with us. If not, re-install macports
 port info zstd || {
     curl -k -O https://distfiles.macports.org/MacPorts/MacPorts-2.7.1.tar.bz2
@@ -51,20 +59,23 @@ sudo port deactivate OCPN_curl || {
 #sudo port -N deactivate python39
 #sudo port -N deactivate openssl
 
-sudo port -q install curl-ca-bundle
+#sudo port -q install curl-ca-bundle
 
 # install the local port libraries
 #  n.b.  ORDER IS IMPORTANT
 
 sudo port -q install OCPN_openssl
-sudo port -q install OCPN_curl
-sudo port -q install OCPN_libpixman
 sudo port -q install OCPN_cairo
+
+sudo port -N deactivate libpixman
+sudo port -q install OCPN_libpixman
+
 sudo port -q install zstd
 sudo port -q install OCPN_libarchive
-
 sudo port -q -f install OCPN_libpng
 
+sudo port -N deactivate curl
+sudo port -q install OCPN_curl
 
 # Return latest installed brew version of given package
 pkg_version() { brew list --versions $2 $1 | tail -1 | awk '{print $2}'; }
