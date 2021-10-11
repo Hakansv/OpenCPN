@@ -48,14 +48,14 @@ pushd buildosx/macports/ports
   portindex
 popd
 
-sudo port deactivate OCPN_curl || {
+sudo port -fN deactivate OCPN_curl || {
   echo "OK"
 }
 
 # Install curl to get the TLS certificate bundle
 # then immediately deactivate curl to make room for OCPN_curl later
 sudo port -q install curl
-sudo port -N deactivate curl
+sudo port -fN deactivate curl
 
 sudo port -fN deactivate openssl
 
@@ -64,11 +64,11 @@ sudo port -fN deactivate openssl
 #  n.b.  ORDER IS IMPORTANT
 
 sudo port -q install OCPN_openssl
-sudo port -q install OCPN_curl
+sudo port -fq install OCPN_curl
 sudo port -q install OCPN_libpixman
 
 sudo port -fN deactivate OCPN_curl
-sudo port -q install OCPN_cairo
+sudo port -fq install OCPN_cairo
 
 sudo port -q install zstd
 
@@ -111,7 +111,7 @@ pkg_version() { brew list --versions $2 $1 | tail -1 | awk '{print $2}'; }
 
 
 # Check if the cache is with us. If not, re-install brew.
-brew list --versions wget || {
+brew list --versions python3 || {
     brew update-reset
     # As indicated by warning message in CircleCI build log:
     git -C "/usr/local/Homebrew/Library/Taps/homebrew/homebrew-core" \
@@ -120,7 +120,7 @@ brew list --versions wget || {
         fetch --unshallow
 }
 
-for pkg in cmake python3 wget  ; do
+for pkg in python3  ; do
     brew list --versions $pkg || brew install $pkg || brew install $pkg || :
     brew link --overwrite $pkg || :
 done
@@ -143,8 +143,12 @@ else
     brew install --cask packages
 fi
 
-wget -q https://download.opencpn.org/s/MCiRiq4fJcKD56r/download \
-    -O /tmp/wx315_opencpn50_macos1010.tar.xz
+#wget -q https://download.opencpn.org/s/MCiRiq4fJcKD56r/download \
+#    -O /tmp/wx315_opencpn50_macos1010.tar.xz
+
+curl -k -o /tmp/wx315_opencpn50_macos1010.tar.xz  \
+    https://download.opencpn.org/s/MCiRiq4fJcKD56r/download
+
 tar -C /tmp -xJf /tmp/wx315_opencpn50_macos1010.tar.xz
 
 #wget -q https://download.opencpn.org/s/rwoCNGzx6G34tbC/download \
