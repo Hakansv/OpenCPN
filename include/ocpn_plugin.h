@@ -1493,6 +1493,7 @@ public:
   wxColour RangeRingColor;
 
   wxString IconName;
+  wxString IconDescription;
 
   Plugin_HyperlinkList *m_HyperlinkList;
 };
@@ -1508,11 +1509,13 @@ public:
   wxString m_StartString;
   wxString m_EndString;
   wxString m_GUID;
+  bool m_isActive;
 
   Plugin_WaypointExList *pWaypointList;
 };
 
-
+extern DECL_EXP wxArrayString GetRouteGUIDArray(void);
+extern DECL_EXP wxArrayString GetTrackGUIDArray(void);
 
 extern DECL_EXP bool GetSingleWaypointEx(wxString GUID,
                                          PlugIn_Waypoint_Ex *pwaypoint);
