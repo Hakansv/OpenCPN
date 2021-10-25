@@ -2199,7 +2199,7 @@ void PlugInManager::ShowDeferredBlacklistMessages() {
   for (unsigned int i = 0; i < m_deferred_blacklist_messages.GetCount(); i++) {
     OCPNMessageBox(NULL, m_deferred_blacklist_messages[i],
                    wxString(_("OpenCPN Info")), wxICON_INFORMATION | wxOK,
-                   5);  // 5 second timeout
+                   10);  // 10 second timeout
   }
 }
 
@@ -2231,7 +2231,7 @@ bool PlugInManager::CheckBlacklistedPlugin(opencpn_plugin *plugin) {
         msg = wxString::Format(
             _("PlugIn %s (%s), version %i.%i was detected.\n This version is "
               "known to be unstable and will not be loaded.\n Please update "
-              "this PlugIn at the opencpn.org website."),
+              "this PlugIn using the PlugIn manager master catalog."),
             PluginBlacklist[i].name.c_str(), plugin->GetCommonName().c_str(),
             major, minor),
         _("Blacklisted plugin detected...");
@@ -2243,8 +2243,8 @@ bool PlugInManager::CheckBlacklistedPlugin(opencpn_plugin *plugin) {
       } else {
         msg = wxString::Format(
             _("PlugIn %s (%s), version %i.%i was detected.\n This version is "
-              "known to be unstable.\n Please update this PlugIn at the "
-              "opencpn.org website."),
+              "known to be unstable.\n Please update this PlugIn using the "
+              "PlugIn manager master catalog."),
             PluginBlacklist[i].name.c_str(), plugin->GetCommonName().c_str(),
             major, minor),
         _("Blacklisted plugin detected...");
@@ -2258,7 +2258,7 @@ bool PlugInManager::CheckBlacklistedPlugin(opencpn_plugin *plugin) {
       wxLogMessage(msg1);
       if (m_benable_blackdialog)
         OCPNMessageBox(NULL, msg, wxString(_("OpenCPN Info")),
-                       wxICON_INFORMATION | wxOK, 5);  // 5 second timeout
+                       wxICON_INFORMATION | wxOK, 10);  // 10 second timeout
       else
         m_deferred_blacklist_messages.Add(msg);
 
@@ -2386,6 +2386,9 @@ PlugInContainer *PlugInManager::LoadPlugIn(wxString plugin_file,
   SemanticVersion pi_ver(pi_major, pi_minor, -1);
 
   if (CheckBlacklistedPlugin(plug_in)) {
+    wxString dmsg(wxString::Format(_T("%s: %s"), _T("Jailing due to Blacklist"), plugin_file));
+    wxRenameFile(plugin_file, plugin_file + _T(".jail.blacklist"));
+    wxLogMessage(dmsg);
     return NULL;
   }
 
@@ -8842,7 +8845,8 @@ static void PlugInExFromRoutePoint(PlugIn_Waypoint_Ex *dst,
   // Get other extended info
   dst->IsNameVisible = src->m_bShowName;
   dst->scamin = src->GetScaMin();
-
+  dst->b_useScamin = src->GetUseSca();
+  dst->IsActive = src->m_bIsActive;
 }
 
 static void cloneHyperlinkListEx(RoutePoint *dst, const PlugIn_Waypoint_Ex *src) {
@@ -8908,12 +8912,8 @@ bool AddSingleWaypointEx(PlugIn_Waypoint_Ex *pwaypoint, bool b_permanent) {
 
   pWP->m_MarkDescription = pwaypoint->m_MarkDescription;
 
-  if (pwaypoint->m_CreateTime.IsValid())
-    pWP->SetCreateTime(pwaypoint->m_CreateTime);
-  else {
-    wxDateTime dtnow(wxDateTime::Now());
-    pWP->SetCreateTime(dtnow);
-  }
+  wxDateTime dtnow(wxDateTime::Now());
+  pWP->SetCreateTime(dtnow);
 
   pWP->m_btemp = (b_permanent == false);
 
@@ -8923,7 +8923,9 @@ bool AddSingleWaypointEx(PlugIn_Waypoint_Ex *pwaypoint, bool b_permanent) {
   pWP->SetWaypointRangeRingsStep( pwaypoint->RangeRingSpace );
   pWP->SetWaypointRangeRingsColour( pwaypoint->RangeRingColor );
   pWP->SetScaMin( pwaypoint->scamin);
+  pWP->SetUseSca( pwaypoint->b_useScamin );
   pWP->SetNameShown( pwaypoint->IsNameVisible );
+  pWP->SetVisible( pwaypoint->IsVisible );
 
   pSelect->AddSelectableRoutePoint(pwaypoint->m_lat, pwaypoint->m_lon, pWP);
   if (b_permanent) pConfig->AddNewWayPoint(pWP, -1);
@@ -8980,6 +8982,7 @@ bool UpdateSingleWaypointEx(PlugIn_Waypoint_Ex *pwaypoint) {
       prp->SetWaypointRangeRingsStep( pwaypoint->RangeRingSpace );
       prp->SetWaypointRangeRingsColour( pwaypoint->RangeRingColor );
       prp->SetScaMin( pwaypoint->scamin);
+      prp->SetUseSca( pwaypoint->b_useScamin );
       prp->SetNameShown( pwaypoint->IsNameVisible );
 
     }
