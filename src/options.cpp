@@ -9459,15 +9459,8 @@ void options::DoOnPageChange(size_t page) {
             wxString s0 =
                 wxLocale::GetLanguageInfo(lang_list[it])->CanonicalName;
             wxString sl = wxLocale::GetLanguageName(lang_list[it]);
-            wxString msg("Loaded language: ");
-            msg += s0;  msg += " "; msg += sl;
-            wxLogMessage(msg);
-            if (wxNOT_FOUND == lang_array.Index(s0)){
-              wxLogMessage(" Adding...");
+            if (wxNOT_FOUND == lang_array.Index(s0))
               lang_array.Add(s0);
-            }
-            else
-              wxLogMessage("skipping due to duplicate...");
           }
         }
       }
@@ -9475,9 +9468,6 @@ void options::DoOnPageChange(size_t page) {
       for (unsigned int i = 0; i < lang_array.GetCount(); i++) {
         //  Make opencpn substitutions
         wxString loc_lang_name = GetOCPNKnownLanguage(lang_array[i]);
-        wxString msg;
-        msg += "Adding to list: "; msg += loc_lang_name;
-        wxLogMessage(msg);
         m_itemLangListBox->Append(loc_lang_name);
       }
 #endif
