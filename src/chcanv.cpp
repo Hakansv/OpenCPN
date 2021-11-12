@@ -891,7 +891,7 @@ void ChartCanvas::RebuildCursors() {
   wxImage ICursorRight = style->GetIcon(_T("right")).ConvertToImage();
   wxImage ICursorUp = style->GetIcon(_T("up")).ConvertToImage();
   wxImage ICursorDown = style->GetIcon(_T("down")).ConvertToImage();
-  wxImage ICursorPencil = style->GetIcon(_T("pencil"), cursorScale).ConvertToImage();
+  wxImage ICursorPencil = style->GetIconScaled(_T("pencil"), cursorScale).ConvertToImage();
   wxImage ICursorCross = style->GetIcon(_T("cross")).ConvertToImage();
 
 #if !defined(__WXMSW__) && !defined(__WXQT__)
@@ -7858,6 +7858,7 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
                                                  wxString(_T ( "circle" )),
                                                  wxEmptyString, wxEmptyString);
         pMousePoint->m_bShowName = false;
+        pMousePoint->SetShowWaypointRangeRings( false );
 
         m_pMeasureRoute->AddPoint(pMousePoint);
 
@@ -12377,6 +12378,12 @@ void ChartCanvas::DrawAllCurrentsInBBox(ocpnDC &dc, LLBBox &BBox) {
                         1.2;  // soften the scale factor a bit
 
   scale_factor *= user_scale_factor;
+
+  //  TODO  Convert this method to "DPI-Pixel aware"
+#ifdef __WXMSW__
+  double csf = GetContentScaleFactor();
+  scale_factor /= csf;
+#endif
 
   {
     for (int i = 1; i < ptcmgr->Get_max_IDX() + 1; i++) {
