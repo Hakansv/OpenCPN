@@ -2995,9 +2995,9 @@ void options::CreatePanel_NMEA(size_t parent, int border_size,
 #endif
   FillSourceList();
 
-  ShowNMEACommon(FALSE);
-  ShowNMEASerial(FALSE);
-  ShowNMEANet(FALSE);
+  ShowNMEACommon(true);
+  ShowNMEASerial(true);
+  ShowNMEANet(true);
   connectionsaved = TRUE;
 }
 
@@ -10804,6 +10804,10 @@ void options::SetDefaultConnectionParams(void) {
 
   bool bserial = TRUE;
 #ifdef __WXGTK__
+  bserial = FALSE;
+#endif
+
+#ifdef __WXOSX__
   bserial = FALSE;
 #endif
 
