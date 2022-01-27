@@ -702,6 +702,14 @@ void AISTargetListDialog::CreateControls() {
       wxEVT_COMMAND_BUTTON_CLICKED,
       wxCommandEventHandler(AISTargetListDialog::OnTargetScrollTo), NULL, this);
   bsRouteButtonsInner->Add(m_pButtonJumpTo, 0, wxEXPAND | wxALL, 0);
+  
+  m_pButtonJumpTo_Close =
+    new wxButton(winr, wxID_ANY, _("Center+Info+Close"), wxDefaultPosition,
+                 wxDefaultSize, wxBU_AUTODRAW);
+  m_pButtonJumpTo_Close->Connect(
+    wxEVT_COMMAND_BUTTON_CLICKED,
+    wxCommandEventHandler(AISTargetListDialog::OnTargetScrollToClose), NULL, this);
+  bsRouteButtonsInner->Add(m_pButtonJumpTo_Close, 0, wxEXPAND | wxALL, 0);
 
   m_pButtonCreateWpt =
       new wxButton(winr, wxID_ANY, _("Create WPT"), wxDefaultPosition,
@@ -934,12 +942,31 @@ void AISTargetListDialog::OnTargetScrollTo(wxCommandEvent &event) {
   AIS_Target_Data *pAISTarget = NULL;
   if (m_pdecoder)
     pAISTarget =
+    m_pdecoder->Get_Target_Data_From_MMSI(m_pMMSI_array->Item(selItemID));
+
+  if (pAISTarget)
+    gFrame->JumpToPosition(gFrame->GetFocusCanvas(), pAISTarget->Lat,
+                           pAISTarget->Lon,
+                           gFrame->GetFocusCanvas()->GetVPScale());
+}
+
+void AISTargetListDialog::OnTargetScrollToClose(wxCommandEvent &event) {
+  long selItemID = -1;
+  selItemID = m_pListCtrlAISTargets->GetNextItem(selItemID, wxLIST_NEXT_ALL,
+                                                 wxLIST_STATE_SELECTED);
+  if (selItemID == -1) return;
+
+  AIS_Target_Data *pAISTarget = NULL;
+  if (m_pdecoder)
+    pAISTarget =
         m_pdecoder->Get_Target_Data_From_MMSI(m_pMMSI_array->Item(selItemID));
 
   if (pAISTarget)
     gFrame->JumpToPosition(gFrame->GetFocusCanvas(), pAISTarget->Lat,
                            pAISTarget->Lon,
                            gFrame->GetFocusCanvas()->GetVPScale());
+    DoTargetQuery(pAISTarget->MMSI); // Select the target
+    Shutdown();  // Close AIS target list
 }
 
 void AISTargetListDialog::OnTargetCreateWpt(wxCommandEvent &event) {

@@ -81,6 +81,7 @@ private:
   void OnTargetQuery(wxCommandEvent &event);
   void OnTargetListColumnClicked(wxListEvent &event);
   void OnTargetScrollTo(wxCommandEvent &event);
+  void OnTargetScrollToClose(wxCommandEvent &event);
   void OnTargetCreateWpt(wxCommandEvent &event);
   void OnShowAllTracks(wxCommandEvent &event);
   void OnHideAllTracks(wxCommandEvent &event);
@@ -96,6 +97,7 @@ private:
   wxAuiManager *m_pAuiManager;
   wxButton *m_pButtonInfo;
   wxButton *m_pButtonJumpTo;
+  wxButton *m_pButtonJumpTo_Close;
   wxButton *m_pButtonCreateWpt;
   wxButton *m_pButtonHideAllTracks;
   wxButton *m_pButtonShowAllTracks;
