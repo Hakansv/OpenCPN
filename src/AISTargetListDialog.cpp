@@ -704,7 +704,7 @@ void AISTargetListDialog::CreateControls() {
   bsRouteButtonsInner->Add(m_pButtonJumpTo, 0, wxEXPAND | wxALL, 0);
   
   m_pButtonJumpTo_Close =
-    new wxButton(winr, wxID_ANY, _("Center+Info+Close"), wxDefaultPosition,
+    new wxButton(winr, wxID_ANY, _("Center/Info/Close"), wxDefaultPosition,
                  wxDefaultSize, wxBU_AUTODRAW);
   m_pButtonJumpTo_Close->Connect(
     wxEVT_COMMAND_BUTTON_CLICKED,
@@ -853,6 +853,7 @@ void AISTargetListDialog::UpdateButtons() {
     if (pAISTargetSel && (!pAISTargetSel->b_positionOnceValid)) enable = false;
   }
   m_pButtonJumpTo->Enable(enable);
+  m_pButtonJumpTo_Close->Enable(enable);
   m_pButtonCreateWpt->Enable(enable);
   m_pButtonToggleTrack->Enable(enable);
   m_pButtonCopyMMSI->Enable(enable);
