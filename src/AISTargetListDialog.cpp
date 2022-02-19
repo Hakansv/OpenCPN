@@ -962,12 +962,13 @@ void AISTargetListDialog::OnTargetScrollToClose(wxCommandEvent &event) {
     pAISTarget =
         m_pdecoder->Get_Target_Data_From_MMSI(m_pMMSI_array->Item(selItemID));
 
-  if (pAISTarget)
+  if (pAISTarget) {
     gFrame->JumpToPosition(gFrame->GetFocusCanvas(), pAISTarget->Lat,
                            pAISTarget->Lon,
                            gFrame->GetFocusCanvas()->GetVPScale());
     DoTargetQuery(pAISTarget->MMSI); // Select the target
     Shutdown();  // Close AIS target list
+  }
 }
 
 void AISTargetListDialog::OnTargetCreateWpt(wxCommandEvent &event) {
