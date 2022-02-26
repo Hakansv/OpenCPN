@@ -935,40 +935,11 @@ void AISTargetListDialog::OnTargetListColumnClicked(wxListEvent &event) {
 }
 
 void AISTargetListDialog::OnTargetScrollTo(wxCommandEvent &event) {
-  long selItemID = -1;
-  selItemID = m_pListCtrlAISTargets->GetNextItem(selItemID, wxLIST_NEXT_ALL,
-                                                 wxLIST_STATE_SELECTED);
-  if (selItemID == -1) return;
-
-  AIS_Target_Data *pAISTarget = NULL;
-  if (m_pdecoder)
-    pAISTarget =
-    m_pdecoder->Get_Target_Data_From_MMSI(m_pMMSI_array->Item(selItemID));
-
-  if (pAISTarget)
-    gFrame->JumpToPosition(gFrame->GetFocusCanvas(), pAISTarget->Lat,
-                           pAISTarget->Lon,
-                           gFrame->GetFocusCanvas()->GetVPScale());
+  CenterToTarget(false);
 }
 
 void AISTargetListDialog::OnTargetScrollToClose(wxCommandEvent &event) {
-  long selItemID = -1;
-  selItemID = m_pListCtrlAISTargets->GetNextItem(selItemID, wxLIST_NEXT_ALL,
-                                                 wxLIST_STATE_SELECTED);
-  if (selItemID == -1) return;
-
-  AIS_Target_Data *pAISTarget = NULL;
-  if (m_pdecoder)
-    pAISTarget =
-        m_pdecoder->Get_Target_Data_From_MMSI(m_pMMSI_array->Item(selItemID));
-
-  if (pAISTarget) {
-    gFrame->JumpToPosition(gFrame->GetFocusCanvas(), pAISTarget->Lat,
-                           pAISTarget->Lon,
-                           gFrame->GetFocusCanvas()->GetVPScale());
-    DoTargetQuery(pAISTarget->MMSI); // Select the target
-    Shutdown();  // Close AIS target list
-  }
+  CenterToTarget(true);
 }
 
 void AISTargetListDialog::OnTargetCreateWpt(wxCommandEvent &event) {
@@ -1052,6 +1023,29 @@ void AISTargetListDialog::OnCopyMMSI(wxCommandEvent &event) {
                                                  wxLIST_STATE_SELECTED);
   if (selItemID == -1) return;
   CopyMMSItoClipBoard((int)m_pMMSI_array->Item(selItemID));
+}
+
+void AISTargetListDialog::CenterToTarget(bool close) {
+  long selItemID = -1;
+  selItemID = m_pListCtrlAISTargets->GetNextItem(selItemID, wxLIST_NEXT_ALL,
+                                                 wxLIST_STATE_SELECTED);
+  if (selItemID == -1) return;
+
+  AIS_Target_Data *pAISTarget = NULL;
+  if (m_pdecoder)
+    pAISTarget =
+    m_pdecoder->Get_Target_Data_From_MMSI(m_pMMSI_array->Item(selItemID));
+
+  if (pAISTarget) {
+    double scale = gFrame->GetFocusCanvas()->GetVPScale();
+    //wxLogMessage(wxString::Format(_T(" ***** VPScale: : %f"), scale));
+    gFrame->JumpToPosition(gFrame->GetFocusCanvas(), pAISTarget->Lat,
+                           pAISTarget->Lon, scale);
+    if (close) {
+      Shutdown();  // Close AIS target list
+      DoTargetQuery(pAISTarget->MMSI);
+    }
+  }
 }
 
 void AISTargetListDialog::CopyMMSItoClipBoard(int mmsi) {

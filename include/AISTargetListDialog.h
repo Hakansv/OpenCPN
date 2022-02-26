@@ -63,6 +63,7 @@ public:
   void UpdateAISTargetList();  // Rebuild AIS target list
   void UpdateNVAISTargetList();
   void CopyMMSItoClipBoard(int);
+  void CenterToTarget(bool);
   AIS_Target_Data *GetpTarget(unsigned int list_item);
 
   OCPNListCtrl *m_pListCtrlAISTargets;
