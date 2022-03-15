@@ -581,7 +581,7 @@ public:
     void DoChartSelected(  );
     void SetSelected( bool selected );
     void OnPaint( wxPaintEvent &event );
-    void OnEraseBackground( wxEraseEvent &event );
+    //void OnEraseBackground( wxEraseEvent &event );
     void OnSize(wxSizeEvent &event);
     ChartDirInfo GetCDI() { return m_cdi; }
     int GetUnselectedHeight(){ return m_unselectedHeight; }
@@ -605,7 +605,7 @@ private:
 
 BEGIN_EVENT_TABLE(OCPNChartDirPanel, wxPanel)
 EVT_PAINT ( OCPNChartDirPanel::OnPaint )
-EVT_ERASE_BACKGROUND( OCPNChartDirPanel::OnEraseBackground)
+//EVT_ERASE_BACKGROUND( OCPNChartDirPanel::OnEraseBackground)
 EVT_SIZE( OCPNChartDirPanel::OnSize)
 END_EVENT_TABLE()
 
@@ -625,9 +625,9 @@ OCPNChartDirPanel::OCPNChartDirPanel(wxWindow *parent, wxWindowID id, const wxPo
 
     m_unselectedHeight = 2 * m_refHeight;
 
-#ifdef __OCPN__ANDROID__
-    m_unselectedHeight = 4 * m_refHeight;
-#endif
+// #ifdef __OCPN__ANDROID__
+//     m_unselectedHeight = 2 * m_refHeight;
+// #endif
 
     SetMinSize(wxSize(-1, m_unselectedHeight));
 
@@ -710,9 +710,9 @@ void OCPNChartDirPanel::SetSelected( bool selected )
 
 
 
-void OCPNChartDirPanel::OnEraseBackground( wxEraseEvent &event )
-{
-}
+// void OCPNChartDirPanel::OnEraseBackground( wxEraseEvent &event )
+// {
+// }
 
 void OCPNChartDirPanel::OnSize(wxSizeEvent &event)
 {
@@ -1575,6 +1575,7 @@ void OCPNFatCombo::Clear(void) {
 }
 
 BEGIN_EVENT_TABLE(options, wxDialog)
+EVT_INIT_DIALOG(options::OnDialogInit)
 EVT_CHECKBOX(ID_DEBUGCHECKBOX1, options::OnDebugcheckbox1Click)
 EVT_BUTTON(ID_BUTTONADD, options::OnButtonaddClick)
 EVT_BUTTON(ID_BUTTONDELETE, options::OnButtondeleteClick)
@@ -1868,6 +1869,10 @@ For more info, see the file LINUX_DEVICES.md in the distribution docs.
 )");
 
 #endif  // defined(__GNUC__) && __GNUC__ < 8
+
+void options::OnDialogInit(wxInitDialogEvent& event)
+{
+}
 
 void options::CheckDeviceAccess(/*[[maybe_unused]]*/ wxString& path) {}
 
@@ -3936,13 +3941,12 @@ void options::CreatePanel_Routes(size_t parent, int border_size,
 
 void options::CreatePanel_ChartsLoad(size_t parent, int border_size,
                                      int group_item_spacing) {
-  wxScrolledWindow* chartPanelWin = AddPage(m_pageCharts, _("Chart Files"));
+  chartPanelWin = AddPage(m_pageCharts, _("Chart Files"));
 
   chartPanel = new wxBoxSizer(wxVERTICAL);
   chartPanelWin->SetSizer(chartPanel);
 
-  wxStaticBox* loadedBox =
-      new wxStaticBox(chartPanelWin, wxID_ANY, _("Directories"));
+  loadedBox = new wxStaticBox(chartPanelWin, wxID_ANY, _("Directories"));
   activeSizer = new wxStaticBoxSizer(loadedBox, wxHORIZONTAL);
   chartPanel->Add(activeSizer, 1, wxALL | wxEXPAND, border_size);
 
@@ -3961,13 +3965,7 @@ void options::CreatePanel_ChartsLoad(size_t parent, int border_size,
   boxSizerCharts = new wxBoxSizer(wxVERTICAL);
   m_scrollWinChartList->SetSizer(boxSizerCharts);
 
-      // Currently loaded chart dirs
-  ActiveChartArray.Clear();
-  for (size_t i = 0; i < m_CurrentDirList.GetCount(); i++) {
-    ActiveChartArray.Add(m_CurrentDirList[i]);
-  }
-
-  wxBoxSizer* cmdButtonSizer = new wxBoxSizer(wxVERTICAL);
+  cmdButtonSizer = new wxBoxSizer(wxVERTICAL);
   activeSizer->Add(cmdButtonSizer, 0, wxALL, border_size);
 
   wxString b1 = _("Add Directory...");
@@ -4025,15 +4023,23 @@ void options::CreatePanel_ChartsLoad(size_t parent, int border_size,
 
   itemStaticBoxSizerUpdate->Add(itemFlexGridSizerUpdate, 1, wxEXPAND, 5);
 
+  // Currently loaded chart dirs
+  ActiveChartArray.Clear();
+  for (size_t i = 0; i < m_CurrentDirList.GetCount(); i++) {
+    ActiveChartArray.Add(m_CurrentDirList[i]);
+  }
+
   UpdateChartDirList();
 
   chartPanel->Layout();
 }
 
+
 void options::UpdateChartDirList( )
 {
     // Clear the sizer, and delete all the child panels
     m_scrollWinChartList->GetSizer()->Clear( true );
+    m_scrollWinChartList->ClearBackground();
 
     panelVector.clear();
 
@@ -4050,6 +4056,9 @@ void options::UpdateChartDirList( )
     }
 
     m_scrollWinChartList->GetSizer()->Layout();
+
+    chartPanelWin->ClearBackground();
+    chartPanelWin->Layout();
 
     // There are some problems with wxScrolledWindow after add/removing items.
     // Typically, the problem is that blank space remains at the top of the
@@ -7452,9 +7461,6 @@ void options::SetInitialSettings(void) {
     ActiveChartArray.Add(m_CurrentDirList[i]);
   }
 
-  UpdateChartDirList();
-
-#if 1
   // ChartGroups
   if (m_pWorkDirList) {
     UpdateWorkArrayFromDisplayPanel();
@@ -7467,7 +7473,6 @@ void options::SetInitialSettings(void) {
     groupsPanel->SetGroupArray(m_pGroupArray);
     groupsPanel->SetInitialSettings();
   }
-#endif
 
   if (m_pConfig) {
     pShowStatusBar->SetValue(g_bShowStatusBar);
@@ -9733,6 +9738,8 @@ void options::OnChooseFontColor(wxCommandEvent& event) {
 void options::OnChartsPageChange(wxListbookEvent& event) {
   unsigned int i = event.GetSelection();
 
+  UpdateChartDirList();
+
   //    User selected Chart Groups Page?
   //    If so, build the remaining UI elements
   if (2 == i) {  // 2 is the index of "Chart Groups" page
@@ -9803,6 +9810,7 @@ void options::DoOnPageChange(size_t page) {
   //    If so, build the "Charts" page variants
   if (1 == i) {  // 2 is the index of "Charts" page
     k_charts = VISIT_CHARTS;
+    UpdateChartDirList();
   }
 
   else if (m_pageUI == i) {  // 5 is the index of "User Interface" page
