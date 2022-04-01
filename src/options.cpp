@@ -1786,6 +1786,8 @@ void options::Init(void) {
   lastPage = 0;
   m_bneedNew = false;
 
+  m_bForceNewToolbaronCancel = false;
+
   m_cs = (ColorScheme)0;
 
   // for deferred loading
@@ -7827,6 +7829,8 @@ void options::SetInitialSettings(void) {
   connectionsaved = true;
 
   SetSelectedConnectionPanel(nullptr);
+
+  m_bForceNewToolbaronCancel = false;
 }
 
 void options::resetMarStdList(bool bsetConfig, bool bsetStd) {
@@ -9579,7 +9583,10 @@ void options::OnCancelClick(wxCommandEvent& event) {
   pConfig->Write("OptionsSizeX", lastWindowSize.x);
   pConfig->Write("OptionsSizeY", lastWindowSize.y);
 
-  EndModal(0);
+  int rv = 0;
+  if (m_bForceNewToolbaronCancel)
+    rv = TOOLBAR_CHANGED;
+  EndModal(rv);
 }
 
 void options::OnClose(wxCloseEvent& event) {
