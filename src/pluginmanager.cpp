@@ -1154,8 +1154,6 @@ bool PlugInManager::LoadPlugInDirectory(const wxString &plugin_dir,
 
   //  Enable the compatibility dialogs if requested, and has not been already
   //  done once.
-
-  m_benable_blackdialog = b_enable_blackdialog && !m_benable_blackdialog_done;
   m_plugin_location = plugin_dir;
 
   wxString msg(_T("PlugInManager searching for PlugIns in location "));
