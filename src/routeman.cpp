@@ -79,7 +79,7 @@ extern OCPNPlatform *g_Platform;
 extern ConsoleCanvas *console;
 
 extern RouteList *pRouteList;
-extern TrackList *pTrackList;
+extern std::vector<Track*> g_TrackList;
 extern Select *pSelect;
 extern MyConfig *pConfig;
 extern Routeman *g_pRouteMan;
@@ -1064,11 +1064,7 @@ void Routeman::DeleteAllTracks(void) {
   ::wxBeginBusyCursor();
 
   //    Iterate on the RouteList
-  wxTrackListNode *node = pTrackList->GetFirst();
-  while (node) {
-    Track *ptrack = node->GetData();
-    node = node->GetNext();
-
+  for (Track *ptrack : g_TrackList) {
     if (ptrack->m_bIsInLayer) continue;
 
     g_pAIS->DeletePersistentTrack(ptrack);
@@ -1106,7 +1102,10 @@ void Routeman::DeleteTrack(Track *pTrack) {
 
     //    Remove the track from associated lists
     pSelect->DeleteAllSelectableTrackSegments(pTrack);
-    pTrackList->DeleteObject(pTrack);
+    auto it = std::find(g_TrackList.begin(), g_TrackList.end(), pTrack);
+    if (it != g_TrackList.end()) {
+      g_TrackList.erase(it);
+    }
 
 #if 0
         // walk the track, deleting points used by this track
@@ -1210,12 +1209,8 @@ Route *Routeman::FindRouteByGUID(const wxString &guid) {
 }
 
 Track *Routeman::FindTrackByGUID(const wxString &guid) {
-  wxTrackListNode *node1 = pTrackList->GetFirst();
-  while (node1) {
-    Track *pTrack = node1->GetData();
-
+  for (Track* pTrack : g_TrackList) {
     if (pTrack->m_GUID == guid) return pTrack;
-    node1 = node1->GetNext();
   }
 
   return NULL;
