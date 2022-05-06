@@ -1,4 +1,4 @@
-/***************************************************************************
+﻿/***************************************************************************
  *
  * Project:  OpenCPN
  * Purpose:  Chart Canvas
@@ -6496,8 +6496,7 @@ void ChartCanvas::UpdateAIS() {
 
   //  If more than "some number", it will be cheaper to refresh the entire
   //  screen than to build update rectangles for each target.
-  AIS_Target_Hash *current_targets = g_pAIS->GetTargetList();
-  if (current_targets->size() > 10) {
+  if (g_pAIS->GetTargetList().size() > 10) {
     ais_rect = wxRect(0, 0, sx, sy);  // full screen
   } else {
     //  Need a bitmap
@@ -9377,18 +9376,13 @@ void ChartCanvas::ShowObjectQueryWindow(int x, int y, float zlat, float zlon) {
   std::vector<Ais8_001_22 *> area_notices;
 
   if (g_pAIS && m_bShowAIS && g_bShowAreaNotices) {
-    AIS_Target_Hash *an_sources = g_pAIS->GetAreaNoticeSourcesList();
-
     float vp_scale = GetVPScale();
 
-    for (AIS_Target_Hash::iterator target = an_sources->begin();
-         target != an_sources->end(); ++target) {
-      AIS_Target_Data *target_data = target->second;
+    for (const auto &target : g_pAIS->GetAreaNoticeSourcesList()) {
+      AIS_Target_Data *target_data = target.second;
       if (!target_data->area_notices.empty()) {
-        for (AIS_Area_Notice_Hash::iterator ani =
-                 target_data->area_notices.begin();
-             ani != target_data->area_notices.end(); ++ani) {
-          Ais8_001_22 &area_notice = ani->second;
+        for (auto &ani : target_data->area_notices) {
+          Ais8_001_22 &area_notice = ani.second;
 
           wxBoundingBox bbox;
 
