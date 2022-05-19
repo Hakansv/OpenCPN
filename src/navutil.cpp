@@ -965,6 +965,16 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   Read(_T ( "SkewCompUpdatePeriod" ), &g_SkewCompUpdatePeriod);
 
   Read(_T ( "SetSystemTime" ), &s_bSetSystemTime);
+
+#ifdef __WXMSW__
+  // HAS for boat PC
+  wxString PC = ::wxGetHostName();
+  if (PC == "MomoR61") {
+    s_bSetSystemTime = true;
+    wxLogMessage(wxString::Format(_T("PC is %s SetSystemTime is set."), PC));
+  }
+#endif
+
   Read(_T ( "ShowStatusBar" ), &g_bShowStatusBar);
 #ifndef __WXOSX__
   Read(_T ( "ShowMenuBar" ), &g_bShowMenuBar);
