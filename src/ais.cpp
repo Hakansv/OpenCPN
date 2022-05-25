@@ -1422,31 +1422,31 @@ static void AISDrawTarget(AIS_Target_Data *td, ocpnDC &dc, ViewPort &vp,
     wxPoint SarRot[15];
 
     if (airtype == 5) {
-      SarIcon[0] = wxPoint(0, 9);
-      SarIcon[1] = wxPoint(1, 1);
-      SarIcon[2] = wxPoint(2, 1);
-      SarIcon[3] = wxPoint(9, 8);
-      SarIcon[4] = wxPoint(9, 7);
-      SarIcon[5] = wxPoint(3, 0);
-      SarIcon[6] = wxPoint(3, -5);
-      SarIcon[7] = wxPoint(9, -12);
-      SarIcon[8] = wxPoint(9, -13);
-      SarIcon[9] = wxPoint(2, -5);
-      SarIcon[10] = wxPoint(1, -15);
-      SarIcon[11] = wxPoint(3, -16);
-      SarIcon[12] = wxPoint(4, -18);
-      SarIcon[13] = wxPoint(1, -18);
-      SarIcon[14] = wxPoint(0, -19);
+      SarIcon[0] = wxPoint(0, 9) * AIS_scale_factor * 1.4;
+      SarIcon[1] = wxPoint(1, 1) * AIS_scale_factor * 1.4;
+      SarIcon[2] = wxPoint(2, 1) * AIS_scale_factor * 1.4;
+      SarIcon[3] = wxPoint(9, 8) * AIS_scale_factor * 1.4;
+      SarIcon[4] = wxPoint(9, 7) * AIS_scale_factor * 1.4;
+      SarIcon[5] = wxPoint(3, 0) * AIS_scale_factor * 1.4;
+      SarIcon[6] = wxPoint(3, -5) * AIS_scale_factor * 1.4;
+      SarIcon[7] = wxPoint(9, -12) * AIS_scale_factor * 1.4;
+      SarIcon[8] = wxPoint(9, -13) * AIS_scale_factor * 1.4;
+      SarIcon[9] = wxPoint(2, -5) * AIS_scale_factor * 1.4;
+      SarIcon[10] = wxPoint(1, -15) * AIS_scale_factor * 1.4;
+      SarIcon[11] = wxPoint(3, -16) * AIS_scale_factor * 1.4;
+      SarIcon[12] = wxPoint(4, -18) * AIS_scale_factor * 1.4;
+      SarIcon[13] = wxPoint(1, -18) * AIS_scale_factor * 1.4;
+      SarIcon[14] = wxPoint(0, -19) * AIS_scale_factor * 1.4;
     } else {
-      SarIcon[0] = wxPoint(0, 12);
-      SarIcon[1] = wxPoint(4, 2);
-      SarIcon[2] = wxPoint(16, -2);
-      SarIcon[3] = wxPoint(16, -8);
-      SarIcon[4] = wxPoint(4, -8);
-      SarIcon[5] = wxPoint(3, -16);
-      SarIcon[6] = wxPoint(10, -18);
-      SarIcon[7] = wxPoint(10, -22);
-      SarIcon[8] = wxPoint(0, -22);
+      SarIcon[0] = wxPoint(0, 12) * AIS_scale_factor;
+      SarIcon[1] = wxPoint(4, 2) * AIS_scale_factor;
+      SarIcon[2] = wxPoint(16, -2) * AIS_scale_factor;
+      SarIcon[3] = wxPoint(16, -8) * AIS_scale_factor;
+      SarIcon[4] = wxPoint(4, -8) * AIS_scale_factor;
+      SarIcon[5] = wxPoint(3, -16) * AIS_scale_factor;
+      SarIcon[6] = wxPoint(10, -18) * AIS_scale_factor;
+      SarIcon[7] = wxPoint(10, -22) * AIS_scale_factor;
+      SarIcon[8] = wxPoint(0, -22) * AIS_scale_factor;
     }
 
     // Draw icon as two halves
