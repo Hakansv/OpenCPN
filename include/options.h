@@ -741,6 +741,7 @@ private:
   void UpdateSourceList(bool bResort);
   bool SortSourceList(void);
 
+  ObservedVarListener compat_os_listener;
   ConnectionParams *CreateConnectionParamsFromSelectedItem();
   ConnectionParams *UpdateConnectionParamsFromSelectedItem(
       ConnectionParams *pConnectionParams);
