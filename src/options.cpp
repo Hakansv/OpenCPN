@@ -774,6 +774,14 @@ void OCPNChartDirPanel::OnPaint(wxPaintEvent& event) {
 
 /////////////////////////////////////////////////////////////////////////////////////
 
+
+static bool LoadAllPlugIns(bool load_enabled) {
+  g_Platform->ShowBusySpinner();
+  bool b = PluginLoader::getInstance()->LoadAllPlugIns(load_enabled);
+  g_Platform->HideBusySpinner();
+  return b;
+}
+
 WX_DECLARE_LIST(wxCheckBox, CBList);
 
 class OCPNCheckedListCtrl : public wxScrolledWindow {
@@ -1601,9 +1609,8 @@ options::options(MyFrame* parent, wxWindowID id, const wxString& caption,
   GlobalVar<wxString> compat_os(&g_compatOS);
   compat_os_listener = compat_os.get_listener(this, EVT_COMPAT_OS_CHANGE);
   Bind(EVT_COMPAT_OS_CHANGE, [&](wxCommandEvent&) {
-    g_pi_manager->LoadAllPlugIns(false);
-    auto plugins = g_pi_manager->GetPlugInArray();
-    m_pPlugInCtrl->ReloadPluginPanels(plugins);
+    PluginLoader::getInstance()->LoadAllPlugIns(false);
+    m_pPlugInCtrl->ReloadPluginPanels();
   });
 }
 
@@ -1744,7 +1751,8 @@ void options::Init(void) {
   m_stBTPairs = 0;
   m_choiceBTDataSources = 0;
 
-  b_haveWMM = g_pi_manager && g_pi_manager->IsPlugInAvailable(_T("WMM"));
+  auto loader = PluginLoader::getInstance();
+  b_haveWMM = loader && loader->IsPlugInAvailable(_T("WMM"));
   b_oldhaveWMM = b_haveWMM;
 
   lastPage = 0;
@@ -7279,7 +7287,8 @@ void options::SetInitialSettings(void) {
   m_bfontChanged = false;
 
   b_oldhaveWMM = b_haveWMM;
-  b_haveWMM = g_pi_manager && g_pi_manager->IsPlugInAvailable(_T("WMM"));
+  auto loader = PluginLoader::getInstance();
+  b_haveWMM = loader && loader->IsPlugInAvailable(_T("WMM"));
 
   // Canvas configuration
   switch (g_canvasConfig) {
@@ -8602,7 +8611,8 @@ void options::OnApplyClick(wxCommandEvent& event) {
   g_bShowTrue = pCBTrueShow->GetValue();
   g_bShowMag = pCBMagShow->GetValue();
 
-  b_haveWMM = g_pi_manager && g_pi_manager->IsPlugInAvailable(_T("WMM"));
+  auto loader = PluginLoader::getInstance();
+  b_haveWMM = loader && loader->IsPlugInAvailable(_T("WMM"));
   if (!b_haveWMM && !b_oldhaveWMM) {
     pMagVar->GetValue().ToDouble(&g_UserVar);
     gVar = g_UserVar;
@@ -8978,7 +8988,8 @@ void options::OnApplyClick(wxCommandEvent& event) {
   // PlugIn Manager Panel
 
   // Pick up any changes to selections
-  if (g_pi_manager->UpdatePlugIns()) m_returnChanges |= TOOLBAR_CHANGED;
+  if (PluginLoader::getInstance()->UpdatePlugIns())
+    m_returnChanges |= TOOLBAR_CHANGED;
 
   // And keep config in sync
   if (m_pPlugInCtrl) m_pPlugInCtrl->UpdatePluginsOrder();
@@ -9819,7 +9830,8 @@ void options::DoOnPageChange(size_t page) {
   } else if (m_pagePlugins == i) {  // 7 is the index of "Plugins" page
     // load the disabled plugins finally because the user might want to enable
     // them
-    if (g_pi_manager->LoadAllPlugIns(FALSE)) {
+    auto loader = PluginLoader::getInstance();
+    if (LoadAllPlugIns(false)) {
       delete m_pPlugInCtrl;
       m_pPlugInCtrl = NULL;
       delete m_PluginCatalogMgrPanel;
@@ -9833,7 +9845,8 @@ void options::DoOnPageChange(size_t page) {
 
       m_pPlugInCtrl =
           new PluginListPanel(itemPanelPlugins, ID_PANELPIM, wxDefaultPosition,
-                              wxDefaultSize, g_pi_manager->GetPlugInArray());
+                              wxDefaultSize,
+                              PluginLoader::getInstance()->GetPlugInArray());
       m_pPlugInCtrl->SetScrollRate(m_scrollRate, m_scrollRate);
       itemBoxSizerPanelPlugins->Add(m_pPlugInCtrl, 01,
                                     wxEXPAND | wxGROW | wxALL, 4);
