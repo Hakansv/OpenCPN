@@ -501,6 +501,8 @@ int dashboard_pi::Init(void) {
   mPITCH_Watchdog = 2;
   mHEEL_Watchdog = 2;
   mALT_Watchdog = 2;
+  mLOG_Watchdog = 2;
+  mTrLOG_Watchdog = 2;
 
   g_pFontTitle = new wxFont(10, wxFONTFAMILY_SWISS, wxFONTSTYLE_ITALIC,
                             wxFONTWEIGHT_NORMAL);
@@ -835,6 +837,17 @@ void dashboard_pi::Notify() {
     mPriAlt = 99;
     SendSentenceToAllInstruments(OCPN_DBP_STC_ALTI, NAN, _T("-"));
     mALT_Watchdog = gps_watchdog_timeout_ticks;
+  }
+  
+  mLOG_Watchdog--;
+  if (mLOG_Watchdog <= 0) {
+    SendSentenceToAllInstruments(OCPN_DBP_STC_VLW2, NAN, _T("-"));
+    mLOG_Watchdog = no_nav_watchdog_timeout_ticks;
+  }
+  mTrLOG_Watchdog--;
+  if (mTrLOG_Watchdog <= 0) {
+    SendSentenceToAllInstruments(OCPN_DBP_STC_VLW1, NAN, _T("-"));
+    mTrLOG_Watchdog = no_nav_watchdog_timeout_ticks;
   }
 }
 
@@ -1277,12 +1290,14 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
             toUsrDistance_Plugin(m_NMEA0183.Vlw.TripMileage,
                                  g_iDashDistanceUnit),
             getUsrDistanceUnit_Plugin(g_iDashDistanceUnit));
+        mTrLOG_Watchdog = no_nav_watchdog_timeout_ticks;
 
         SendSentenceToAllInstruments(
             OCPN_DBP_STC_VLW2,
             toUsrDistance_Plugin(m_NMEA0183.Vlw.TotalMileage,
                                  g_iDashDistanceUnit),
             getUsrDistanceUnit_Plugin(g_iDashDistanceUnit));
+        mLOG_Watchdog = no_nav_watchdog_timeout_ticks;
       }
 
     }
@@ -1987,6 +2002,7 @@ void dashboard_pi::HandleN2K_128275(ObservedEvt ev) {
       SendSentenceToAllInstruments( OCPN_DBP_STC_VLW2,
                               toUsrDistance_Plugin(m_slog, g_iDashDistanceUnit),
                               getUsrDistanceUnit_Plugin(g_iDashDistanceUnit));
+      mLOG_Watchdog = no_nav_watchdog_timeout_ticks;
     }
   }
   if (!N2kIsNA(TripLog)) {
@@ -1994,6 +2010,7 @@ void dashboard_pi::HandleN2K_128275(ObservedEvt ev) {
     SendSentenceToAllInstruments(
       OCPN_DBP_STC_VLW1, toUsrDistance_Plugin(m_tlog, g_iDashDistanceUnit),
       getUsrDistanceUnit_Plugin(g_iDashDistanceUnit));
+    mTrLOG_Watchdog = no_nav_watchdog_timeout_ticks;
   }
 }
 
@@ -2750,6 +2767,7 @@ void dashboard_pi::updateSKItem(wxJSONValue &item, wxString &talker, wxString &s
       SendSentenceToAllInstruments(
           OCPN_DBP_STC_VLW1, toUsrDistance_Plugin(m_tlog, g_iDashDistanceUnit),
           getUsrDistanceUnit_Plugin(g_iDashDistanceUnit));
+      mTrLOG_Watchdog = no_nav_watchdog_timeout_ticks;
     } else if (update_path == _T("navigation.log")) {  // m
       double m_slog = GetJsonDouble(value);
       if (std::isnan(m_slog)) return;
@@ -2758,6 +2776,7 @@ void dashboard_pi::updateSKItem(wxJSONValue &item, wxString &talker, wxString &s
       SendSentenceToAllInstruments(
           OCPN_DBP_STC_VLW2, toUsrDistance_Plugin(m_slog, g_iDashDistanceUnit),
           getUsrDistanceUnit_Plugin(g_iDashDistanceUnit));
+      mLOG_Watchdog = no_nav_watchdog_timeout_ticks;
     } else if (update_path == _T("environment.outside.pressure")) {  // Pa
       double m_press = GetJsonDouble(value);
       if (std::isnan(m_press)) return;
