@@ -53,13 +53,13 @@
 #include "SoundFactory.h"
 #include "track.h"
 #include "N2KParser.h"
+#include "AISTargetAlertDialog.h"
 
 #if !defined(NAN)
 static const long long lNaN = 0xfff8000000000000;
 #define NAN (*(double *)&lNaN)
 #endif
 
-class AISTargetAlertDialog;
 
 extern AISTargetAlertDialog *g_pais_alert_dialog_active;
 extern Select *pSelectAIS;
@@ -110,8 +110,6 @@ bool g_benableAISNameCache;
 bool g_bUseOnlyConfirmedAISName;
 wxString GetShipNameFromFile(int);
 
-wxDEFINE_EVENT(SOUND_PLAYED_EVTYPE, wxCommandEvent);
-
 wxDEFINE_EVENT(EVT_N0183_VDO, ObservedEvt);
 wxDEFINE_EVENT(EVT_N0183_VDM, ObservedEvt);
 wxDEFINE_EVENT(EVT_N0183_FRPOS, ObservedEvt);
@@ -131,7 +129,6 @@ wxDEFINE_EVENT(EVT_N2K_129793, ObservedEvt);
 BEGIN_EVENT_TABLE(AisDecoder, wxEvtHandler)
 EVT_TIMER(TIMER_AIS1, AisDecoder::OnTimerAIS)
 EVT_TIMER(TIMER_DSC, AisDecoder::OnTimerDSC)
-EVT_COMMAND(wxID_ANY, SOUND_PLAYED_EVTYPE, AisDecoder::OnSoundFinishedAISAudio)
 END_EVENT_TABLE()
 
 static const double ms_to_knot_factor = 1.9438444924406;
@@ -201,7 +198,6 @@ AisDecoder::AisDecoder(AisDecoderCallbacks callbacks)
 
   g_pais_alert_dialog_active = NULL;
   m_bAIS_Audio_Alert_On = false;
-  m_AIS_Sound = 0;
 
   m_n_targets = 0;
 
@@ -750,8 +746,23 @@ bool AisDecoder::HandleN2K_129794( std::shared_ptr<const Nmea2000Msg> n2k_msg ){
     pTargetData->DimC = Beam - PosRefStbd;
     pTargetData->DimD = PosRefStbd;
     pTargetData->Draft = Draught;
+    pTargetData->IMO = IMOnumber;
+    strncpy(pTargetData->CallSign, Callsign, CALL_SIGN_LEN - 1);
+    pTargetData->ShipType = (unsigned char)VesselType;
+    Destination[sizeof(Destination) - 1] = 0;
+    strncpy(pTargetData->Destination, Destination, DESTINATION_LEN - 1);
 
-    //FIXME (dave) Populate more fiddly static data
+    if (!N2kIsNA(ETAdate) && !N2kIsNA(ETAtime)) {
+      long secs = (ETAdate * 24 * 3600) + wxRound(ETAtime);
+      wxDateTime t((time_t)secs);
+      if (t.IsValid()) {
+        wxDateTime tz = t.ToUTC();
+        pTargetData->ETA_Mo = tz.GetMonth() + 1;
+        pTargetData->ETA_Day = tz.GetDay();
+        pTargetData->ETA_Hr = tz.GetHour();
+        pTargetData->ETA_Min = tz.GetMinute();
+      }
+    }
 
     CommitAISTarget(pTargetData, "", true, bnewtarget);
 
@@ -795,8 +806,6 @@ bool AisDecoder::HandleN2K_129809( std::shared_ptr<const Nmea2000Msg> n2k_msg ){
     strncpy(pTargetData->ShipName, Name, SHIP_NAME_LEN - 1);
     pTargetData->b_nameValid = true;
     pTargetData->MID = 124;  // Indicates a name from n2k
-
-    //FIXME (dave) Populate more fiddly static data
 
     CommitAISTarget(pTargetData, "", true, bnewtarget);
     touch_state.notify();
@@ -847,8 +856,12 @@ bool AisDecoder::HandleN2K_129810( std::shared_ptr<const Nmea2000Msg> n2k_msg ){
 
     //Populate the target_data
     pTargetData->MMSI = mmsi;
-
-      //FIXME (dave) Populate more fiddly static data
+    pTargetData->DimA = PosRefBow;
+    pTargetData->DimB = Length - PosRefBow;
+    pTargetData->DimC = Beam - PosRefStbd;
+    pTargetData->DimD = PosRefStbd;
+    strncpy(pTargetData->CallSign, Callsign, CALL_SIGN_LEN - 1);
+    pTargetData->ShipType = (unsigned char)VesselType;
 
     CommitAISTarget(pTargetData, "", true, bnewtarget);
 
@@ -3600,12 +3613,6 @@ void AisDecoder::UpdateOneCPA(AisTargetData *ptarget) {
   }
 }
 
-void AisDecoder::OnSoundFinishedAISAudio(wxCommandEvent &event) {
-  // By clearing this flag the main event loop will trigger repeated
-  // sounds for as long as the alert condition remains.
-  m_bAIS_AlertPlaying = false;
-}
-
 void AisDecoder::OnTimerDSC(wxTimerEvent &event) {
   //  Timer expired, no CDDSE message was received, so accept the latest CDDSC
   //  message
@@ -3825,10 +3832,15 @@ void AisDecoder::OnTimerAIS(wxTimerEvent &event) {
       palert_target = palert_target_dsc;
       audioType = AISAUDIO_DSC;
     }
-    // Show the alert
-    if (palert_target)
-      info_update.notify(palert_target);
   }
+  else {                // Alert is currently shown
+    palert_target = Get_Target_Data_From_MMSI(
+        g_pais_alert_dialog_active->Get_Dialog_MMSI());
+  }
+    // Show or update the alert
+  if (palert_target)
+    info_update.notify(palert_target);
+
   TimerAIS.Start(TIMER_AIS_MSEC, wxTIMER_CONTINUOUS);
 }
 

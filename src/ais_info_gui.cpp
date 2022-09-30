@@ -67,12 +67,13 @@ extern wxString g_SART_sound_file;
 extern MyConfig* pConfig;
 extern RouteManagerDialog *pRouteManagerDialog;
 extern MyFrame* gFrame;
+extern AisInfoGui *g_pAISGUI;
 
 
 static void onSoundFinished(void *ptr) {
   if (!g_bquiting) {
     wxCommandEvent ev(SOUND_PLAYED_EVTYPE);
-    wxPostEvent(g_pAIS, ev);   // FIXME(leamas): Review sound handling.
+    wxPostEvent(g_pAISGUI, ev);   // FIXME(leamas): Review sound handling.
   }
 }
 
@@ -130,11 +131,28 @@ AisInfoGui::AisInfoGui() {
   Bind(EVT_AIS_DEL_TRACK, [&](wxCommandEvent ev) {
        auto t = static_cast< MmsiProperties*>(ev.GetClientData());
        OnDeleteTrack(t); });
+
+  Bind(SOUND_PLAYED_EVTYPE, [&](wxCommandEvent ev) {
+       OnSoundFinishedAISAudio(ev); });
+
+  m_AIS_Sound = 0;
+  m_bAIS_Audio_Alert_On = false;
+  m_bAIS_AlertPlaying = false;
+
+}
+
+void AisInfoGui::OnSoundFinishedAISAudio(wxCommandEvent &event) {
+  // By clearing this flag the main event loop will trigger repeated
+  // sounds for as long as the alert condition remains.
+  m_bAIS_AlertPlaying = false;
 }
 
 void AisInfoGui::ShowAisInfo(AisTargetData* palert_target) {
    int audioType = AISAUDIO_NONE;
-   if (palert_target) {
+   if (!palert_target) return;
+
+   // If no alert dialog shown yet...
+   if (!g_pais_alert_dialog_active) {
       bool b_jumpto = (palert_target->Class == AIS_SART) ||
                       (palert_target->Class == AIS_DSC);
       bool b_createWP = palert_target->Class == AIS_DSC;
