@@ -213,9 +213,6 @@ extern int g_Show_Target_Name_Scale;
 extern bool g_bCPAWarn;
 extern bool g_bTCPA_Max;
 
-extern bool g_bCPAWarn;  //Hakan
-extern bool g_bTCPA_Max; //Hakan
-
 extern MyFrame *gFrame;
 
 extern int g_iNavAidRadarRingsNumberVisible;
