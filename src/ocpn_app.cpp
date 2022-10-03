@@ -428,10 +428,6 @@ int g_ENCSoundingScaleFactor;
 bool g_bShowTide;
 bool g_bShowCurrent;
 
-//Hakan
-bool g_bXTE_multiply;
-double g_dXTE_multiplier;
-
 s52plib *ps52plib;
 S57ClassRegistrar *g_poRegistrar;
 s57RegistrarMgr *m_pRegistrarMan;

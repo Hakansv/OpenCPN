@@ -103,15 +103,14 @@ extern Route *pAISMOBRoute;
 extern bool g_btouch;
 extern float g_ChartScaleFactorExp;
 
-// Hakan
-extern bool g_bXTE_multiply; //Hakan
-extern double g_dXTE_multiplier; //Hakan
-
 extern bool g_bShowShipToActive;
 extern bool g_bAllowShipToActive;
 extern int g_maxWPNameLength;
 
 bool g_bPluginHandleAutopilotRoute;
+
+bool g_bXTE_multiply; //Hakan
+double g_dXTE_multiplier; //Hakan
 
 //    List definitions for Waypoint Manager Icons
 WX_DECLARE_LIST(wxBitmap, markicon_bitmap_list_type);
