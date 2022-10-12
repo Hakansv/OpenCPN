@@ -705,7 +705,7 @@ void AISTargetListDialog::CreateControls() {
   bsRouteButtonsInner->Add(m_pButtonJumpTo, 0, wxEXPAND | wxALL, 0);
   
   m_pButtonJumpTo_Close =
-    new wxButton(winr, wxID_ANY, _("Center/Info/Close"), wxDefaultPosition,
+    new wxButton(winr, wxID_ANY, _("Center-Info-Close"), wxDefaultPosition,
                  wxDefaultSize, wxBU_AUTODRAW);
   m_pButtonJumpTo_Close->Connect(
     wxEVT_COMMAND_BUTTON_CLICKED,
@@ -937,16 +937,6 @@ void AISTargetListDialog::OnTargetListColumnClicked(wxListEvent &event) {
 
 void AISTargetListDialog::OnTargetScrollTo(wxCommandEvent &event) {
   CenterToTarget(false);
-  long selItemID = -1;
-  selItemID = m_pListCtrlAISTargets->GetNextItem(selItemID, wxLIST_NEXT_ALL,
-                                                 wxLIST_STATE_SELECTED);
-  if (selItemID == -1) return;
-
-  AisTargetData *pAISTarget = NULL;
-  if (m_pdecoder)
-    pAISTarget =
-        m_pdecoder->Get_Target_Data_From_MMSI(m_pMMSI_array->Item(selItemID));
-
 }
 
 void AISTargetListDialog::OnTargetScrollToClose(wxCommandEvent &event) {
@@ -1053,7 +1043,8 @@ void AISTargetListDialog::CenterToTarget(bool close) {
         cc->DoZoomCanvas(factor, false);
       }
       DoTargetQuery(pAISTarget->MMSI);
-      Shutdown();  // Close AIS target list
+      // Close AIS target list
+      Shutdown();
     }
   }
 }
