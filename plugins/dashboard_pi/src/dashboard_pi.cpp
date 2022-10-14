@@ -564,6 +564,14 @@ int dashboard_pi::Init(void) {
     HandleN2K_127245(ev);
   });
 
+  // Heave   PGN 127252
+  wxDEFINE_EVENT(EVT_N2K_127252, ObservedEvt);
+  NMEA2000Id id_127252 = NMEA2000Id(127252);
+  listener_127252 = std::move(GetListener(id_127252, EVT_N2K_127252, this));
+  Bind(EVT_N2K_127252, [&](ObservedEvt ev) {
+    HandleN2K_127252(ev);
+  });
+
   // Roll Pitch   PGN 127257
   wxDEFINE_EVENT(EVT_N2K_127257, ObservedEvt);
   NMEA2000Id id_127257 = NMEA2000Id(127257);
@@ -1864,6 +1872,31 @@ void dashboard_pi::HandleN2K_127245(ObservedEvt ev) {
         SendSentenceToAllInstruments(OCPN_DBP_STC_RSA, m_rudangle, _T("\u00B0"));
         mRSA_Watchdog = gps_watchdog_timeout_ticks;
         mPriRSA = 1;
+      }
+    }
+  }
+}
+
+// Heave (pitch) data PGN 127252
+void dashboard_pi::HandleN2K_127252(ObservedEvt ev) {
+  NMEA2000Id id_127252(127252);
+  std::vector<uint8_t>v = GetN2000Payload(id_127252, ev);
+  unsigned char SID;
+  double Heave;
+
+  // Get Heave (pitch)
+  if (ParseN2kPGN127252(v, SID, Heave)) {
+    if (mPriPitchRoll >= 1) {
+      if (!N2kIsNA(Heave)) {
+        double m_pitch = GEODESIC_RAD2DEG(Heave);
+        wxString p_unit = _T("\u00B0\u2191") + _("Up");
+        if (m_pitch < 0) {
+          p_unit = _T("\u00B0\u2193") + _("Down");
+          m_pitch *= -1;
+        }
+        SendSentenceToAllInstruments(OCPN_DBP_STC_PITCH, m_pitch, p_unit);
+        mPITCH_Watchdog = gps_watchdog_timeout_ticks;
+        mPriPitchRoll = 1;
       }
     }
   }

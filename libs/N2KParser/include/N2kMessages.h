@@ -381,6 +381,25 @@ inline bool ParseN2kRateOfTurn(const tN2kMsg &N2kMsg, unsigned char &SID, double
 }
 
 //*****************************************************************************
+// Heave
+// Input:
+//  - SID                   Sequence ID. If your device is e.g. boat speed and heading at same time, you can set same SID for different messages
+//                          to indicate that they are measured at same time.
+//  - Heave                 Change in Heave in radians
+// Output:
+//  - N2kMsg                NMEA2000 message ready to be send.
+void SetN2kPGN127252(tN2kMsg &N2kMsg, unsigned char SID, double Heave);
+
+inline void SetN2kHeave(tN2kMsg &N2kMsg, unsigned char SID, double Heave) {
+  SetN2kPGN127252(N2kMsg, SID, Heave);
+}
+
+bool ParseN2kPGN127252(const tN2kMsg &N2kMsg, unsigned char &SID, double &Heave);
+inline bool ParseN2kHeave(const tN2kMsg &N2kMsg, unsigned char &SID, double &Heave) {
+  return ParseN2kPGN127252(N2kMsg, SID, Heave);
+}
+
+//*****************************************************************************
 // Attitude
 // Input:
 //  - SID                   Sequence ID. If your device is e.g. boat speed and heading at same time, you can set same SID for different messages
@@ -830,7 +849,7 @@ inline bool ParseN2kChargerStatus(tN2kMsg &N2kMsg, unsigned char &Instance, unsi
 //  - BatteryInstance       BatteryInstance.
 //  - BatteryVoltage        Battery voltage in V
 //  - BatteryCurrent        Current in A
-//  - BatteryTemperature    Battery temperature in K. Use function CToKelvin, if you want to use Â°C.
+//  - BatteryTemperature    Battery temperature in K. Use function CToKelvin, if you want to use °C.
 //  - SID                   Sequence ID.
 void SetN2kPGN127508(tN2kMsg &N2kMsg, unsigned char BatteryInstance, double BatteryVoltage, double BatteryCurrent=N2kDoubleNA,
                      double BatteryTemperature=N2kDoubleNA, unsigned char SID=1);
@@ -890,8 +909,8 @@ inline bool ParseN2kBatConf(const tN2kMsg &N2kMsg, unsigned char &BatInstance, t
 // Leeway
 // Input:
 //  - SID            Sequence ID field
-//  - Leeway         Nautical Leeway Angle, which is defined as the angle between the vesselâ€™s heading (direction to which the
-//                   vesselâ€™s bow points) and its course (direction of its motion (track) through the water)
+//  - Leeway         Nautical Leeway Angle, which is defined as the angle between the vessel's heading (direction to which the
+//                   vessel's bow points) and its course (direction of its motion (track) through the water)
 // Output:
 //  - N2kMsg         NMEA2000 message ready to be send.
 void SetN2kPGN128000(tN2kMsg &N2kMsg, unsigned char SID, double Leeway);
@@ -1718,8 +1737,8 @@ inline bool ParseN2kWindSpeed(const tN2kMsg &N2kMsg, unsigned char &SID, double 
 // Outside Environmental parameters
 // Input:
 //  - SID                   Sequence ID.
-//  - WaterTemperature      Water temperature in K. Use function CToKelvin, if you want to use Â°C.
-//  - OutsideAmbientAirTemperature      Outside ambient temperature in K. Use function CToKelvin, if you want to use Â°C.
+//  - WaterTemperature      Water temperature in K. Use function CToKelvin, if you want to use °C.
+//  - OutsideAmbientAirTemperature      Outside ambient temperature in K. Use function CToKelvin, if you want to use °C.
 //  - AtmosphericPressure   Atmospheric pressure in Pascals. Use function mBarToPascal, if you like to use mBar
 // Output:
 //  - N2kMsg                NMEA2000 message ready to be send.
@@ -1746,7 +1765,7 @@ inline bool ParseN2kOutsideEnvironmentalParameters(const tN2kMsg &N2kMsg, unsign
 // Input:
 //  - SID                   Sequence ID.
 //  - TempSource            see tN2kTempSource
-//  - Temperature           Temperature in K. Use function CToKelvin, if you want to use Â°C.
+//  - Temperature           Temperature in K. Use function CToKelvin, if you want to use °C.
 //  - HumiditySource        see tN2kHumiditySource.
 //  - Humidity              Humidity in %
 //  - AtmosphericPressure   Atmospheric pressure in Pascals. Use function mBarToPascal, if you like to use mBar
@@ -1774,8 +1793,8 @@ inline bool ParseN2kEnvironmentalParameters(const tN2kMsg &N2kMsg, unsigned char
 //  - SID                   Sequence ID.
 //  - TempInstance          This should be unic at least on one device. May be best to have it unic over all devices sending this PGN.
 //  - TempSource            see tN2kTempSource
-//  - ActualTemperature     Temperature in K. Use function CToKelvin, if you want to use Â°C.
-//  - SetTemperature        Set temperature in K. Use function CToKelvin, if you want to use Â°C. This is meaningfull for temperatures,
+//  - ActualTemperature     Temperature in K. Use function CToKelvin, if you want to use °C.
+//  - SetTemperature        Set temperature in K. Use function CToKelvin, if you want to use °C. This is meaningfull for temperatures,
 //                          which can be controlled like cabin, freezer, refridgeration temperature. God can use value for this for
 //                          outside and sea temperature values.
 // Output:
@@ -1878,8 +1897,8 @@ inline void SetN2kSetPressure(tN2kMsg &N2kMsg, unsigned char SID, unsigned char 
 //  - SID                   Sequence ID.
 //  - TempInstance          This should be unic at least on one device. May be best to have it unic over all devices sending this PGN.
 //  - TempSource            see tN2kTempSource
-//  - ActualTemperature     Temperature in K. Use function CToKelvin, if you want to use Â°C.
-//  - SetTemperature        Set temperature in K. Use function CToKelvin, if you want to use Â°C. This is meaningfull for temperatures,
+//  - ActualTemperature     Temperature in K. Use function CToKelvin, if you want to use °C.
+//  - SetTemperature        Set temperature in K. Use function CToKelvin, if you want to use °C. This is meaningfull for temperatures,
 //                          which can be controlled like cabin, freezer, refridgeration temperature. God can use value for this for
 //                          outside and sea temperature values.
 // Output:
@@ -1911,7 +1930,7 @@ inline bool ParseN2kTemperatureExt(const tN2kMsg &N2kMsg, unsigned char &SID, un
 //  - WindReference         Wind reference, see definition of tN2kWindReference
 //  - WindGusts             Measured wind gusts speed in m/s
 //  - AtmosphericPressure   Atmospheric pressure in Pascals. Use function mBarToPascal, if you like to use mBar
-//  - OutsideAmbientAirTemperature      Outside ambient temperature in K. Use function CToKelvin, if you want to use Â°C.
+//  - OutsideAmbientAirTemperature      Outside ambient temperature in K. Use function CToKelvin, if you want to use °C.
 //  - StationID             Identifier of the transmitting weather station. (15 bytes max)
 //  - StationName           Friendly name of the transmitting weather station. (50 bytes max)
 //

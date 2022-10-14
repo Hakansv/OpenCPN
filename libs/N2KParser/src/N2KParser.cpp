@@ -150,6 +150,15 @@ bool ParseN2kPGN127250(std::vector<unsigned char> &v, unsigned char &SID,
 
 }
 
+bool ParseN2kPGN127252(std::vector<unsigned char> &v, unsigned char &SID,
+                       double &Heave) {
+
+  tN2kMsg msg = MakeN2kMsg(v);
+
+  return ParseN2kPGN127252(msg, SID, Heave);
+
+}
+
 bool ParseN2kPGN127257(std::vector<unsigned char> &v, unsigned char &SID,
                        double &Yaw, double &Pitch, double &Roll) {
 

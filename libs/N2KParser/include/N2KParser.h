@@ -232,6 +232,14 @@ bool ParseN2kPGN128259(std::vector<unsigned char> &v, unsigned char &SID, double
 bool ParseN2kPGN127251(std::vector<unsigned char> &v, unsigned char &SID, double &RateOfTurn);
 
 //*****************************************************************************
+// Furuno Heave
+// Input:
+//  - SID                   Sequence ID. If your device is e.g. boat speed and heading at same time, you can set same SID for different messages
+//                          to indicate that they are measured at same time.
+//  - Heave                 Change in heave in radians
+bool ParseN2kPGN127252(std::vector<unsigned char> &v, unsigned char &SID, double &Heave);
+
+//*****************************************************************************
 // Attitude
 // Input:
 //  - SID                   Sequence ID. If your device is e.g. boat speed and heading at same time, you can set same SID for different messages
@@ -245,8 +253,8 @@ bool ParseN2kPGN127257(std::vector<unsigned char> &v, unsigned char &SID, double
 // Leeway
 // Input:
 //  - SID            Sequence ID field
-//  - Leeway         Nautical Leeway Angle, which is defined as the angle between the vesselâ€™s heading (direction to which the
-//                   vesselâ€™s bow points) and its course (direction of its motion (track) through the water)
+//  - Leeway         Nautical Leeway Angle, which is defined as the angle between the vessel's heading (direction to which the
+//                   vessel's bow points) and its course (direction of its motion (track) through the water)
 bool ParseN2kPGN128000(std::vector<unsigned char> &v, unsigned char &SID, double &Leeway);
 
 
@@ -534,8 +542,8 @@ bool ParseN2kPGN130306(std::vector<unsigned char> &v, unsigned char &SID, double
 // Outside Environmental parameters
 // Input:
 //  - SID                   Sequence ID.
-//  - WaterTemperature      Water temperature in K. Use function CToKelvin, if you want to use Â°C.
-//  - OutsideAmbientAirTemperature      Outside ambient temperature in K. Use function CToKelvin, if you want to use Â°C.
+//  - WaterTemperature      Water temperature in K. Use function CToKelvin, if you want to use °C.
+//  - OutsideAmbientAirTemperature      Outside ambient temperature in K. Use function CToKelvin, if you want to use °C.
 //  - AtmosphericPressure   Atmospheric pressure in Pascals. Use function mBarToPascal, if you like to use mBar
 bool ParseN2kPGN130310(std::vector<unsigned char> &v, unsigned char &SID, double &WaterTemperature,
                      double &OutsideAmbientAirTemperature, double &AtmosphericPressure);
@@ -548,7 +556,7 @@ bool ParseN2kPGN130310(std::vector<unsigned char> &v, unsigned char &SID, double
 // Input:
 //  - SID                   Sequence ID.
 //  - TempSource            see tN2kTempSource
-//  - Temperature           Temperature in K. Use function CToKelvin, if you want to use Â°C.
+//  - Temperature           Temperature in K. Use function CToKelvin, if you want to use °C.
 //  - HumiditySource        see tN2kHumiditySource.
 //  - Humidity              Humidity in %
 //  - AtmosphericPressure   Atmospheric pressure in Pascals. Use function mBarToPascal, if you like to use mBar
@@ -562,8 +570,8 @@ bool ParseN2kPGN130311(std::vector<unsigned char> &v, unsigned char &SID, tN2kTe
 //  - SID                   Sequence ID.
 //  - TempInstance          This should be unic at least on one device. May be best to have it unic over all devices sending this PGN.
 //  - TempSource            see tN2kTempSource
-//  - ActualTemperature     Temperature in K. Use function CToKelvin, if you want to use Â°C.
-//  - SetTemperature        Set temperature in K. Use function CToKelvin, if you want to use Â°C. This is meaningfull for temperatures,
+//  - ActualTemperature     Temperature in K. Use function CToKelvin, if you want to use °C.
+//  - SetTemperature        Set temperature in K. Use function CToKelvin, if you want to use °C. This is meaningfull for temperatures,
 //                          which can be controlled like cabin, freezer, refridgeration temperature. God can use value for this for
 //                          outside and sea temperature values.
 bool ParseN2kPGN130312(std::vector<unsigned char> &v, unsigned char &SID, unsigned char &TempInstance, tN2kTempSource &TempSource,
@@ -598,8 +606,8 @@ bool ParseN2kPGN130314(std::vector<unsigned char> &v, unsigned char &SID, unsign
 //  - SID                   Sequence ID.
 //  - TempInstance          This should be unic at least on one device. May be best to have it unic over all devices sending this PGN.
 //  - TempSource            see tN2kTempSource
-//  - ActualTemperature     Temperature in K. Use function CToKelvin, if you want to use Â°C.
-//  - SetTemperature        Set temperature in K. Use function CToKelvin, if you want to use Â°C. This is meaningfull for temperatures,
+//  - ActualTemperature     Temperature in K. Use function CToKelvin, if you want to use °C.
+//  - SetTemperature        Set temperature in K. Use function CToKelvin, if you want to use °C. This is meaningfull for temperatures,
 //                          which can be controlled like cabin, freezer, refridgeration temperature. God can use value for this for
 //                          outside and sea temperature values.
 bool ParseN2kPGN130316(std::vector<unsigned char> &v, unsigned char &SID, unsigned char &TempInstance, tN2kTempSource &TempSource,
@@ -618,7 +626,7 @@ bool ParseN2kPGN130316(std::vector<unsigned char> &v, unsigned char &SID, unsign
 //  - WindReference         Wind reference, see definition of tN2kWindReference
 //  - WindGusts             Measured wind gusts speed in m/s
 //  - AtmosphericPressure   Atmospheric pressure in Pascals. Use function mBarToPascal, if you like to use mBar
-//  - OutsideAmbientAirTemperature      Outside ambient temperature in K. Use function CToKelvin, if you want to use Â°C.
+//  - OutsideAmbientAirTemperature      Outside ambient temperature in K. Use function CToKelvin, if you want to use °C.
 //  - StationID             Identifier of the transmitting weather station. (15 bytes max)
 //  - StationName           Friendly name of the transmitting weather station. (50 bytes max)
 //
@@ -746,7 +754,7 @@ bool ParseN2kPGN127507(std::vector<unsigned char> &v, unsigned char &Instance, u
 //  - BatteryInstance       BatteryInstance.
 //  - BatteryVoltage        Battery voltage in V
 //  - BatteryCurrent        Current in A
-//  - BatteryTemperature    Battery temperature in K. Use function CToKelvin, if you want to use Â°C.
+//  - BatteryTemperature    Battery temperature in K. Use function CToKelvin, if you want to use °C.
 //  - SID                   Sequence ID.
 bool ParseN2kPGN127508(std::vector<unsigned char> &v, unsigned char &BatteryInstance, double &BatteryVoltage, double &BatteryCurrent,
                      double &BatteryTemperature, unsigned char &SID);

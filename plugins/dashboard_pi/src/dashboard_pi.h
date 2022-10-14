@@ -202,6 +202,7 @@ private:
   void updateSKItem(wxJSONValue &item, wxString &talker, wxString &sfixtime);
 
   void HandleN2K_127245(ObservedEvt ev);
+  void HandleN2K_127252(ObservedEvt ev);
   void HandleN2K_127257(ObservedEvt ev);
   void HandleN2K_128259(ObservedEvt ev);
   void HandleN2K_128267(ObservedEvt ev);
@@ -211,6 +212,7 @@ private:
   void HandleN2K_130306(ObservedEvt ev);
   void HandleN2K_130310(ObservedEvt ev);
   std::shared_ptr<ObservedVarListener> listener_127245;
+  std::shared_ptr<ObservedVarListener> listener_127252;
   std::shared_ptr<ObservedVarListener> listener_127257;
   std::shared_ptr<ObservedVarListener> listener_128259;
   std::shared_ptr<ObservedVarListener> listener_128267;

@@ -326,6 +326,29 @@ bool ParseN2kPGN127251(const tN2kMsg &N2kMsg, unsigned char &SID, double &RateOf
 }
 
 //*****************************************************************************
+// Heave (Furuno)
+// Angles should be in radians
+// TODO Set not tested or validated
+void SetN2kPGN127252(tN2kMsg &N2kMsg, unsigned char SID, double Heave) {
+  N2kMsg.SetPGN(127252L);
+  N2kMsg.Priority = 2;
+  N2kMsg.AddByte(SID);
+  N2kMsg.Add2ByteDouble(Heave, 0.0001);
+  N2kMsg.AddByte(0xff);  // Reserved
+}
+
+bool ParseN2kPGN127252(const tN2kMsg &N2kMsg, unsigned char &SID, double &Heave) {
+  if (N2kMsg.PGN != 127252L) return false;
+
+  int Index = 0;
+
+  SID = N2kMsg.GetByte(Index);
+  Heave = N2kMsg.Get2ByteDouble(0.0001, Index); //0.01 in Canboat?
+
+  return true;
+}
+
+//*****************************************************************************
 // Attitude
 // Input:
 //  - SID                   Sequence ID. If your device is e.g. boat speed and heading at same time, you can set same SID for different messages
