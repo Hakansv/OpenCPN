@@ -284,7 +284,7 @@ bool Routeman::ActivateRoute(Route *pRouteToActivate, RoutePoint *pStartPoint) {
   wxJSONValue v;
   v[_T("Route_activated")] = pRouteToActivate->m_RouteNameString;
   v[_T("GUID")] = pRouteToActivate->m_GUID;
-  json_msg.notify(std::make_shared<wxJSONValue>(v), "OCPN_RTE_ACTIVATED");
+  json_msg.Notify(std::make_shared<wxJSONValue>(v), "OCPN_RTE_ACTIVATED");
   if (g_bPluginHandleAutopilotRoute) return true;
 
   pActiveRoute = pRouteToActivate;
@@ -319,7 +319,7 @@ bool Routeman::ActivateRoutePoint(Route *pA, RoutePoint *pRP_target) {
   v[_T("GUID")] = pRP_target->m_GUID;
   v[_T("WP_activated")] = pRP_target->GetName();
 
-  json_msg.notify(std::make_shared<wxJSONValue>(v), "OCPN_WPT_ACTIVATED");
+  json_msg.Notify(std::make_shared<wxJSONValue>(v), "OCPN_WPT_ACTIVATED");
 
   if (g_bPluginHandleAutopilotRoute) return true;
 
@@ -427,7 +427,7 @@ bool Routeman::ActivateNextPoint(Route *pr, bool skipped) {
     /// }
     m_prop_dlg_ctx.SetEnroutePoint(pr, pActivePoint);
 
-    json_msg.notify(std::make_shared<wxJSONValue>(v), "OCPN_WPT_ARRIVED");
+    json_msg.Notify(std::make_shared<wxJSONValue>(v), "OCPN_WPT_ARRIVED");
     return true;
   }
 
@@ -448,11 +448,11 @@ bool Routeman::DeactivateRoute(bool b_arrival) {
     if (!b_arrival) {
       v[_T("Route_deactivated")] = pActiveRoute->m_RouteNameString;
       v[_T("GUID")] = pActiveRoute->m_GUID;
-      json_msg.notify(std::make_shared<wxJSONValue>(v), "OCPN_RTE_DEACTIVATED");
+      json_msg.Notify(std::make_shared<wxJSONValue>(v), "OCPN_RTE_DEACTIVATED");
     } else {
       v[_T("GUID")] = pActiveRoute->m_GUID;
       v[_T("Route_ended")] = pActiveRoute->m_RouteNameString;
-      json_msg.notify(std::make_shared<wxJSONValue>(v), "OCPN_RTE_ENDED");
+      json_msg.Notify(std::make_shared<wxJSONValue>(v), "OCPN_RTE_ENDED");
     }
   }
 
@@ -511,7 +511,7 @@ bool Routeman::UpdateAutopilot() {
   leg_info.wp_name = pActivePoint->GetName().Truncate(maxName);
   leg_info.arrival = m_bArrival;
 
-  json_leg_info.notify(std::make_shared<ActiveLegDat>(leg_info), "");
+  json_leg_info.Notify(std::make_shared<ActiveLegDat>(leg_info), "");
 
   // RMB
   {
