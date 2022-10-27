@@ -16,7 +16,7 @@ set(_master_base ${OCPN_ANDROID_CACHEDIR}/OCPNAndroidCoreBuildSupport)
 message(STATUS "Android Build support file base:  ${OCPN_ANDROID_CACHEDIR}/OCPNAndroidCoreBuildSupport")
 
 
-if (NOT EXISTS ${OCPN_ANDROID_CACHEDIR}/support.zip)
+if (TRUE) #(NOT EXISTS ${OCPN_ANDROID_CACHEDIR}/support.zip)
   file(
     DOWNLOAD
       https://github.com/bdbcat/OCPNAndroidCoreBuildSupport/releases/download/v1.1/OCPNAndroidCoreBuildSupport.zip
@@ -26,7 +26,7 @@ if (NOT EXISTS ${OCPN_ANDROID_CACHEDIR}/support.zip)
     SHOW_PROGRESS
   )
 endif ()
-if (NOT EXISTS ${_master_base})
+if (TRUE) #(NOT EXISTS ${_master_base})
   execute_process(
     COMMAND ${CMAKE_COMMAND} -E tar -xzf ${OCPN_ANDROID_CACHEDIR}/support.zip
     WORKING_DIRECTORY "${OCPN_ANDROID_CACHEDIR}"
@@ -46,6 +46,7 @@ if ("${OCPN_TARGET_TUPLE}" MATCHES "Android-arm64")
   set(_wxlibs  ${_master_base}/wxWidgets/libs/arm64/lib)
   set(Qt_Base ${_master_base}/qt5)
   set(Qt_Build build_arm64_O3/qtbase)
+  set(base_include ${_master_base}/include)
 
 else ()
   file(GLOB _wx_setup
@@ -56,11 +57,13 @@ else ()
   set(_wxlibs  ${_master_base}/wxWidgets/libs/armhf/lib)
   set(Qt_Base ${_master_base}/qt5)
   set(Qt_Build build_arm32_19_O3/qtbase)
+  set(base_include ${_master_base}/include)
 endif ()
 
 message(STATUS "Android Build wx include directories: support file base:  ${_wx_setup}")
 
 include_directories(
+  ${base_include}
   ${_qt_include}
   ${_qt_include}/QtWidgets
   ${_qt_include}/QtCore
