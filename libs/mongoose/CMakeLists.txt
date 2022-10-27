@@ -4,12 +4,50 @@ if (TARGET ocpn::mongoose)
     return ()
 endif ()
 
+
 set (SRC
   src/mongoose.c
   include/mongoose.h
 )
 add_library(MONGOOSE STATIC ${SRC})
 add_library(ocpn::mongoose ALIAS MONGOOSE)
+
+if (NOT WIN32)
+ if (NOT APPLE)
+  find_package(OpenSSL)
+  if (OPENSSL_FOUND)
+    message(STATUS "OpenSSL found   ${OPENSSL_INCLUDE_DIR} ${OPENSSL_LIBRARIES}")
+    target_link_libraries(MONGOOSE PRIVATE ${OPENSSL_LIBRARIES})
+    add_definitions(-DMG_ENABLE_OPENSSL)
+  endif (OPENSSL_FOUND)
+ else (NOT APPLE)
+    message(STATUS "Mongoose: APPLE: Setting OpenSSL...")
+    target_include_directories(
+      MONGOOSE
+      PUBLIC  /usr/local/opt/openssl@3/include
+    )
+    target_link_libraries(
+      MONGOOSE
+      PRIVATE /usr/local/opt/openssl@3/lib/libcrypto.3.dylib
+      /usr/local/opt/openssl@3/lib/libssl.3.dylib
+    )
+ endif (NOT APPLE)
+else (NOT WIN32)
+    target_include_directories(
+      MONGOOSE
+      PRIVATE ${CMAKE_SOURCE_DIR}/buildwin/include/openssl
+    )
+    target_link_libraries(
+      MONGOOSE
+      PRIVATE ${CMAKE_SOURCE_DIR}/buildwin/libssl.lib
+    )
+   target_link_libraries(
+      MONGOOSE
+      PRIVATE ${CMAKE_SOURCE_DIR}/buildwin/libcrypto.lib
+    )
+endif (NOT WIN32)
+
+add_definitions(-DMG_ENABLE_OPENSSL)
 
 #set_property(TARGET MONGOOSE PROPERTY COMPILE_FLAGS "-fvisibility=default")
 
@@ -22,3 +60,9 @@ endif ()
 target_include_directories(
   MONGOOSE PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include
 )
+
+if (MSVC)
+target_include_directories(
+  MONGOOSE PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/../../buildwin/include
+)
+endif (MSVC)
