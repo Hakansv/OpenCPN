@@ -20,5 +20,5 @@ buildwin/*.dll
 buildwin/*.lib
 buildwin/*.exe
 buildwin/*.crt
-buildwin/*.directory
+buildwin/*.*
 .DS_Store
