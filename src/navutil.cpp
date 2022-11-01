@@ -1858,7 +1858,7 @@ bool MyConfig::LoadChartDirArray(ArrayOfCDI &ChartDirArray) {
   return true;
 }
 
-void MyConfig::AddNewRoute(Route *r) { 
+void MyConfig::AddNewRoute(Route *r) {
   m_pNavObjectChangesSet->AddNewRoute(r);
 }
 
@@ -3436,7 +3436,6 @@ void AlphaBlending(ocpnDC &dc, int x, int y, int size_x, int size_y,
     dc.CalcBoundingBox(x + size_x, y + size_y);
   } else {
 #ifdef ocpnUSE_GL
-#ifdef USE_ANDROID_GLES2
     glEnable(GL_BLEND);
 
     float radMod = wxMax(radius, 2.0);
@@ -3447,25 +3446,6 @@ void AlphaBlending(ocpnDC &dc, int x, int y, int size_x, int size_y,
 
     glDisable(GL_BLEND);
 
-#else
-    /* opengl version */
-    glEnable(GL_BLEND);
-
-    if (radius > 1.0f) {
-      wxColour c(color.Red(), color.Green(), color.Blue(), transparency);
-      dc.SetBrush(wxBrush(c));
-      dc.DrawRoundedRectangle(x, y, size_x, size_y, radius);
-    } else {
-      glColor4ub(color.Red(), color.Green(), color.Blue(), transparency);
-      glBegin(GL_QUADS);
-      glVertex2i(x, y);
-      glVertex2i(x + size_x, y);
-      glVertex2i(x + size_x, y + size_y);
-      glVertex2i(x, y + size_y);
-      glEnd();
-    }
-    glDisable(GL_BLEND);
-#endif
 #endif
   }
 }
