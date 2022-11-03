@@ -418,6 +418,7 @@ extern double last_own_ship_sog_cog_calc_lat, last_own_ship_sog_cog_calc_lon;
 extern bool g_bHasHwClock;
 extern bool s_bSetSystemTime;
 extern bool bGPSValid;
+extern bool bVelocityValid;
 extern int g_nNMEADebug;
 extern int g_total_NMEAerror_messages;
 extern int gps_watchdog_timeout_ticks;
@@ -1205,6 +1206,7 @@ MyFrame::MyFrame(wxFrame *frame, const wxString &title, const wxPoint &pos,
     SOGFilterTable[i] = NAN;
   }
   m_last_bGPSValid = false;
+  m_last_bVelocityValid = false;
 
   gHdt = NAN;
   gHdm = NAN;
@@ -5449,7 +5451,8 @@ void MyFrame::HandleGPSWatchdogMsg(std::shared_ptr<const GPSWatchdogMsg> msg) {
       if (last_bGPSValid != bGPSValid) UpdateGPSCompassStatusBoxes(true);
     }
     else if (msg->wd_source == GPSWatchdogMsg::WDSource::velocity){
-      m_b_new_data = true;    // Force update on next tick
+      bool last_bVelocityValid = bVelocityValid;
+      bVelocityValid = false;
     }
 
     UpdateStatusBar();
@@ -5510,6 +5513,7 @@ void MyFrame::HandleBasicNavMsg(std::shared_ptr<const BasicNavDataMsg> msg) {
   bGPSValid = true;
   if (last_bGPSValid != bGPSValid) UpdateGPSCompassStatusBoxes(true);
 
+  bVelocityValid = true;
   UpdateStatusBar();
 
 #if 0
@@ -6075,7 +6079,8 @@ void MyFrame::OnFrameTimer1(wxTimerEvent &event) {
 
       if (!bGPSValid) cc->SetOwnShipState(SHIP_INVALID);
 
-      if ((bGPSValid != m_last_bGPSValid) || m_b_new_data) {
+      if ((bGPSValid != m_last_bGPSValid) ||
+            (bVelocityValid != m_last_bVelocityValid)) {
         if (!g_bopengl) cc->UpdateShips();
 
         bnew_view = true;  // force a full Refresh()
@@ -6084,6 +6089,7 @@ void MyFrame::OnFrameTimer1(wxTimerEvent &event) {
   }
 
   m_last_bGPSValid = bGPSValid;
+  m_last_bVelocityValid = bVelocityValid;
 
   //    If any PlugIn requested dynamic overlay callbacks, force a full canvas
   //    refresh thus, ensuring at least 1 Hz. callback.
