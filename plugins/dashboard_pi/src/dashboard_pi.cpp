@@ -2980,6 +2980,8 @@ void dashboard_pi::ShowPreferencesDialog(wxWindow *parent) {
     double scaler = 1.0;
 #ifdef __WXMSW__
     scaler = (double)(GetOCPNCanvasWindow()->FromDIP(100))/100.;
+    scaler = (scaler - 1.0) / 3 +1.0;     // soften scale factor for fonts
+    scaler = wxMax(1.0, scaler);
 #endif
 
     //delete g_pFontTitle;
@@ -3197,6 +3199,8 @@ bool dashboard_pi::LoadConfig(void) {
     double scaler = 1.0;
 #ifdef __WXMSW__
     scaler = (double)(GetOCPNCanvasWindow()->FromDIP(100))/100.;
+    scaler = (scaler - 1.0) / 3 +1.0;
+    scaler = wxMax(1.0, scaler);
 #endif
 
     pConf->Read(_T("FontTitle"), &config, TitleFont);
@@ -3330,11 +3334,6 @@ void dashboard_pi::LoadFont(wxFont **target, wxString native_info) {
 
 bool dashboard_pi::SaveConfig(void) {
   wxFileConfig *pConf = (wxFileConfig *)m_pconfig;
-
-  double scaler = 1.0;
-#ifdef __WXMSW__
-    scaler = (double)(GetOCPNCanvasWindow()->ToDIP(100))/100.;
-#endif
 
   if (pConf) {
     pConf->SetPath(_T("/PlugIns/Dashboard"));
