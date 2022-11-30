@@ -11602,12 +11602,10 @@ void ChartCanvas::DrawOverlayObjects(ocpnDC &dc, const wxRegion &ru) {
 
   if (g_pi_manager) {
     g_pi_manager->SendViewPortToRequestingPlugIns(GetVP());
-    g_pi_manager->RenderAllCanvasOverlayPlugIns(dc, GetVP(), m_canvasIndex);
+    g_pi_manager->RenderAllCanvasOverlayPlugIns(dc, GetVP(), m_canvasIndex, OVERLAY_LEGACY);
   }
 
   AISDrawAreaNotices(dc, GetVP(), this);
-  DrawEmboss(dc, EmbossDepthScale());
-  DrawEmboss(dc, EmbossOverzoomIndicator(dc));
 
   wxDC *pdc = dc.GetDC();
   if (pdc) {
@@ -11636,6 +11634,15 @@ void ChartCanvas::DrawOverlayObjects(ocpnDC &dc, const wxRegion &ru) {
   RenderShipToActive(dc, false);
   ScaleBarDraw(dc);
   s57_DrawExtendedLightSectors(dc, VPoint, extendedSectorLegs);
+  if (g_pi_manager) {
+    g_pi_manager->RenderAllCanvasOverlayPlugIns(dc, GetVP(), m_canvasIndex, OVERLAY_OVER_SHIPS);
+  }
+
+  DrawEmboss(dc, EmbossDepthScale());
+  DrawEmboss(dc, EmbossOverzoomIndicator(dc));
+  if (g_pi_manager) {
+    g_pi_manager->RenderAllCanvasOverlayPlugIns(dc, GetVP(), m_canvasIndex, OVERLAY_OVER_EMBOSS);
+  }
 
   if (m_pTrackRolloverWin) {
     m_pTrackRolloverWin->Draw(dc);
@@ -11650,6 +11657,10 @@ void ChartCanvas::DrawOverlayObjects(ocpnDC &dc, const wxRegion &ru) {
   if (m_pAISRolloverWin) {
     m_pAISRolloverWin->Draw(dc);
     m_brepaint_piano = true;
+  }
+  
+  if (g_pi_manager) {
+    g_pi_manager->RenderAllCanvasOverlayPlugIns(dc, GetVP(), m_canvasIndex, OVERLAY_OVER_UI);
   }
 }
 
