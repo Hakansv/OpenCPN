@@ -2111,6 +2111,7 @@ void MyFrame::OnCloseWindow(wxCloseEvent &event) {
 
   FrameTimer1.Stop();
   FrameCOGTimer.Stop();
+
   TrackOff();
 
   /*
@@ -3008,7 +3009,10 @@ void MyFrame::OnToolLeftClick(wxCommandEvent &event) {
         TrackOn();
         g_bTrackCarryOver = true;
       } else {
-        TrackOff(true);
+        TrackOff(true);  // catch the last point
+        if (pConfig && pConfig->IsChangesFileDirty()) {
+          pConfig->UpdateNavObj(true);
+        }
         g_bTrackCarryOver = false;
         RefreshAllCanvas(true);
       }
@@ -3519,10 +3523,6 @@ Track *MyFrame::TrackOff(bool do_add_point) {
   androidSetTrackTool(false);
 #endif
 
-   if (pConfig && pConfig->IsChangesFileDirty()) {
-    pConfig->UpdateNavObj(true);
-  }
-
   g_FlushNavobjChangesTimeout =
       600;  // Revert to checking/flushing navob changes every 5 minutes
 
@@ -3570,6 +3570,10 @@ void MyFrame::TrackDailyRestart(void) {
   if (!g_pActiveTrack) return;
 
   Track *pPreviousTrack = TrackOff(true);
+  if (pConfig && pConfig->IsChangesFileDirty()) {
+    pConfig->UpdateNavObj(true);
+  }
+
   TrackOn();
 
   //  Set the restarted track's current state such that the current track
@@ -4782,6 +4786,11 @@ bool MyFrame::ProcessOptionsDialog(int rr, ArrayOfCDI *pNewDirArray) {
   if (g_MainToolbar) {
     g_MainToolbar->SetAutoHide(g_bAutoHideToolbar);
     g_MainToolbar->SetAutoHideTimer(g_nAutoHideToolbar);
+  }
+
+  // update S52 PLIB scale factors
+  if (ps52plib){
+    ps52plib->SetGuiScaleFactors(g_Platform->getChartScaleFactorExp(g_ChartScaleFactor), g_chart_zoom_modifier_vector);
   }
 
   // Apply any needed updates to each canvas
@@ -6008,15 +6017,6 @@ void MyFrame::OnFrameTimer1(wxTimerEvent &event) {
     wxString sogcog(_T("SOG --- ") + getUsrSpeedUnit() + +_T("     ") +
                     _T(" COG ---\u00B0"));
     if (GetStatusBar()) SetStatusText(sogcog, STAT_FIELD_SOGCOG);
-  // update S52 PLIB scale factors
-  if (ps52plib){
-    ps52plib->SetGuiScaleFactors(g_Platform->getChartScaleFactorExp(g_ChartScaleFactor), g_chart_zoom_modifier_vector);
-  }
-
-  if (g_MainToolbar) {
-    g_MainToolbar->SetAutoHide(g_bAutoHideToolbar);
-    g_MainToolbar->SetAutoHideTimer(g_nAutoHideToolbar);
-  }
 
     gCog = 0.0;  // say speed is zero to kill ownship predictor
   }
@@ -8902,6 +8902,10 @@ void LoadS57() {
       double dpi_factor = g_BasePlatform->GetDisplayDPIMult(gFrame->GetPrimaryCanvas());
       ps52plib->SetDIPFactor(dpi_factor);
     }
+
+    // preset S52 PLIB scale factors vector chart scale factor
+    ps52plib->SetGuiScaleFactors(g_Platform->getChartScaleFactorExp(g_ChartScaleFactor), g_chart_zoom_modifier_vector);
+
 #ifdef ocpnUSE_GL
 
     // Setup PLIB OpenGL options, if enabled
