@@ -29,6 +29,7 @@
 #include <wx/tokenzr.h>
 
 #include "config.h"
+#include "config_vars.h"
 #include "ConfigMgr.h"
 
 #include <wx/filename.h>
@@ -57,6 +58,7 @@
 #include "ocpndc.h"
 #include "geodesic.h"
 #include "multiplexer.h"
+#include "nmea0183.h"
 #include "ais.h"
 #include "route.h"
 #include "select.h"
@@ -91,7 +93,6 @@ extern MyConfig *pConfig;
 extern double initial_scale_ppm, initial_rotation;
 extern int g_nbrightness;
 extern bool g_bShowTrue, g_bShowMag;
-extern double g_UserVar;
 extern bool g_bShowStatusBar;
 extern bool g_bUIexpert;
 extern bool g_bFullscreen;
@@ -126,7 +127,6 @@ extern bool g_bsmoothpanzoom;
 extern bool g_bShowOutlines;
 extern bool g_bShowActiveRouteHighway;
 extern bool g_bShowRouteTotal;
-extern int g_nNMEADebug;
 extern int g_nAWDefault;
 extern int g_nAWMax;
 extern int g_nTrackPrecision;
@@ -198,7 +198,6 @@ extern bool g_bDrawAISRealtime;
 extern double g_AIS_RealtPred_Kts;
 extern bool g_bShowAISName;
 extern int g_Show_Target_Name_Scale;
-extern bool g_bWplUsePosition;
 extern int g_WplAction;
 extern bool g_benableAISNameCache;
 extern int g_ScaledNumWeightSOG;
@@ -225,7 +224,6 @@ extern bool g_bEnableZoomToCursor;
 extern wxString g_toolbarConfig;
 extern double g_TrackIntervalSeconds;
 extern double g_TrackDeltaDistance;
-extern int gps_watchdog_timeout_ticks;
 
 extern bool g_bGDAL_Debug;
 extern bool g_bDebugCM93;
@@ -315,8 +313,6 @@ extern wxString g_default_wp_icon;
 extern ChartGroupArray *g_pGroupArray;
 
 extern bool g_bDebugOGL;
-extern wxString g_GPS_Ident;
-extern bool g_bGarminHostUpload;
 extern wxString g_uploadConnection;
 
 extern wxArrayString TideCurrentDataSet;
@@ -334,9 +330,6 @@ extern int g_chart_zoom_modifier_raster;
 extern int g_chart_zoom_modifier_vector;
 
 extern int g_NMEAAPBPrecision;
-
-extern wxString g_TalkerIdText;
-extern int g_maxWPNameLength;
 
 extern bool g_bAdvanceRouteWaypointOnArrivalOnly;
 extern double g_display_size_mm;

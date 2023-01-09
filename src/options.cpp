@@ -72,6 +72,7 @@
 #endif
 
 #include "config.h"
+#include "config_vars.h"
 
 #include "dychart.h"
 #include "ocpn_frame.h"
@@ -154,12 +155,10 @@ extern bool g_bskew_comp;
 extern bool g_bopengl;
 extern bool g_bsmoothpanzoom;
 extern bool g_bShowTrue, g_bShowMag;
-extern double g_UserVar;
 extern double gVar;
 extern int g_chart_zoom_modifier_raster;
 extern int g_chart_zoom_modifier_vector;
 extern int g_NMEAAPBPrecision;
-extern wxString g_TalkerIdText;
 extern int g_nDepthUnitDisplay;
 extern bool g_bUIexpert;
 
@@ -168,7 +167,6 @@ extern bool   g_bXTE_multiply;
 extern double g_dXTE_multiplier;
 
 extern wxString* pInit_Chart_Dir;
-extern wxArrayOfConnPrm* g_pConnectionParams;
 extern Multiplexer* g_pMUX;
 extern bool g_bfilter_cogsog;
 extern int g_COGFilterSec;
@@ -214,7 +212,6 @@ extern bool g_bDrawAISRealtime;
 extern double g_AIS_RealtPred_Kts;
 extern bool g_bShowAISName;
 extern int g_Show_Target_Name_Scale;
-extern bool g_bWplUsePosition;
 extern int g_WplAction;
 
 extern int g_iNavAidRadarRingsNumberVisible;
@@ -288,8 +285,6 @@ extern double g_AckTimeout_Mins;
 extern bool g_bQuiltEnable;
 extern bool g_bFullScreenQuilt;
 extern bool g_bConfirmObjectDelete;
-extern wxString g_GPS_Ident;
-extern bool g_bGarminHostUpload;
 extern wxString g_compatOS;
 
 #if wxUSE_XLOCALE || !wxCHECK_VERSION(3, 0, 0)
