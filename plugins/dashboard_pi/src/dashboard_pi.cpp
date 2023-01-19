@@ -5000,12 +5000,12 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list) {
       case ID_DBP_I_COG:
         instrument = new DashboardInstrument_Single(
             this, wxID_ANY, getInstrumentCaption(id), OCPN_DBP_STC_COG,
-            _T("%.0f"));
+            _T("%03.0f"));
         break;
       case ID_DBP_M_COG:
         instrument = new DashboardInstrument_Single(
             this, wxID_ANY, getInstrumentCaption(id), OCPN_DBP_STC_MCOG,
-            _T("%.0f"));
+            _T("%03.0f"));
         break;
       case ID_DBP_D_COG:
         instrument = new DashboardInstrument_Compass(
@@ -5038,12 +5038,12 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list) {
         // TODO: Option True or Magnetic
         instrument = new DashboardInstrument_Single(
             this, wxID_ANY, getInstrumentCaption(id), OCPN_DBP_STC_HDT,
-            _T("%.0f"));
+            _T("%03.0f"));
         break;
       case ID_DBP_I_HDM:  // magnetic heading
         instrument = new DashboardInstrument_Single(
             this, wxID_ANY, getInstrumentCaption(id), OCPN_DBP_STC_HDM,
-            _T("%.0f"));
+            _T("%03.0f"));
         break;
       case ID_DBP_D_AW:
       case ID_DBP_D_AWA:
