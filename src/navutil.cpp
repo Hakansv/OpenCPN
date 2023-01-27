@@ -422,6 +422,7 @@ extern float g_ChartScaleFactorExp;
 extern int g_ShipScaleFactor;
 extern float g_ShipScaleFactorExp;
 extern int g_ENCSoundingScaleFactor;
+extern int g_ENCTextScaleFactor;
 
 extern bool g_bInlandEcdis;
 extern int g_iENCToolbarPosX;
@@ -689,9 +690,9 @@ int MyConfig::LoadMyConfig() {
   //  Perform any required post processing and validation
   if (!ret_Val) {
     g_ChartScaleFactorExp =
-        g_Platform->getChartScaleFactorExp(g_ChartScaleFactor);
+        g_Platform->GetChartScaleFactorExp(g_ChartScaleFactor);
     g_ShipScaleFactorExp =
-        g_Platform->getChartScaleFactorExp(g_ShipScaleFactor);
+        g_Platform->GetChartScaleFactorExp(g_ShipScaleFactor);
 
     g_COGFilterSec = wxMin(g_COGFilterSec, MAX_COGSOG_FILTER_SECONDS);
     g_COGFilterSec = wxMax(g_COGFilterSec, 1);
@@ -853,6 +854,7 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   Read(_T ( "ChartObjectScaleFactor" ), &g_ChartScaleFactor);
   Read(_T ( "ShipScaleFactor" ), &g_ShipScaleFactor);
   Read(_T ( "ENCSoundingScaleFactor" ), &g_ENCSoundingScaleFactor);
+  Read(_T ( "ENCTextScaleFactor" ), &g_ENCTextScaleFactor);
   Read(_T ( "ObjQueryAppendFilesExt" ), &g_ObjQFileExt);
 
   // Plugin catalog handler persistent variables.
@@ -1585,6 +1587,9 @@ void MyConfig::LoadS57Config() {
 
   Read(_T ( "ENCSoundingScaleFactor" ), &read_int, 0);
   ps52plib->m_nSoundingFactor = read_int;
+
+  Read(_T ( "ENCTextScaleFactor" ), &read_int, 0);
+  ps52plib->m_nTextFactor = read_int;
 
   if (Read(_T ( "S52_MAR_SAFETY_CONTOUR" ), &dval, 3.0)) {
     S52_setMarinerParam(S52_MAR_SAFETY_CONTOUR, dval);
@@ -2329,6 +2334,7 @@ void MyConfig::UpdateSettings() {
   Write(_T ( "ChartObjectScaleFactor" ), g_ChartScaleFactor);
   Write(_T ( "ShipScaleFactor" ), g_ShipScaleFactor);
   Write(_T ( "ENCSoundingScaleFactor" ), g_ENCSoundingScaleFactor);
+  Write(_T ( "ENCTextScaleFactor" ), g_ENCTextScaleFactor);
   Write(_T ( "ObjQueryAppendFilesExt" ), g_ObjQFileExt);
 
   // Plugin catalog persistent values.
@@ -2678,6 +2684,7 @@ void MyConfig::UpdateSettings() {
     Write(_T ( "S52_MAR_TWO_SHADES" ), S52_getMarinerParam(S52_MAR_TWO_SHADES));
     Write(_T ( "S52_DEPTH_UNIT_SHOW" ), ps52plib->m_nDepthUnitDisplay);
     Write(_T ( "ENCSoundingScaleFactor" ), g_ENCSoundingScaleFactor);
+    Write(_T ( "ENCTextScaleFactor" ), g_ENCTextScaleFactor);
   }
   SetPath(_T ( "/Directories" ));
   Write(_T ( "S57DataLocation" ), _T(""));
