@@ -419,6 +419,8 @@ extern int g_nAutoHideToolbar;
 extern int g_GUIScaleFactor;
 extern int g_ChartScaleFactor;
 extern float g_ChartScaleFactorExp;
+extern float g_MarkScaleFactorExp;
+
 extern int g_ShipScaleFactor;
 extern float g_ShipScaleFactorExp;
 extern int g_ENCSoundingScaleFactor;
@@ -693,6 +695,8 @@ int MyConfig::LoadMyConfig() {
         g_Platform->GetChartScaleFactorExp(g_ChartScaleFactor);
     g_ShipScaleFactorExp =
         g_Platform->GetChartScaleFactorExp(g_ShipScaleFactor);
+    g_MarkScaleFactorExp =
+        g_Platform->GetMarkScaleFactorExp(g_ChartScaleFactor);
 
     g_COGFilterSec = wxMin(g_COGFilterSec, MAX_COGSOG_FILTER_SECONDS);
     g_COGFilterSec = wxMax(g_COGFilterSec, 1);
@@ -940,7 +944,15 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   Read(_T ( "ChartNotRenderScaleFactor" ), &g_ChartNotRenderScaleFactor);
 
   Read(_T ( "MobileTouch" ), &g_btouch);
-  Read(_T ( "ResponsiveGraphics" ), &g_bresponsive);
+
+//  "Responsive graphics" option deprecated in O58+
+//  Read(_T ( "ResponsiveGraphics" ), &g_bresponsive);
+#ifdef __OCPN__ANDROID__
+  g_bresponsive = true;
+#else
+  g_bresponsive = false;
+#endif
+
   Read(_T ( "EnableRolloverBlock" ), &g_bRollover);
 
   Read(_T ( "ZoomDetailFactor" ), &g_chart_zoom_modifier_raster);
