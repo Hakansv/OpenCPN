@@ -23,4 +23,4 @@ buildwin/*.exe
 buildwin/*.crt
 buildwin/*.*
 .DS_Store
-cache
+buildwin
