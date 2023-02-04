@@ -1703,10 +1703,15 @@ void CanvasMenuHandler::PopupMenuHandler(wxCommandEvent &event) {
 
      case ID_RT_MENU_SENDTOPEER:
       if (m_pSelectedRoute) {
-        g_Platform->ShowBusySpinner();
-        FindAllOCPNServers();
-        g_Platform->HideBusySpinner();
 
+        // Perform initial scan, if necessary
+        if (g_DNS_cache.size() == 0) {
+          g_Platform->ShowBusySpinner();
+          FindAllOCPNServers(2);
+          g_Platform->HideBusySpinner();
+        }
+
+#if 0
         // Count viable servers.
         int n_servers = 0;
         for (unsigned int i=0; i < g_DNS_cache.size(); i++){
@@ -1725,7 +1730,7 @@ void CanvasMenuHandler::PopupMenuHandler(wxCommandEvent &event) {
 
           return;
         }
-
+#endif
         SendToPeerDlg dlg;
         dlg.SetRoute(m_pSelectedRoute);
 
