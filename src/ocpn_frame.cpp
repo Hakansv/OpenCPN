@@ -7357,7 +7357,7 @@ static const char *usercolors[] = {
     "UIBCK; 212; 234; 238;",
 
     "DASHB; 255;255;255;",  // Dashboard Instr background
-    "DASHL; 190;190;190;",  // Dashboard Instr Label
+    "DASHL; 175;175;175;",  // Dashboard Instr Label
     "DASHF;  50; 50; 50;",  // Dashboard Foreground
     "DASHR; 200;  0;  0;",  // Dashboard Red
     "DASHG;   0;200;  0;",  // Dashboard Green
@@ -8517,11 +8517,20 @@ void LoadS57() {
     // Setup PLIB OpenGL options, if enabled
     extern bool g_b_EnableVBO;
     extern GLenum g_texture_rectangle_format;
-    if (g_bopengl)
+    extern OCPN_GLCaps *GL_Caps;
+
+    if (g_bopengl){
+      if(GL_Caps){
+        wxString renderer = wxString(GL_Caps->Renderer.c_str());
+        ps52plib->SetGLRendererString(renderer);
+      }
+
       ps52plib->SetGLOptions(
           glChartCanvas::s_b_useStencil, glChartCanvas::s_b_useStencilAP,
           glChartCanvas::s_b_useScissorTest, glChartCanvas::s_b_useFBO,
           g_b_EnableVBO, g_texture_rectangle_format, 1, 1);
+
+    }
 #endif
 
   } else {
