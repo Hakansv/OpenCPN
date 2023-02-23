@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: opencpn\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-09-21 20:19-0400\n"
-"PO-Revision-Date: 2022-04-21 14:21\n"
+"PO-Revision-Date: 2023-02-22 12:21\n"
 "Last-Translator: \n"
 "Language-Team: Swedish\n"
 "Language: sv_SE\n"
@@ -28,7 +28,7 @@ msgstr "Position"
 
 #: src/dashboard_pi.cpp:185
 msgid "SOG"
-msgstr "SOG"
+msgstr "Fart -g SOG"
 
 #: src/dashboard_pi.cpp:187
 msgid "Speedometer"
@@ -36,7 +36,7 @@ msgstr "Fartmätare"
 
 #: src/dashboard_pi.cpp:189
 msgid "COG"
-msgstr "COG"
+msgstr "Kurs -g COG"
 
 #: src/dashboard_pi.cpp:191
 msgid "Mag COG"
@@ -44,39 +44,39 @@ msgstr "Magnetisk COG"
 
 #: src/dashboard_pi.cpp:193
 msgid "GNSS Compass"
-msgstr "GNSS-kompass"
+msgstr "GNSS-Kurs"
 
 #: src/dashboard_pi.cpp:195
 msgid "True Compass"
-msgstr "Sann Kompass"
+msgstr "Kompass sann"
 
 #: src/dashboard_pi.cpp:197
 msgid "STW"
-msgstr "STW"
+msgstr "Fart -v STW"
 
 #: src/dashboard_pi.cpp:199
 msgid "True HDG"
-msgstr "Sann HDG"
+msgstr "Kurs -k sann HDG"
 
 #: src/dashboard_pi.cpp:201
 msgid "Mag HDG"
-msgstr "Magnetisk HDG"
+msgstr "Kurs -k mag HDG"
 
 #: src/dashboard_pi.cpp:204
 msgid "App. Wind Angle & Speed"
-msgstr "Skenbar Vindvinkel & vindstyrka"
+msgstr "Vind-vinkel-styrka Skenbar "
 
 #: src/dashboard_pi.cpp:206
 msgid "App & True Wind Angle"
-msgstr "Skenbar&Sann Vindvinkel"
+msgstr "Vind Skenbar Sann "
 
 #: src/dashboard_pi.cpp:208 src/dashboard_pi.cpp:210
 msgid "App. Wind Speed"
-msgstr "Skenbar vindstyrka"
+msgstr "Vindstyrka Skenbar"
 
 #: src/dashboard_pi.cpp:212
 msgid "True Wind Angle & Speed"
-msgstr "Sann vindvinkel & vindstyrka"
+msgstr "Vind-vinkel-styrka Sann"
 
 #: src/dashboard_pi.cpp:214 src/dashboard_pi.cpp:216
 msgid "Depth"
@@ -96,23 +96,23 @@ msgstr "Lufttemp."
 
 #: src/dashboard_pi.cpp:226
 msgid "App. Wind Angle"
-msgstr "Skenbar vindvinkel"
+msgstr "Vindvinkel Skenbar"
 
 #: src/dashboard_pi.cpp:228
 msgid "True Wind Angle"
-msgstr "Sann vindvinkel"
+msgstr "Vindvinkel Sann"
 
 #: src/dashboard_pi.cpp:230
 msgid "True Wind Direction"
-msgstr "Sann vindriktning"
+msgstr "Vindriktning Sann"
 
 #: src/dashboard_pi.cpp:232
 msgid "True Wind Speed"
-msgstr "Sann vindstyrka"
+msgstr "Vindstyrka Sann"
 
 #: src/dashboard_pi.cpp:234
 msgid "True Wind Dir. & Speed"
-msgstr "Sann vindvinkel & vindstyrka"
+msgstr "Vind-riktn.-styrka Sann"
 
 #: src/dashboard_pi.cpp:236 src/dashboard_pi.cpp:238
 msgid "VMG"

@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: opencpn\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-09-21 20:19-0400\n"
-"PO-Revision-Date: 2022-04-21 14:20\n"
+"PO-Revision-Date: 2023-02-22 08:44\n"
 "Last-Translator: \n"
 "Language-Team: Hungarian\n"
 "Language: hu_HU\n"
@@ -52,15 +52,15 @@ msgstr "Valós Kompassz"
 
 #: src/dashboard_pi.cpp:197
 msgid "STW"
-msgstr ""
+msgstr "STW"
 
 #: src/dashboard_pi.cpp:199
 msgid "True HDG"
-msgstr ""
+msgstr "True HDG"
 
 #: src/dashboard_pi.cpp:201
 msgid "Mag HDG"
-msgstr ""
+msgstr "Mag HDG"
 
 #: src/dashboard_pi.cpp:204
 msgid "App. Wind Angle & Speed"
@@ -104,7 +104,7 @@ msgstr "Valós szél irány"
 
 #: src/dashboard_pi.cpp:230
 msgid "True Wind Direction"
-msgstr ""
+msgstr "Valós szél irány"
 
 #: src/dashboard_pi.cpp:232
 msgid "True Wind Speed"
@@ -112,11 +112,11 @@ msgstr "Valós szél sebesség"
 
 #: src/dashboard_pi.cpp:234
 msgid "True Wind Dir. & Speed"
-msgstr ""
+msgstr "Valós szél irány és sebesség"
 
 #: src/dashboard_pi.cpp:236 src/dashboard_pi.cpp:238
 msgid "VMG"
-msgstr ""
+msgstr "VMG"
 
 #: src/dashboard_pi.cpp:240 src/dashboard_pi.cpp:242
 msgid "Rudder Angle"
@@ -124,11 +124,11 @@ msgstr "Kormánylapát szög"
 
 #: src/dashboard_pi.cpp:244
 msgid "GNSS in use"
-msgstr ""
+msgstr "GNSS használatban"
 
 #: src/dashboard_pi.cpp:246
 msgid "GNSS Status"
-msgstr ""
+msgstr "GNSS státusz"
 
 #: src/dashboard_pi.cpp:248
 msgid "Cursor"
@@ -136,7 +136,7 @@ msgstr "Kurzor"
 
 #: src/dashboard_pi.cpp:250
 msgid "GNSS Clock"
-msgstr ""
+msgstr "GNSS idő"
 
 #: src/dashboard_pi.cpp:252
 msgid "Sunrise/Sunset"
@@ -152,35 +152,35 @@ msgstr "Szél előzmények"
 
 #: src/dashboard_pi.cpp:258
 msgid "Barometric history"
-msgstr ""
+msgstr "Korábbi légnymás"
 
 #: src/dashboard_pi.cpp:260
 msgid "Trip Log"
-msgstr ""
+msgstr "Út távolság"
 
 #: src/dashboard_pi.cpp:262
 msgid "Sum Log"
-msgstr ""
+msgstr "Öszesített távolság"
 
 #: src/dashboard_pi.cpp:264
 msgid "From Ownship"
-msgstr ""
+msgstr "Saját hajótól"
 
 #: src/dashboard_pi.cpp:266
 msgid "Pitch"
-msgstr ""
+msgstr "Bólintás"
 
 #: src/dashboard_pi.cpp:268
 msgid "Heel"
-msgstr ""
+msgstr "Dőlés"
 
 #: src/dashboard_pi.cpp:270
 msgid "Local GNSS Clock"
-msgstr ""
+msgstr "Helyi GNSS idő"
 
 #: src/dashboard_pi.cpp:272
 msgid "Local CPU Clock"
-msgstr ""
+msgstr "Helyi CPU idő"
 
 #: src/dashboard_pi.cpp:274
 msgid "Local Sunrise/Sunset"
@@ -194,12 +194,13 @@ msgstr "Műszerfal"
 
 #: src/dashboard_pi.cpp:733
 msgid "Dashboard PlugIn for OpenCPN"
-msgstr ""
+msgstr "OpenCPN műszerfal plugin"
 
 #: src/dashboard_pi.cpp:738
 msgid "Dashboard PlugIn for OpenCPN\n"
 "Provides navigation instrument display from NMEA source."
-msgstr ""
+msgstr "OpenCPN Műszerfal plugin\n"
+"NMEA forrásból navigációs adatokat jelenít meg."
 
 #: src/dashboard_pi.cpp:1446 src/dashboard_pi.cpp:2039 src/dashboard_pi.cpp:2829
 msgid "Up"
@@ -291,19 +292,19 @@ msgstr "Földfelszíni sebesség (SOG) csillapítási érték:"
 
 #: src/dashboard_pi.cpp:2900
 msgid "COG Damping Factor:"
-msgstr ""
+msgstr "COG csillapítási tényező:"
 
 #: src/dashboard_pi.cpp:2906
 msgid "Local Time Offset From UTC:"
-msgstr ""
+msgstr "Helyi idő eltérése UTC-től:"
 
 #: src/dashboard_pi.cpp:2925
 msgid "Boat speed units:"
-msgstr ""
+msgstr "Hajó sebsség mértékegysége:"
 
 #: src/dashboard_pi.cpp:2928 src/dashboard_pi.cpp:2969
 msgid "Honor OpenCPN settings"
-msgstr ""
+msgstr "OpenCPN beállítások betartás"
 
 #: src/dashboard_pi.cpp:2928 src/dashboard_pi.cpp:2978
 msgid "Kts"
@@ -311,15 +312,15 @@ msgstr "csomó"
 
 #: src/dashboard_pi.cpp:2928 src/dashboard_pi.cpp:2978
 msgid "mph"
-msgstr ""
+msgstr "mph"
 
 #: src/dashboard_pi.cpp:2928 src/dashboard_pi.cpp:2978
 msgid "km/h"
-msgstr ""
+msgstr "km/h"
 
 #: src/dashboard_pi.cpp:2928 src/dashboard_pi.cpp:2978
 msgid "m/s"
-msgstr ""
+msgstr "m/s"
 
 #: src/dashboard_pi.cpp:2934
 msgid "Depth units:"
@@ -348,19 +349,19 @@ msgstr "Centiméter"
 #: src/dashboard_pi.cpp:2942
 #, c-format
 msgid "Depth Offset (%s):"
-msgstr ""
+msgstr "Mélység eltolás (%s):"
 
 #: src/dashboard_pi.cpp:2966
 msgid "Distance units:"
-msgstr ""
+msgstr "Távolság mértékegysége:"
 
 #: src/dashboard_pi.cpp:2969
 msgid "Nautical miles"
-msgstr ""
+msgstr "Tengeri mérföld"
 
 #: src/dashboard_pi.cpp:2969
 msgid "Statute miles"
-msgstr ""
+msgstr "Mérföld"
 
 #: src/dashboard_pi.cpp:2969
 msgid "Kilometers"
@@ -368,11 +369,11 @@ msgstr "kilóméter"
 
 #: src/dashboard_pi.cpp:2975
 msgid "Wind speed units:"
-msgstr ""
+msgstr "Szélsebesség mértékegysége:"
 
 #: src/dashboard_pi.cpp:2984
 msgid "Temperature units:"
-msgstr ""
+msgstr "Hőmérséklet mértékegység:"
 
 #: src/dashboard_pi.cpp:2987
 msgid "Celsius"
@@ -494,5 +495,5 @@ msgstr "ÉÉNY"
 #: src/wind_history.cpp:585
 #, c-format
 msgid "Max %.1f %s since %02d:%02d  Overall %.1f %s"
-msgstr ""
+msgstr "Max %.1f %s %02d:%02d óta. Összesen %.1f %s"
 

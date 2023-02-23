@@ -3,7 +3,7 @@ msgstr ""
 "Project-Id-Version: opencpn\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2021-09-21 20:19-0400\n"
-"PO-Revision-Date: 2022-04-21 14:20\n"
+"PO-Revision-Date: 2023-02-22 08:44\n"
 "Last-Translator: \n"
 "Language-Team: Italian\n"
 "Language: it_IT\n"
@@ -72,11 +72,11 @@ msgstr "Angolo vento apparente/vero"
 
 #: src/dashboard_pi.cpp:208 src/dashboard_pi.cpp:210
 msgid "App. Wind Speed"
-msgstr "Angolo Vento apparente"
+msgstr "Velocità Vento apparente"
 
 #: src/dashboard_pi.cpp:212
 msgid "True Wind Angle & Speed"
-msgstr "Angolo & Veocità Vento reale"
+msgstr "Angolo & Veocità Vento vero"
 
 #: src/dashboard_pi.cpp:214 src/dashboard_pi.cpp:216
 msgid "Depth"
@@ -92,7 +92,7 @@ msgstr "Temp. Aqua"
 
 #: src/dashboard_pi.cpp:224
 msgid "Air Temp."
-msgstr "Temp. d'aria"
+msgstr "Temp. aria"
 
 #: src/dashboard_pi.cpp:226
 msgid "App. Wind Angle"
@@ -100,19 +100,19 @@ msgstr "Angolo Vento apparente"
 
 #: src/dashboard_pi.cpp:228
 msgid "True Wind Angle"
-msgstr "Angolo Vento reale"
+msgstr "Angolo Vento vero"
 
 #: src/dashboard_pi.cpp:230
 msgid "True Wind Direction"
-msgstr "direz. Vento reale"
+msgstr "direz. Vento vero"
 
 #: src/dashboard_pi.cpp:232
 msgid "True Wind Speed"
-msgstr "Velocità Vento reale"
+msgstr "Velocità Vento vero"
 
 #: src/dashboard_pi.cpp:234
 msgid "True Wind Dir. & Speed"
-msgstr "Dir. & Velocità Vento reale"
+msgstr "Dir. & Velocità Vento vero"
 
 #: src/dashboard_pi.cpp:236 src/dashboard_pi.cpp:238
 msgid "VMG"
@@ -148,11 +148,11 @@ msgstr "Fase lunare"
 
 #: src/dashboard_pi.cpp:256
 msgid "Wind history"
-msgstr "Storia del vento"
+msgstr "Storico del vento"
 
 #: src/dashboard_pi.cpp:258
 msgid "Barometric history"
-msgstr "Storia barometrica"
+msgstr "Storico barometrico"
 
 #: src/dashboard_pi.cpp:260
 msgid "Trip Log"
@@ -164,11 +164,11 @@ msgstr "Totale  Viaggio"
 
 #: src/dashboard_pi.cpp:264
 msgid "From Ownship"
-msgstr "Dalla barca"
+msgstr "Dalla propria barca"
 
 #: src/dashboard_pi.cpp:266
 msgid "Pitch"
-msgstr "Intonazione"
+msgstr "Beccheggio"
 
 #: src/dashboard_pi.cpp:268
 msgid "Heel"
@@ -280,23 +280,23 @@ msgstr "Piccolo:"
 
 #: src/dashboard_pi.cpp:2882
 msgid "Units, Ranges, Formats"
-msgstr "Unità, intervalli, formati"
+msgstr "Unità, Scale, formati"
 
 #: src/dashboard_pi.cpp:2888
 msgid "Speedometer max value:"
-msgstr "Velocità"
+msgstr "Velocità massima Tachimetro"
 
 #: src/dashboard_pi.cpp:2894
 msgid "Speed Over Ground Damping Factor:"
-msgstr "Fattore di Smorzamento delle oscillazioni della velocità e della rotta rispetto al fondo:"
+msgstr "Filtro SOG:"
 
 #: src/dashboard_pi.cpp:2900
 msgid "COG Damping Factor:"
-msgstr "COG Smorzamento delle oscillazioni della velocità e della rotta rispetto al fondo:"
+msgstr "Filtro COG:"
 
 #: src/dashboard_pi.cpp:2906
 msgid "Local Time Offset From UTC:"
-msgstr "Costamento (in ore) dal fuso Greenwich (UTC):"
+msgstr "Differenza UTC:"
 
 #: src/dashboard_pi.cpp:2925
 msgid "Boat speed units:"
@@ -308,7 +308,7 @@ msgstr "Accettare le impostazioni di OpenCPN"
 
 #: src/dashboard_pi.cpp:2928 src/dashboard_pi.cpp:2978
 msgid "Kts"
-msgstr "Nodi"
+msgstr "kts"
 
 #: src/dashboard_pi.cpp:2928 src/dashboard_pi.cpp:2978
 msgid "mph"
@@ -349,7 +349,7 @@ msgstr "Centimetri"
 #: src/dashboard_pi.cpp:2942
 #, c-format
 msgid "Depth Offset (%s):"
-msgstr "Valore di profondità (%s):"
+msgstr "Differenza di profondità (%s):"
 
 #: src/dashboard_pi.cpp:2966
 msgid "Distance units:"
@@ -369,11 +369,11 @@ msgstr "Chilometri"
 
 #: src/dashboard_pi.cpp:2975
 msgid "Wind speed units:"
-msgstr "Velocità Vento"
+msgstr "Unità di misura velocità Vento"
 
 #: src/dashboard_pi.cpp:2984
 msgid "Temperature units:"
-msgstr "Unità temperatura:"
+msgstr "Unità di misura temperatura:"
 
 #: src/dashboard_pi.cpp:2987
 msgid "Celsius"
@@ -389,7 +389,7 @@ msgstr "Kelvin"
 
 #: src/dashboard_pi.cpp:2994
 msgid "Use SignalK true wind data over ground. (Instead of through water)"
-msgstr "Usa i dati del vento vero SignalK a terra. (Invece che attraverso l'acqua)"
+msgstr "Usa i dati  SignalK del vento vero rispetto a terra. (Invece che rispetto all'acqua)"
 
 #: src/dashboard_pi.cpp:3269
 msgid "Add instrument"
@@ -397,7 +397,7 @@ msgstr "Aggiungi Strumento"
 
 #: src/dashboard_pi.cpp:3275
 msgid "Select instrument to add:"
-msgstr "Seleziona strumenti:"
+msgstr "Seleziona uno strumento da aggiungere:"
 
 #: src/dashboard_pi.cpp:3699 src/dashboard_pi.cpp:3724
 msgid "Preferences..."
@@ -413,7 +413,7 @@ msgstr "Sgancia"
 
 #: src/dashboard_pi.cpp:4192
 msgid "Choose font"
-msgstr "Choose font"
+msgstr "Scegli font"
 
 #: src/dial.cpp:529 src/wind.cpp:66 src/wind_history.cpp:441
 msgid "NE"
