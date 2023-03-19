@@ -6725,7 +6725,7 @@ msgstr "Plugin %s är inte kompatibel med den här versionen av OpenCPN, vänlig
 #: src/pluginmanager.cpp:1254
 #, c-format
 msgid "Unreadable Plugin library %s detected, check file permissions:\n\n"
-msgstr "En oläsbar pluginfolder har upptäckts, kontrollera läs/skriv-rättigheter på filen: \n\n"
+msgstr "En oläsbar pluginfolder %s har upptäckts, kontrollera läs/skriv-rättigheter på filen: \n\n"
 
 #: src/pluginmanager.cpp:1302
 msgid "Please check system log for more info."
