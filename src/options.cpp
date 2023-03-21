@@ -1630,7 +1630,6 @@ options::~options(void) {
                    this);
 
   groupsPanel->EmptyChartGroupArray(m_pGroupArray);
-  delete groupsPanel;
 
   delete m_pSerialArray;
   delete m_pGroupArray;
@@ -1657,19 +1656,6 @@ void options::RecalculateSize(void) {
   if (!g_bresponsive) {
     m_nCharWidthMax = GetSize().x / GetCharWidth();
     return;
-#if 0
-    wxSize canvas_size = gFrame->GetSize();
-    wxSize fitted_size = GetSize();
-
-    fitted_size.x = wxMin(fitted_size.x, canvas_size.x);
-    fitted_size.y = wxMin(fitted_size.y, canvas_size.y);
-
-    SetSize(fitted_size);
-
-    Fit();
-
-    return;
-#endif
   }
 
   wxSize esize;
@@ -2653,6 +2639,7 @@ void options::CreatePanel_ChartsLoad(size_t parent, int border_size,
   UpdateChartDirList();
 
   chartPanel->Layout();
+
 }
 
 void options::UpdateChartDirList() {
@@ -3872,10 +3859,11 @@ void options::CreatePanel_ChartGroups(size_t parent, int border_size,
   // and we have the actual widgets in a separate class (because of its
   // complexity)
 
-  wxWindow* chartsPage = m_pListbook->GetPage(parent);
-  groupsPanel = new ChartGroupsUI(chartsPage);
-
-  groupsPanel->m_panel = AddPage(parent, _("Chart Groups"));
+  wxNotebook *chartsPageNotebook = (wxNotebook *)m_pListbook->GetPage(parent);
+  wxScrolledWindow *sw = new ChartGroupsUI(chartsPageNotebook);
+  sw->SetScrollRate(m_scrollRate, m_scrollRate);
+  chartsPageNotebook->AddPage(sw, _("Chart Groups"));
+  groupsPanel = dynamic_cast<ChartGroupsUI*>(sw);
 
   groupsPanel->CreatePanel(parent, border_size, group_item_spacing);
 }
@@ -3892,6 +3880,7 @@ void ChartGroupsUI::CreatePanel(size_t parent, int border_size,
 }
 
 void ChartGroupsUI::CompletePanel(void) {
+  m_panel = this;
   m_topSizer = new wxBoxSizer(wxVERTICAL);
   m_panel->SetSizer(m_topSizer);
 
@@ -3986,6 +3975,7 @@ void ChartGroupsUI::CompletePanel(void) {
   m_pDeleteGroupButton->Connect(
       wxEVT_COMMAND_BUTTON_CLICKED,
       wxCommandEventHandler(ChartGroupsUI::OnDeleteGroup), NULL, this);
+
 
   wxBoxSizer* newDeleteGrp = new wxBoxSizer(wxVERTICAL);
   sizerGroups->Add(newDeleteGrp, 0, wxALL, m_border_size);
@@ -5813,6 +5803,7 @@ void options::CreateControls(void) {
   m_pageCharts = CreatePanel(_("Charts"));
   CreatePanel_ChartsLoad(m_pageCharts, border_size, group_item_spacing);
   CreatePanel_VectorCharts(m_pageCharts, border_size, group_item_spacing);
+
   // ChartGroups must be created after ChartsLoad and must be at least third
   CreatePanel_ChartGroups(m_pageCharts, border_size, group_item_spacing);
   RecalculateSize();
@@ -5886,9 +5877,11 @@ void options::CreateControls(void) {
 
   SetSizeHints(-1, -1, width - marginx, height - marginy);
 
+#ifndef __WXGTK__
   //  The s57 chart panel is the one which controls the minimum width required
   //  to avoid horizontal scroll bars
-  vectorPanel->SetSizeHints(ps57Ctl);
+  //vectorPanel->SetSizeHints(ps57Ctl);
+#endif
 }
 
 void options::SetInitialPage(int page_sel, int sub_page) {
@@ -8500,7 +8493,8 @@ EVT_NOTEBOOK_PAGE_CHANGED(
     ChartGroupsUI::OnGroupPageChange)  // This should work under Windows :-(
 END_EVENT_TABLE()
 
-ChartGroupsUI::ChartGroupsUI(wxWindow* parent) {
+ChartGroupsUI::ChartGroupsUI(wxWindow* parent)
+    : wxScrolledWindow(parent) {
   m_GroupSelectedPage = -1;
   m_pActiveChartsTree = 0;
   pParent = parent;
