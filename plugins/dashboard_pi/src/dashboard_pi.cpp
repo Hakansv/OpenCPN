@@ -3637,7 +3637,7 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
   SetSizer(itemBoxSizerMainPanel);
 
   wxScrolledWindow *scrollWin = new wxScrolledWindow(
-      this, wxID_ANY, wxDefaultPosition, wxSize(-1, -1), wxVSCROLL);
+      this, wxID_ANY, wxDefaultPosition, wxSize(-1, -1), wxVSCROLL | wxHSCROLL);
 
   scrollWin->SetScrollRate(1, 1);
   itemBoxSizerMainPanel->Add(scrollWin, 1, wxEXPAND | wxALL, 0);
