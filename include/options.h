@@ -657,7 +657,7 @@ private:
   int m_screenConfig;
 
   wxNotebookPage *m_groupsPage;
-  wxFont *dialogFont, *dialogFontPlus;
+  wxFont *dialogFont;
   wxFont smallFont;
   //  wxFont *dialogFont;
   wxSize m_small_button_size;

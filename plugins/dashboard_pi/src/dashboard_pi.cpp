@@ -78,6 +78,7 @@ bool g_bDBtrueWindGround;
 double g_dHDT;
 double g_dSOG, g_dCOG;
 int g_iDashTempUnit;
+int g_dashPrefWidth, g_dashPrefHeight;
 
 bool b_IsDeviation;         // For Momo deviation table
 bool b_IsDevPrintSound;
@@ -3122,6 +3123,9 @@ void dashboard_pi::ShowPreferencesDialog(wxWindow *parent) {
 
     // OnClose should handle that for us normally but it doesn't seems to do so
     // We must save changes first
+    g_dashPrefWidth = dialog->GetSize().x;
+    g_dashPrefHeight = dialog->GetSize().y;
+
     dialog->SaveDashboardConfig();
     m_ArrayOfDashboardWindow.Clear();
     m_ArrayOfDashboardWindow = dialog->m_Config;
@@ -3358,6 +3362,9 @@ bool dashboard_pi::LoadConfig(void) {
 
     pConf->Read(_T("UTCOffset"), &g_iUTCOffset, 0);
 
+    pConf->Read(_T("PrefWidth"), &g_dashPrefWidth, 0);
+    pConf->Read(_T("PrefHeight"), &g_dashPrefHeight, 0);
+
     int d_cnt;
     pConf->Read(_T("DashboardCount"), &d_cnt, -1);
     // TODO: Memory leak? We should destroy everything first
@@ -3473,6 +3480,8 @@ bool dashboard_pi::SaveConfig(void) {
     pConf->Write(_T("UTCOffset"), g_iUTCOffset);
     pConf->Write(_T("UseSignKtruewind"), g_bDBtrueWindGround);
     pConf->Write(_T("TemperatureUnit"), g_iDashTempUnit);
+    pConf->Write(_T("PrefWidth"), g_dashPrefWidth);
+    pConf->Write(_T("PrefHeight"), g_dashPrefHeight);
 
     pConf->Write(_T("DashboardCount" ),
                  (int)m_ArrayOfDashboardWindow.GetCount());
@@ -3491,6 +3500,7 @@ bool dashboard_pi::SaveConfig(void) {
         pConf->Write(wxString::Format(_T("Instrument%d"), j + 1),
                      cont->m_aInstrumentList.Item(j));
     }
+
 
     return true;
   } else
@@ -3600,11 +3610,14 @@ void dashboard_pi::ShowDashboard(size_t id, bool visible) {
 DashboardPreferencesDialog::DashboardPreferencesDialog(
     wxWindow *parent, wxWindowID id, wxArrayOfDashboard config)
     : wxDialog(parent, id, _("Dashboard preferences"), wxDefaultPosition,
-               wxDefaultSize, wxDEFAULT_DIALOG_STYLE) {
+               wxDefaultSize, wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
 #ifdef __WXQT__
   wxFont *pF = OCPNGetFont(_T("Dialog"), 0);
   SetFont(*pF);
 #endif
+
+  int display_width, display_height;
+  wxDisplaySize(&display_width, &display_height);
 
   wxString shareLocn = *GetpSharedDataLocation() + _T("plugins") +
                        wxFileName::GetPathSeparator() + _T("dashboard_pi") +
@@ -3623,9 +3636,25 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
   wxBoxSizer *itemBoxSizerMainPanel = new wxBoxSizer(wxVERTICAL);
   SetSizer(itemBoxSizerMainPanel);
 
-  wxNotebook *itemNotebook = new wxNotebook(this, wxID_ANY, wxDefaultPosition,
+  wxScrolledWindow *scrollWin = new wxScrolledWindow(
+      this, wxID_ANY, wxDefaultPosition, wxSize(-1, -1), wxVSCROLL);
+
+  scrollWin->SetScrollRate(1, 1);
+  itemBoxSizerMainPanel->Add(scrollWin, 1, wxEXPAND | wxALL, 0);
+
+    wxStdDialogButtonSizer *DialogButtonSizer =
+      CreateStdDialogButtonSizer(wxOK | wxCANCEL);
+  itemBoxSizerMainPanel->Add(DialogButtonSizer, 0, wxALIGN_RIGHT | wxALL, 5);
+
+
+
+  wxBoxSizer *itemBoxSizer2 = new wxBoxSizer(wxVERTICAL);
+  scrollWin->SetSizer(itemBoxSizer2);
+
+
+  wxNotebook *itemNotebook = new wxNotebook(scrollWin, wxID_ANY, wxDefaultPosition,
                                             wxDefaultSize, wxNB_TOP);
-  itemBoxSizerMainPanel->Add(itemNotebook, 1, wxALL | wxEXPAND, border_size);
+  itemBoxSizer2->Add(itemNotebook, 0, wxALL | wxEXPAND, border_size);
 
   wxPanel *itemPanelNotebook01 =
       new wxPanel(itemNotebook, wxID_ANY, wxDefaultPosition, wxDefaultSize,
@@ -3805,9 +3834,7 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
   int vsize = dsize.y * 35 / 100;
 
 #ifdef __OCPN__ANDROID__
-  int dw, dh;
-  wxDisplaySize(&dw, &dh);
-  vsize = dh * 50 / 100;
+  vsize = display_height * 50 / 100;
 #endif
 
   m_pListCtrlInstruments = new wxListCtrl(
@@ -4105,7 +4132,8 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
   m_pUseTrueWinddata->SetValue(g_bDBtrueWindGround);
   itemFlexGridSizer04->Add(m_pUseTrueWinddata, 1, wxALIGN_LEFT, border_size);
 
-   //Hack: Add a empty textbox to fill column 2 and move to next row
+  // Hakan Deviation help file
+  //Hack: Add a empty textbox to fill column 2 and move to next row
     wxStaticText* movetonextrow = new wxStaticText(itemPanelNotebook02, wxID_ANY, _(""),
         wxDefaultPosition, wxDefaultSize, 0);
     itemFlexGridSizer04->Add(movetonextrow, 1, wxALIGN_RIGHT, border_size);
@@ -4114,7 +4142,6 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
         wxT(" Spara deviationsdata till fil"), wxDefaultPosition, wxDefaultSize);
     m_pSetDeviationBtn->SetValue(b_IsDeviation);
     itemFlexGridSizer04->Add(m_pSetDeviationBtn, 0, wxEXPAND | wxALL, 0);
- 
 #ifdef __WXMSW__
     m_pSetDevSoundBtn = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
         wxT(" Beep at print"), wxDefaultPosition, wxDefaultSize);
@@ -4126,15 +4153,10 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
         wxDefaultPosition, wxDefaultSize, 0);
     itemFlexGridSizer04->Add(movetonextrow2, 1, wxALIGN_RIGHT, border_size);
 #endif
-    
-    m_pDevfilename = new wxStaticText(itemPanelNotebook02, wxID_ANY, 
+    m_pDevfilename = new wxStaticText(itemPanelNotebook02, wxID_ANY,
         _T("      in Log Directory - devdata.txt"), wxDefaultPosition, wxDefaultSize);
     itemFlexGridSizer04->Add(m_pDevfilename, 0, wxALIGN_LEFT | wxALL, 0);
-  
-
-  wxStdDialogButtonSizer *DialogButtonSizer =
-      CreateStdDialogButtonSizer(wxOK | wxCANCEL);
-  itemBoxSizerMainPanel->Add(DialogButtonSizer, 0, wxALIGN_RIGHT | wxALL, 5);
+  //End Hakan Dev.
 
   curSel = -1;
   for (size_t i = 0; i < m_Config.GetCount(); i++) {
@@ -4150,9 +4172,30 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
 
   UpdateDashboardButtonsState();
   UpdateButtonsState();
-  // SetMinSize( wxSize( 450, -1 ) );
-  SetMinSize(wxSize(200, -1));
+
+  //SetMinSize(wxSize(400, -1));
+
   Fit();
+
+  // Constrain size on small displays
+  wxSize canvas_size = GetOCPNCanvasWindow()->GetSize();
+  if(display_height < 600){
+    SetMaxSize(GetOCPNCanvasWindow()->GetSize());
+    if(g_dashPrefWidth > 0 && g_dashPrefHeight > 0)
+      SetSize(wxSize(g_dashPrefWidth, g_dashPrefHeight));
+    else
+      SetSize(wxSize(canvas_size.x * 8/10, canvas_size.y * 8 / 10));
+  }
+  else {
+    SetMaxSize(GetOCPNCanvasWindow()->GetSize());
+    if(g_dashPrefWidth > 0 && g_dashPrefHeight > 0)
+      SetSize(wxSize(g_dashPrefWidth, g_dashPrefHeight));
+    else
+      SetSize(wxSize(canvas_size.x * 3 /4, canvas_size.y * 8 / 10));
+  }
+
+  CentreOnScreen();
+
 }
 
 void DashboardPreferencesDialog::RecalculateSize(void) {
@@ -4171,6 +4214,8 @@ void DashboardPreferencesDialog::RecalculateSize(void) {
 }
 
 void DashboardPreferencesDialog::OnCloseDialog(wxCloseEvent &event) {
+  g_dashPrefWidth = GetSize().x;
+  g_dashPrefHeight = GetSize().y;
   SaveDashboardConfig();
   event.Skip();
 }

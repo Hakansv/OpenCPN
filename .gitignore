@@ -23,3 +23,5 @@ buildwin/*.crt
 buildwin/*.*
 .DS_Store
 buildwin
+/build/plugins/dashboard_pi/dashboard_pi.vcxproj.filters
+/build/plugins/dashboard_pi/dashboard_pi.vcxproj

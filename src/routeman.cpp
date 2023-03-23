@@ -1006,6 +1006,8 @@ WayPointman::~WayPointman() {
 
   if (pmarkicon_image_list) pmarkicon_image_list->RemoveAll();
   delete pmarkicon_image_list;
+  delete m_pLegacyIconArray;
+  delete m_pExtendedIconArray;
 }
 
 bool WayPointman::AddRoutePoint(RoutePoint *prp) {
