@@ -1367,7 +1367,7 @@ void OCPNPlatform::SetUpgradeOptions(wxString vNew, wxString vOld) {
     g_maintoolbar_x = -1;
 
     // Force a reload of updated default tide/current datasets
-    TideCurrentDataSet.clear();
+    if(TideCurrentDataSet.size() < 3 ) TideCurrentDataSet.clear();
   }
 }
 
