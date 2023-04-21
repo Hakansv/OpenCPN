@@ -2813,9 +2813,9 @@ void MyFrame::OnToolbarAnimateTimer(wxTimerEvent &event) {
     if (m_nMasterToolCountShown < (int)g_MainToolbar->GetToolCount()) {
       m_nMasterToolCountShown++;
       g_MainToolbar->SetToolShowCount(m_nMasterToolCountShown);
-      g_MainToolbar->Realize();
+      //g_MainToolbar->Realize(); //Hakan. Don't flickker on opening
 
-      ToolbarAnimateTimer.Start(20, wxTIMER_ONE_SHOT);
+      ToolbarAnimateTimer.Start(5, wxTIMER_ONE_SHOT);
     } else {
       //  One last "Realize()" to establish the final toolbar shape
       g_MainToolbar->GetToolbar()->InvalidateBitmaps();
