@@ -210,6 +210,7 @@ extern bool g_bShowAreaNotices;
 extern int g_Show_Target_Name_Scale;
 extern bool g_bCPAWarn;
 extern bool g_bTCPA_Max;
+bool g_AisFirstTimeUse;
 
 extern MyFrame *gFrame;
 
@@ -6594,21 +6595,25 @@ void ChartCanvas::UpdateAIS() {
 }
 
 void ChartCanvas::ToggleCPAWarn() {
-  g_bCPAWarn = !g_bCPAWarn;
-  wxString mess = _("ON");
-  if (!g_bCPAWarn) {
+  if (!g_AisFirstTimeUse) g_bCPAWarn = !g_bCPAWarn;
+  wxString mess;
+  if (g_bCPAWarn) {
+    g_bTCPA_Max = true;
+    mess = _("ON");
+  } else {
     g_bTCPA_Max = false;
     mess = _("OFF");
   }
-  else { g_bTCPA_Max = true; }
+
   // Print to status bar if available.
   if (STAT_FIELD_SCALE >= 4 && parent_frame->GetStatusBar()) {
     parent_frame->SetStatusText(_("CPA alarm ") + mess, STAT_FIELD_SCALE);
-  }
-  else {
-    OCPNMessageBox(this,
-                    _("CPA Alarm is switched") + _T(" ") + mess.MakeLower(),
-                    _("CPA") + _T(" ") + mess, 4, 4);
+  } else {
+    if (!g_AisFirstTimeUse) {
+      OCPNMessageBox(this,
+                     _("CPA Alarm is switched") + _T(" ") + mess.MakeLower(),
+                     _("CPA") + _T(" ") + mess, 4, 4);
+    }
   }
 }
 

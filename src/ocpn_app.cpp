@@ -594,6 +594,7 @@ bool g_bDrawAISSize;
 bool g_bDrawAISRealtime;
 double g_AIS_RealtPred_Kts;
 bool g_bShowAISName;
+bool ToggleCPAWarn();
 int g_Show_Target_Name_Scale;
 int g_WplAction;
 

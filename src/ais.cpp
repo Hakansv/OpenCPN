@@ -78,6 +78,7 @@ extern bool g_bDrawAISRealtime;
 extern double g_AIS_RealtPred_Kts;
 extern bool g_bShowAISName;
 extern int g_Show_Target_Name_Scale;
+extern bool g_AisFirstTimeUse;
 extern bool g_bInlandEcdis;
 
 extern int g_ais_alert_dialog_x, g_ais_alert_dialog_y;
@@ -741,6 +742,16 @@ static void AISDrawTarget(AisTargetData *td, ocpnDC &dc, ViewPort &vp,
                           ChartCanvas *cp) {
   //      Target data must be valid
   if (NULL == td) return;
+
+  static bool firstTimeUse = true;
+  // First time AIS received
+  if (firstTimeUse) {
+    g_AisFirstTimeUse = true;
+    // Show Status Bar CPA warning status
+    cp->ToggleCPAWarn();
+    g_AisFirstTimeUse = false;
+    firstTimeUse = false;
+  }
 
   //    Target is lost due to position report time-out, but still in Target List
   if (td->b_lost) return;

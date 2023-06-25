@@ -90,6 +90,7 @@ bool g_bAIS_ACK_Timeout;
 bool g_bAIS_CPA_Alert_Suppress_Moored;
 bool g_bCPAMax;
 bool g_bCPAWarn;
+bool g_AisFirstTimeUse;
 bool g_bHideMoored;
 bool g_bTCPA_Max;
 double g_AckTimeout_Mins;

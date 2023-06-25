@@ -172,6 +172,7 @@ extern bool g_bAIS_DSC_Alert_Audio;
 extern bool g_bAIS_CPA_Alert_Audio;
 extern bool g_bCPAWarn;
 extern bool g_bAIS_CPA_Alert;
+extern bool g_AisFirstTimeUse;
 
 extern wxString *pInit_Chart_Dir;
 
