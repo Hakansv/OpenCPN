@@ -8930,13 +8930,20 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
         }
         current->FinalizeForRendering();
         current->m_bIsBeingEdited = false;
+        FinishRoute();
+        g_pRouteMan->DeleteRoute(tail, NavObjectChanges::getInstance());
       }
       if (inserting) {
+        pSelect->DeleteAllSelectableRoutePoints(current);
+        pSelect->DeleteAllSelectableRouteSegments(current);
         for (int i = 1; i < connect; i++) {  // numbering in the tail route
           current->InsertPointAndSegment(tail->GetPoint(i), i - 1, false);
         }
+        pSelect->AddAllSelectableRouteSegments(current);
+        pSelect->AddAllSelectableRoutePoints(current);
         current->FinalizeForRendering();
         current->m_bIsBeingEdited = false;
+        g_pRouteMan->DeleteRoute(tail, NavObjectChanges::getInstance());
       }
 
       //    Update the RouteProperties Dialog, if currently shown
@@ -9133,13 +9140,19 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
             current->FinalizeForRendering();
             current->m_bIsBeingEdited = false;
             FinishRoute();
+            g_pRouteMan->DeleteRoute(tail, NavObjectChanges::getInstance());
           }
           if (inserting) {
+            pSelect->DeleteAllSelectableRoutePoints(current);
+            pSelect->DeleteAllSelectableRouteSegments(current);
             for (int i = 1; i < connect; i++) {  // numbering in the tail route
               current->InsertPointAndSegment(tail->GetPoint(i), i - 1, false);
             }
+            pSelect->AddAllSelectableRouteSegments(current);
+            pSelect->AddAllSelectableRoutePoints(current);
             current->FinalizeForRendering();
             current->m_bIsBeingEdited = false;
+            g_pRouteMan->DeleteRoute(tail, NavObjectChanges::getInstance());
           }
 
           //    Update the RouteProperties Dialog, if currently shown
