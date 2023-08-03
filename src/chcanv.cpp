@@ -625,6 +625,7 @@ ChartCanvas::ChartCanvas(wxFrame *frame, int canvasIndex)
   VPoint.clon = 0;
   VPoint.view_scale_ppm = 1;
   VPoint.Invalidate();
+  m_nMeasureState = 0;
 
   m_canvas_scale_factor = 1.;
 
@@ -5338,8 +5339,20 @@ bool ChartCanvas::SetViewPoint(double lat, double lon, double scale_ppm,
     //      Update the viewpoint reference scale
     if (m_singleChart)
       VPoint.ref_scale = m_singleChart->GetNativeScale();
-    else
+    else {
+#ifdef __OCPN__ANDROID__
+      // This is an optimization for panning on touch screen systems.
+      // See above.
+      // Quilt might not be fully composed at this point, so for cm93
+      // the reference scale may not be known.
+      // In this case, do not update the VP ref_scale.
+      if ((last_vp.view_scale_ppm != scale_ppm) || !bwasValid) {
+        VPoint.ref_scale = m_pQuilt->GetRefNativeScale();
+      }
+#else
       VPoint.ref_scale = m_pQuilt->GetRefNativeScale();
+#endif
+    }
 
     //    Calculate the on-screen displayed actual scale
     //    by a simple traverse northward from the center point
@@ -7924,29 +7937,33 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
         ret = true;
       }
 
-      else if (m_bMeasure_Active && m_nMeasureState)  // measure tool?
+      else if (m_bMeasure_Active && (m_nMeasureState >= 1))  // measure tool?
       {
         SetCursor(*pCursorPencil);
 
-        if (m_nMeasureState == 1) {
+        if (!m_pMeasureRoute) {
           m_pMeasureRoute = new Route();
           pRouteList->Append(m_pMeasureRoute);
+        }
+
+        if (m_nMeasureState == 1) {
           r_rband.x = x;
           r_rband.y = y;
         }
 
-        RoutePoint *pMousePoint = new RoutePoint(m_cursor_lat, m_cursor_lon,
-                                                 wxString(_T ( "circle" )),
-                                                 wxEmptyString, wxEmptyString);
+        RoutePoint *pMousePoint = new RoutePoint(
+            m_cursor_lat, m_cursor_lon, wxString(_T ( "circle" )),
+            wxEmptyString, wxEmptyString);
         pMousePoint->m_bShowName = false;
-        pMousePoint->SetShowWaypointRangeRings( false );
+        pMousePoint->SetShowWaypointRangeRings(false);
 
         m_pMeasureRoute->AddPoint(pMousePoint);
 
         m_prev_rlat = m_cursor_lat;
         m_prev_rlon = m_cursor_lon;
         m_prev_pMousePoint = pMousePoint;
-        m_pMeasureRoute->m_lastMousePointIndex = m_pMeasureRoute->GetnPoints();
+        m_pMeasureRoute->m_lastMousePointIndex =
+            m_pMeasureRoute->GetnPoints();
 
         m_nMeasureState++;
         gFrame->RefreshAllCanvas();
