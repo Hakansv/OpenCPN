@@ -59,6 +59,7 @@ NMEA0183::NMEA0183()
    response_table.Append( (RESPONSE *) &Bwr );
    response_table.Append( (RESPONSE *) &Bww );
 */
+   response_table.Append((RESPONSE *) &Acc);
    response_table.Append( (RESPONSE *) &Dbt );
 /*
    response_table.Append( (RESPONSE *) &Dcn );

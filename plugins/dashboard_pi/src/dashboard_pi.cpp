@@ -229,6 +229,7 @@ enum {
   ID_DBP_I_SUNLCL,
   ID_DBP_I_ALTI,
   ID_DBP_D_ALTI,
+  ID_DBP_I_ACC,
   ID_DBP_LAST_ENTRY  // this has a reference in one of the routines; defining a
                      // "LAST_ENTRY" and setting the reference to it, is one
                      // codeline less to change (and find) when adding new
@@ -281,6 +282,8 @@ wxString getInstrumentCaption(unsigned int id) {
       return _("Altitude");
     case ID_DBP_D_ALTI:
       return _("Altitude Trace");
+    case ID_DBP_I_ACC:
+      return _("Anchor Chain");
     case ID_DBP_I_DPT:
       return _("Depth");
     case ID_DBP_D_DPT:
@@ -402,6 +405,7 @@ void getListItemForInstrument(wxListItem &item, unsigned int id) {
     case ID_DBP_D_WDH:
     case ID_DBP_D_BPH:
     case ID_DBP_D_ALTI:
+    case ID_DBP_I_ACC:
       item.SetImage(1);
       break;
   }
@@ -810,6 +814,12 @@ void dashboard_pi::Notify() {
     mPriDepth = 99;
     SendSentenceToAllInstruments(OCPN_DBP_STC_DPT, NAN, _T("-"));
     mDPT_DBT_Watchdog = gps_watchdog_timeout_ticks;
+  }
+
+  mACC_Watchdog--;
+  if (mACC_Watchdog <= 0) {
+    SendSentenceToAllInstruments(OCPN_DBP_STC_ACC, NAN, _T("-"));
+    mACC_Watchdog = no_nav_watchdog_timeout_ticks;
   }
 
   mSTW_Watchdog--;
@@ -1267,8 +1277,19 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
           }
         }
       }
-    } else if (m_NMEA0183.LastSentenceIDReceived ==
-               _T("MTA")) {  // Air temperature
+    }
+    // Hakan
+    else if (m_NMEA0183.LastSentenceIDReceived == _T("ACC")) {
+      if (m_NMEA0183.Parse()) {
+        if (!std::isnan(m_NMEA0183.Acc.ChainCount)) {
+          SendSentenceToAllInstruments(
+                OCPN_DBP_STC_ACC, m_NMEA0183.Acc.ChainCount, _T("m"));
+          mACC_Watchdog = no_nav_watchdog_timeout_ticks;
+        }
+      }
+    }
+    // Air temperature
+    else if (m_NMEA0183.LastSentenceIDReceived == _T("MTA")) {
       if (mPriATMP >= 3) {
         if (m_NMEA0183.Parse()) {
           mPriATMP = 3;
@@ -1279,8 +1300,9 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
           mATMP_Watchdog = gps_watchdog_timeout_ticks;
         }
       }
-    } else if (m_NMEA0183.LastSentenceIDReceived ==
-               _T("MDA")) {  // Barometric pressure
+    }
+    // Barometric pressure
+    else if (m_NMEA0183.LastSentenceIDReceived == _T("MDA")) {
       if (m_NMEA0183.Parse()) {
         // TODO make posibilyti to select between Bar or InchHg
         /*
@@ -5176,6 +5198,11 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list) {
       case ID_DBP_D_ALTI:
         instrument = new DashboardInstrument_Altitude(this, wxID_ANY,
                                                    getInstrumentCaption(id));
+        break;
+      case ID_DBP_I_ACC:
+        instrument = new DashboardInstrument_Single(
+            this, wxID_ANY, getInstrumentCaption(id), OCPN_DBP_STC_ACC,
+            _T("%5.1f"));
         break;
       case ID_DBP_I_DPT:
         instrument = new DashboardInstrument_Single(
