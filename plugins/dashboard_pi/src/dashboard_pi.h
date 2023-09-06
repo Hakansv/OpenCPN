@@ -275,7 +275,6 @@ private:
   int mALT_Watchdog;
   int mLOG_Watchdog;
   int mTrLOG_Watchdog;
-  int mACC_Watchdog;
 
   iirfilter mSOGFilter;
   iirfilter mCOGFilter;

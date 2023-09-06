@@ -114,7 +114,6 @@
 #include "vlw.hpp"
 #include "xdr.hpp" //transducer data
 #include "xte.hpp"
-#include "acc.hpp"
 /*
 #include "ROT.hpp"
 #include "RPM.hpp"
@@ -166,8 +165,7 @@ class NMEA0183
       ** NMEA 0183 Sentences we understand
       */
 
-      ACC Acc;
-      /*
+/*
       AAM Aam;
       ALM Alm;
       APB Apb;
