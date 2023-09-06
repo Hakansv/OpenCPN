@@ -229,6 +229,7 @@ enum {
   ID_DBP_I_SUNLCL,
   ID_DBP_I_ALTI,
   ID_DBP_D_ALTI,
+  ID_DBP_I_WCC,
   ID_DBP_LAST_ENTRY  // this has a reference in one of the routines; defining a
                      // "LAST_ENTRY" and setting the reference to it, is one
                      // codeline less to change (and find) when adding new
@@ -343,6 +344,8 @@ wxString getInstrumentCaption(unsigned int id) {
       return _("Local CPU Clock");
     case ID_DBP_I_SUNLCL:
       return _("Local Sunrise/Sunset");
+    case ID_DBP_I_WCC:
+      return _("Windlass count");
   }
   return _T("");
 }
@@ -402,6 +405,7 @@ void getListItemForInstrument(wxListItem &item, unsigned int id) {
     case ID_DBP_D_WDH:
     case ID_DBP_D_BPH:
     case ID_DBP_D_ALTI:
+    case ID_DBP_I_WCC:
       item.SetImage(1);
       break;
   }
@@ -886,6 +890,11 @@ void dashboard_pi::Notify() {
   if (mTrLOG_Watchdog <= 0) {
     SendSentenceToAllInstruments(OCPN_DBP_STC_VLW1, NAN, _T("-"));
     mTrLOG_Watchdog = no_nav_watchdog_timeout_ticks;
+  }
+  mWCC_Watchdog--;
+  if (mWCC_Watchdog <= 0) {
+    SendSentenceToAllInstruments(OCPN_DBP_STC_WCC, NAN, _T("-"));
+    mWCC_Watchdog = no_nav_watchdog_timeout_ticks;
   }
 }
 
@@ -5334,6 +5343,11 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list) {
         instrument = new DashboardInstrument_CPUClock(
             this, wxID_ANY, getInstrumentCaption(id),
             _T( "%02i:%02i:%02i LCL" ));
+      case ID_DBP_I_WCC:
+        instrument = new DashboardInstrument_Single(
+            this, wxID_ANY, getInstrumentCaption(id), OCPN_DBP_STC_WCC,
+            _T("%5.1f"));
+        break;
     }
     if (instrument) {
       instrument->instrumentTypeId = id;
