@@ -345,7 +345,7 @@ wxString getInstrumentCaption(unsigned int id) {
     case ID_DBP_I_SUNLCL:
       return _("Local Sunrise/Sunset");
     case ID_DBP_I_WCC:
-      return _("Windlass count");
+      return _("Windlass");
   }
   return _T("");
 }
@@ -1846,6 +1846,17 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
                       g_iDashTempUnit),
                   getUsrTempUnit_Plugin(g_iDashTempUnit));
               mWTP_Watchdog = no_nav_watchdog_timeout_ticks;
+            }
+          }
+          // XDR Windlass chain counter
+          if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("D"))) {
+            if(m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("WINDLASS") ||
+               m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("WINDLASS#0")) {
+                 wxString unit = m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement;
+                 if (unit == wxEmptyString) unit = "m";
+                 unit.MakeLower();
+                 SendSentenceToAllInstruments(OCPN_DBP_STC_WCC, xdrdata, unit);
+                 mWCC_Watchdog = no_nav_watchdog_timeout_ticks;
             }
           }
         }
