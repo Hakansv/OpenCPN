@@ -69,6 +69,9 @@
 
 #define N_DOG_TIMEOUT 5
 
+extern bool g_endWinsuspend;
+
+
 // FIXME (dave)  This should be in some more "common" space, but where?
 bool CheckSumCheck(const std::string &sentence) {
   size_t check_start = sentence.find('*');
@@ -345,11 +348,15 @@ void CommDriverN0183Net::OnSocketReadWatchdogTimer(wxTimerEvent& event) {
             N_DOG_TIMEOUT));
         m_dog_value = N_DOG_TIMEOUT;
         wxLogMessage(log);
-        return;
+        if (!g_endWinsuspend) return;  // Hakan
       } else {
         log.Append(
             " Waited for 90 seconds. Try to reconnect instead.");
       }
+    }
+    if (g_endWinsuspend) {  // Hakan
+      log = " Reconnect TCP after Windows suspend";
+      g_endWinsuspend = false;
     }
     wxLogMessage(log);
 

@@ -561,7 +561,7 @@ int osMajor, osMinor;
 
 bool GetMemoryStatus(int *mem_total, int *mem_used);
 bool g_bHasHwClock;
-
+bool g_endWinsuspend;
 
 // AIS Global configuration
 bool g_bShowAIS;
