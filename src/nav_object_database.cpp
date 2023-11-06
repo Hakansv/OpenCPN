@@ -783,6 +783,19 @@ static bool GPXCreateWpt(pugi::xml_node node, RoutePoint *pr,
       step.set_value(pr->m_fWaypointRangeRingsStep);
       pugi::xml_attribute units = child.append_attribute("units");
       units.set_value(pr->m_iWaypointRangeRingsStepUnits);
+
+      // Color specification in GPX file must be fully opaque
+      if (pr->m_wxcWaypointRangeRingsColour.IsOk()) {
+        pr->m_wxcWaypointRangeRingsColour.Set(
+            pr->m_wxcWaypointRangeRingsColour.Red(),
+            pr->m_wxcWaypointRangeRingsColour.Green(),
+            pr->m_wxcWaypointRangeRingsColour.Blue(),
+            wxALPHA_OPAQUE);
+      }
+      else {
+        pr->m_wxcWaypointRangeRingsColour.Set(0,0,0,wxALPHA_OPAQUE);
+      }
+
       pugi::xml_attribute colour = child.append_attribute("colour");
       colour.set_value(
           pr->m_wxcWaypointRangeRingsColour.GetAsString(wxC2S_HTML_SYNTAX)
@@ -1599,7 +1612,13 @@ void NavObjectChanges::AddWP(RoutePoint *pWP, const char *action) {
   SetRootGPXNode();
 
   pugi::xml_node object = root().append_child("wpt");
-  GPXCreateWpt(object, pWP, OPT_WPT);
+
+  int flags = OPT_WPT;
+  // If the action is a simple deletion, simplify the output flags
+  if(!strncmp(action, "delete", 6))
+    flags = OUT_GUID | OUT_NAME;
+
+  GPXCreateWpt(object, pWP, flags);
 
   pugi::xml_node xchild = object.child("extensions");
   pugi::xml_node child = xchild.append_child("opencpn:action");
