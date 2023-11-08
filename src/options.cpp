@@ -255,6 +255,7 @@ extern wxColour g_colourTrackLineColour;
 extern int g_iSDMMFormat;
 extern int g_iDistanceFormat;
 extern int g_iSpeedFormat;
+extern int g_iWindSpeedFormat;
 extern int g_iTempFormat;
 
 extern bool g_bAdvanceRouteWaypointOnArrivalOnly;
@@ -4412,6 +4413,21 @@ void options::CreatePanel_Units(size_t parent, int border_size,
 #endif
     unitsSizer->Add(pSpeedFormat, inputFlags);
 
+    //  wind units
+    unitsSizer->Add(new wxStaticText(panelUnits, wxID_ANY, _("Wind speed")),
+                    labelFlags);
+    wxString pWindSpeedFormats[] = {_("Knots"), _("m/s"), _("Mph"), _("km/h")};
+    int m_WindSpeedFormatsNChoices =
+        sizeof(pWindSpeedFormats) / sizeof(wxString);
+    pWindSpeedFormat =
+        new wxChoice(panelUnits, ID_WINDSPEEDUNITCHOICE, wxDefaultPosition,
+                     wxSize(m_fontHeight * 4, -1), m_WindSpeedFormatsNChoices,
+                     pWindSpeedFormats);
+#ifdef __OCPN__ANDROID__
+    setChoiceStyleSheet(pWindSpeedFormat, m_fontHeight * 8 / 10);
+#endif
+    unitsSizer->Add(pWindSpeedFormat, inputFlags);
+
     // depth units
     unitsSizer->Add(new wxStaticText(panelUnits, wxID_ANY, _("Depth")),
                     labelFlags);
@@ -4550,6 +4566,16 @@ void options::CreatePanel_Units(size_t parent, int border_size,
         new wxChoice(panelUnits, ID_SPEEDUNITSCHOICE, wxDefaultPosition,
                      wxDefaultSize, m_SpeedFormatsNChoices, pSpeedFormats);
     unitsSizer->Add(pSpeedFormat, inputFlags);
+
+    // windspeed units
+    unitsSizer->Add(new wxStaticText(panelUnits, wxID_ANY, _("WindSpeed")),
+                    labelFlags);
+    wxString pWindSpeedFormats[] = {_("Knots"), _("m/s"), _("Mph"), _("km/h")};
+    int m_WindSpeedFormatsNChoices = sizeof(pWindSpeedFormats) / sizeof(wxString);
+    pWindSpeedFormat =
+        new wxChoice(panelUnits, ID_WINDSPEEDUNITCHOICE, wxDefaultPosition,
+                     wxDefaultSize, m_WindSpeedFormatsNChoices, pWindSpeedFormats);
+    unitsSizer->Add(pWindSpeedFormat, inputFlags);
 
     // depth units
     unitsSizer->Add(new wxStaticText(panelUnits, wxID_ANY, _("Depth")),
@@ -6148,6 +6174,7 @@ void options::SetInitialSettings(void) {
   pSDMMFormat->Select(g_iSDMMFormat);
   pDistanceFormat->Select(g_iDistanceFormat);
   pSpeedFormat->Select(g_iSpeedFormat);
+  pWindSpeedFormat->Select(g_iWindSpeedFormat);
   pTempFormat->Select(g_iTempFormat);
 
   pAdvanceRouteWaypointOnArrivalOnly->SetValue(
@@ -7040,6 +7067,7 @@ void options::OnApplyClick(wxCommandEvent& event) {
   g_iSDMMFormat = pSDMMFormat->GetSelection();
   g_iDistanceFormat = pDistanceFormat->GetSelection();
   g_iSpeedFormat = pSpeedFormat->GetSelection();
+  g_iWindSpeedFormat = pWindSpeedFormat->GetSelection();
   g_iTempFormat = pTempFormat->GetSelection();
 
   // LIVE ETA OPTION
