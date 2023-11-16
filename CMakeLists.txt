@@ -928,6 +928,7 @@ set(
   include/mbtiles.h
   include/multiplexer.h
   include/nav_object_database.h
+  include/n0183_ctx_factory.h
   include/navutil.h
   include/navutil_base.h
   include/NMEALogWindow.h
@@ -1050,6 +1051,7 @@ set(MODEL_SRC
   ${CMAKE_SOURCE_DIR}/src/georef.cpp
   ${CMAKE_SOURCE_DIR}/src/hyperlink.cpp
   ${CMAKE_SOURCE_DIR}/src/logger.cpp
+  ${CMAKE_SOURCE_DIR}/src/multiplexer.cpp
   ${CMAKE_SOURCE_DIR}/src/nav_object_database.cpp
   ${CMAKE_SOURCE_DIR}/src/navutil_base.cpp
   ${CMAKE_SOURCE_DIR}/src/ocpn_plugin.cpp
@@ -1119,7 +1121,6 @@ set(
   src/mDNS_query.cpp
   src/mDNS_service.cpp
   src/MUIBar.cpp
-  src/multiplexer.cpp
   src/navutil.cpp
   src/NMEALogWindow.cpp
   src/ocpCursor.cpp

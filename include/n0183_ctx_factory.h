@@ -1,11 +1,11 @@
 /***************************************************************************
  *
  * Project:  OpenCPN
- * Purpose:  NMEA Data Multiplexer Object
- * Author:   David Register
+ * Purpose:  Wrapper for creating a N0183DlgCtx based on global vars
+ * Author:   Alec Leamas
  *
  ***************************************************************************
- *   Copyright (C) 2010 by David S. Register                               *
+ *   Copyright (C) 2023 by Alec Leamas
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -22,49 +22,34 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
  **************************************************************************/
+#ifndef _N0183_DLG_CTX_FACTORY_H__
+#define _N0183_DLG_CTX_FACTORY_H__
 
-#ifndef _COMMN0183_OUT_H
-#define _COMMN0183_OUT_H
+#include <string>
 
-#include <functional>
+#include <wx/string.h>
 
-#include <wx/wxprec.h>
+#include "SendToGpsDlg.h"
+#include "comm_n0183_output.h"
 
-#include "nmea_log.h"
-#include "multiplexer.h"
 
-#ifndef WX_PRECOMP
-#include <wx/wx.h>
-#endif  // precompiled headers
+static  N0183DlgCtx GetDialogCtx(SendToGpsDlg* dialog) {
+  N0183DlgCtx dlg_ctx;
+  dlg_ctx.set_value = [dialog](int v) {
+      if (!dialog || !dialog->GetProgressGauge()) return;
+      dialog->GetProgressGauge()->SetValue(v);
+      dialog->GetProgressGauge()->Refresh();
+      dialog->GetProgressGauge()->Update();
+  };
+  dlg_ctx.set_range = [dialog](int r) {
+      if (!dialog || !dialog->GetProgressGauge()) return;
+      dialog->GetProgressGauge()->SetRange(r); };
+  dlg_ctx.pulse = [dialog](void) {
+      if (!dialog || !dialog->GetProgressGauge()) return;
+      dialog->GetProgressGauge()->Pulse(); };
+  dlg_ctx.set_message =
+      [dialog](const std::string& s) { dialog->SetMessage(wxString(s)); };
+  return dlg_ctx;
+}
 
-class RoutePoint;
-class Route;
-
-//      Garmin interface private error codes
-#define ERR_GARMIN_INITIALIZE -1
-#define ERR_GARMIN_GENERAL -2
-
-void BroadcastNMEA0183Message(const wxString& msg, NmeaLog& nmea_log);
-
-class N0183DlgCtx {
-public:
-  std::function<void(int)> set_value;
-  std::function<void(int)> set_range;
-  std::function<void(void)> pulse;
-  std::function<void(const std::string&)> set_message;
-
-  N0183DlgCtx()
-      : set_value([](int) {}),
-        set_range([](int) {}),
-        pulse([](void) {}),
-        set_message([](const std::string&) {}) {}
-};
-
-int SendRouteToGPS_N0183(Route* pr, const wxString& com_name,
-                         bool bsend_waypoints, Multiplexer& multiplexer,
-                         N0183DlgCtx ctx);
-
-int SendWaypointToGPS_N0183(RoutePoint* prp, const wxString& com_name,
-                            Multiplexer& multiplexer, N0183DlgCtx ctx);
-
-#endif  // _COMMN0183>>UT_H
+#endif   //  _N0183_DLG_CTX_FACTORY_H__

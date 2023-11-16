@@ -117,11 +117,12 @@
 #include "mDNS_service.h"
 #include "multiplexer.h"
 #include "nav_object_database.h"
-#include "navutil_base.h"
 #include "navutil.h"
+#include "navutil_base.h"
+#include "NMEALogWindow.h"
 #include "observable.h"
-#include "ocpn_app.h"
 #include "OCPN_AUIManager.h"
+#include "ocpn_app.h"
 #include "ocpn_frame.h"
 #include "OCPNPlatform.h"
 #include "options.h"
@@ -1276,7 +1277,8 @@ bool MyApp::OnInit() {
       pRouteManagerDialog->UpdateRouteListCtrl();
   };
 
-  g_pRouteMan = new Routeman(ctx, RouteMgrDlgUpdateListCtrl);
+  g_pRouteMan = new Routeman(ctx, RouteMgrDlgUpdateListCtrl,
+                             NMEALogWindow::Get());
 
   //      Init the Selectable Route Items List
   pSelect = new Select();

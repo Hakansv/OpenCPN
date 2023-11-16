@@ -132,8 +132,9 @@ void appendOSDirSlash(wxString *pString);
 //--------------------------------------------------------------------------------
 
 Routeman::Routeman(struct RoutePropDlgCtx ctx,
-                   std::function<void()> dlg_update_list_ctrl)
-   : m_NMEA0183(NmeaCtxFactory()) {
+                   std::function<void()> dlg_update_list_ctrl,
+                   NmeaLog& nmea_log)
+    : m_NMEA0183(NmeaCtxFactory()),  m_nmea_log(nmea_log) {
   m_prop_dlg_ctx = ctx;
   m_route_mgr_dlg_update_list_ctrl = dlg_update_list_ctrl;
   pActiveRoute = NULL;
@@ -562,7 +563,7 @@ bool Routeman::UpdateAutopilot() {
 
     m_NMEA0183.Rmb.Write(snt);
 
-    BroadcastNMEA0183Message(snt.Sentence);
+    BroadcastNMEA0183Message(snt.Sentence, m_nmea_log);
   }
 
   // RMC
@@ -615,7 +616,7 @@ bool Routeman::UpdateAutopilot() {
     m_NMEA0183.Rmc.FAAModeIndicator = "A";
     m_NMEA0183.Rmc.Write(snt);
 
-    BroadcastNMEA0183Message(snt.Sentence);
+    BroadcastNMEA0183Message(snt.Sentence, m_nmea_log);
   }
 
   // APB
@@ -684,7 +685,7 @@ bool Routeman::UpdateAutopilot() {
     }
 
     m_NMEA0183.Apb.Write(snt);
-    BroadcastNMEA0183Message(snt.Sentence);
+    BroadcastNMEA0183Message(snt.Sentence, m_nmea_log);
   }
 
   // XTE
@@ -706,7 +707,7 @@ bool Routeman::UpdateAutopilot() {
     m_NMEA0183.Xte.CrossTrackUnits = _T("N");
 
     m_NMEA0183.Xte.Write(snt);
-    BroadcastNMEA0183Message(snt.Sentence);
+    BroadcastNMEA0183Message(snt.Sentence, m_nmea_log);
   }
 
   return true;
