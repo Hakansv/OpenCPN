@@ -348,16 +348,20 @@ void CommDriverN0183Net::OnSocketReadWatchdogTimer(wxTimerEvent& event) {
             N_DOG_TIMEOUT));
         m_dog_value = N_DOG_TIMEOUT;
         wxLogMessage(log);
+#ifdef __WXMSW__
         if (!g_endWinsuspend) return;  // Hakan
+#endif
       } else {
         log.Append(
             " Waited for 90 seconds. Try to reconnect instead.");
       }
     }
+#ifdef __WXMSW__
     if (g_endWinsuspend) {  // Hakan
       log = " Reconnect TCP after Windows suspend";
       g_endWinsuspend = false;
     }
+#endif
     wxLogMessage(log);
 
     if (GetProtocol() == TCP) {
