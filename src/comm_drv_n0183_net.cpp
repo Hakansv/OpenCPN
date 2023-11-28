@@ -67,7 +67,7 @@
 #include "comm_navmsg_bus.h"
 #include "idents.h"
 
-#define N_DOG_TIMEOUT 5
+#define N_DOG_TIMEOUT 25
 
 extern bool g_endWinsuspend;
 
