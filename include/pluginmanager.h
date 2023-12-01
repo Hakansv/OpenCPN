@@ -232,7 +232,7 @@ public:
   void SetCanvasContextMenuItemViz(int item, bool viz, const char* name = "");
   void SetCanvasContextMenuItemGrey(int item, bool grey, const char* name = "");
 
-  void SendNMEASentenceToAllPlugIns(const wxString& sentence);
+  static void SendNMEASentenceToAllPlugIns(const wxString& sentence);
   void SendPositionFixToAllPlugIns(GenericPosDatEx* ppos);
   void SendActiveLegInfoToAllPlugIns(const ActiveLegDat* infos);
   void SendAISSentenceToAllPlugIns(const wxString& sentence);
@@ -307,6 +307,8 @@ private:
 
   ObservableListener m_listener_N0183_all;
   ObservableListener m_listener_SignalK;
+
+  ObsListener m_on_msg_sent_listener;
 
   wxBitmap* BuildDimmedToolBitmap(wxBitmap* pbmp_normal,
                                   unsigned char dim_ratio);

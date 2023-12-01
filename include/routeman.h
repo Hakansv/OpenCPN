@@ -38,6 +38,7 @@
 #include "MarkIcon.h"
 #include "nav_object_database.h"
 #include "nmea0183.h"
+#include "nmea_log.h"
 #include "ocpn_types.h"
 #include "observable_evtvar.h"
 #include "route.h"
@@ -84,7 +85,8 @@ friend class RoutemanGui;
 
 public:
   Routeman(struct RoutePropDlgCtx ctx,
-           std::function<void()> RouteMgrDlgUpdateListCtrl);
+           std::function<void()> RouteMgrDlgUpdateListCtrl,
+           NmeaLog& nmea_log);
   ~Routeman();
 
   bool DeleteRoute(Route *pRoute, NavObjectChanges* nav_obj_changes);
@@ -150,6 +152,9 @@ public:
   /** Notified with a shared_ptr<ActiveLegDat>, leg info to all plugins.  */
   EventVar json_leg_info;
 
+  /** Notified when a message available as GetString() is sent to garmin. */
+  EventVar  on_message_sent;
+
 private:
 
   Route *pActiveRoute;
@@ -185,6 +190,9 @@ private:
   int m_arrival_test;
   struct RoutePropDlgCtx m_prop_dlg_ctx;
   std::function<void()> m_route_mgr_dlg_update_list_ctrl;
+  NmeaLog& m_nmea_log;
+
+  ObsListener msg_sent_listener;
 };
 
 //----------------------------------------------------------------------------

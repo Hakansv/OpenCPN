@@ -56,6 +56,8 @@
 #include "config.h"
 
 #include "base_platform.h"
+#include "cmdline.h"
+#include "config_vars.h"
 #include "logger.h"
 #include "ocpn_utils.h"
 #include "ocpn_plugin.h"
@@ -80,9 +82,7 @@ static const char* const DEFAULT_XDG_DATA_DIRS =
 
 void appendOSDirSlash(wxString* pString);
 
-extern wxString g_winPluginDir;
 
-extern bool g_bportable;
 extern bool g_btouch;
 extern float g_selection_radius_mm;
 extern float g_selection_radius_touch_mm;
@@ -549,6 +549,18 @@ bool BasePlatform::DetectOSDetail(OCPN_OSDetail* detail) {
 #ifdef __ANDROID__
   detail->osd_arch = std::string("arm64");
   if (arch == wxARCH_32) detail->osd_arch = std::string("armhf");
+#endif
+
+#ifdef __WXOSX__
+  if (IsAppleSilicon() == 1) {
+    if (ProcessIsTranslated() != 1) {
+      detail->osd_arch = std::string("arm64");
+    } else {
+      detail->osd_arch = std::string("x86_64");
+    }
+  } else {
+    detail->osd_arch = std::string("x86_64");
+  }
 #endif
 
   return true;

@@ -57,9 +57,11 @@
 #include <wx/process.h>
 
 #include "base_platform.h"
+#include "chartdb.h"
 #include "config_vars.h"
-#include "ocpn_utils.h"
+#include "cmdline.h"
 #include "logger.h"
+#include "ocpn_utils.h"
 #include "observable_confvar.h"
 #include "plugin_blacklist.h"
 #include "plugin_cache.h"
@@ -67,7 +69,6 @@
 #include "plugin_loader.h"
 #include "plugin_paths.h"
 #include "safe_mode.h"
-#include "chartdb.h"
 
 #ifdef __ANDROID__
 #include "androidUTIL.h"
@@ -81,7 +82,6 @@
 extern BasePlatform* g_BasePlatform;
 extern wxWindow* gFrame;
 extern ChartDB* ChartData;
-extern bool g_bportable;
 
 static const std::vector<std::string> SYSTEM_PLUGINS = {
     "chartdownloader", "wmm", "dashboard", "grib"};
@@ -116,6 +116,26 @@ static bool IsSystemPluginName(const std::string& name) {
   return found != kPlugins.end();
 }
 
+/** Return version string from installation or as fallback API data */
+static std::string GetInstalledVersion(const PlugInData& pd) {
+  std::string path =
+      PluginHandler::versionPath(pd.m_common_name.ToStdString());
+  if (path == "" || !wxFileName::IsFileReadable(path)) {
+    auto loader = PluginLoader::getInstance();
+    auto pic = GetContainer(pd, *loader->GetPlugInArray());
+    if (!pic || !pic->m_pplugin) {
+      return SemanticVersion(0, 0, -1).to_string();
+    }
+    int v_major = pic->m_pplugin->GetPlugInVersionMajor();
+    int v_minor = pic->m_pplugin->GetPlugInVersionMinor();
+    return SemanticVersion(v_major, v_minor, -1).to_string();
+  }
+  std::ifstream stream;
+  std::string version;
+  stream.open(path, std::ifstream::in);
+  stream >> version;
+  return version;
+}
 
 std::string PluginLoader::GetPluginVersion(
     const PlugInData pd,
@@ -141,14 +161,13 @@ std::string PluginLoader::GetPluginVersion(
   auto p = dynamic_cast<opencpn_plugin_117*>(pic->m_pplugin);
   if (p) {
     // New style plugin, trust version available in the API.
-    auto v = SemanticVersion(
+    auto sv = SemanticVersion(
         v_major, v_minor, p->GetPlugInVersionPatch(), p->GetPlugInVersionPost(),
         p->GetPlugInVersionPre(), p->GetPlugInVersionBuild());
-    return v.to_string() + import_suffix;
-  } else if (metadata.version != "") {
-    return metadata.version + import_suffix;
+    return sv.to_string() + import_suffix;
   } else {
-    return SemanticVersion(v_major, v_minor, -1).to_string() + import_suffix;
+    std::string version = GetInstalledVersion(pd);
+    return version + import_suffix;
   }
 }
 
@@ -1089,7 +1108,10 @@ FailureEpilogue:
 
 bool PluginLoader::CheckPluginCompatibility(const wxString& plugin_file) {
   bool b_compat = false;
-
+#ifdef __WXOSX__
+  //TODO: Actually do some tests (In previous versions b_compat was initialized to true, so the actual behavior was exactly like this)
+  b_compat = true;
+#endif
 #ifdef __WXMSW__
   // For Windows we identify the dll file containing the core wxWidgets functions
   // Later we will compare this with the file containing the wxWidgets functions used

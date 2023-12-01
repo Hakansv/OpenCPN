@@ -11,6 +11,8 @@
 #include "georef.h"
 #include "route_point_gui.h"
 #include "ocpn_frame.h"
+#include "multiplexer.h"
+#include "n0183_ctx_factory.h"
 #include "FontMgr.h"
 #include "glChartCanvas.h"
 #include "viewport.h"
@@ -22,6 +24,8 @@
 #include "styles.h"
 #include "ocpn_plugin.h"
 
+
+extern Multiplexer* g_pMUX;
 extern ocpnGLOptions g_GLOptions;
 extern float g_MarkScaleFactorExp;
 extern bool g_btouch;
@@ -866,7 +870,9 @@ void RoutePointGui::ReLoadIcon(void) {
 }
 
 bool RoutePointGui::SendToGPS(const wxString &com_name, SendToGpsDlg *dialog) {
-  int result = SendWaypointToGPS_N0183(&m_point, com_name);
+
+  N0183DlgCtx dlg_ctx = GetDialogCtx(dialog);
+  int result = SendWaypointToGPS_N0183(&m_point, com_name, *g_pMUX, dlg_ctx);
 
   wxString msg;
   if (0 == result)

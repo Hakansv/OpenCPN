@@ -145,6 +145,7 @@ option(OCPN_USE_GL "Enable OpenGL support" ON)
 option(OCPN_USE_GLES_SHIM "Enable GLESv1 Shim library" OFF)
 option(OCPN_USE_UDEV_PORTS "Use udev to enumerate serial ports" ON)
 option(OCPN_USE_SYSFS_PORTS "Use sysfs to enumerate serial ports" OFF)
+option(OCPN_ENABLE_MDNS_DEBUG "Enable mDNS debug output" OFF)
 
 set(OCPN_TARGET_TUPLE "" CACHE STRING
   "List of target;version;arch like flatpak;20.08;aarch64 [\"\"]"
@@ -245,6 +246,10 @@ endif (NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 
 if (APPLE)
   option(OCPN_USE_LIBCPP "Use libc++ instead of libstdc++ on macOS" ON)
+  option(OCPN_USE_DEPS_BUNDLE "Use prebuilt dependency bundle instead of searching for libraries on macOS" OFF)
+  if(NOT OCPN_DEPS_BUNDLE_PATH)
+    set(OCPN_DEPS_BUNDLE_PATH "/usr/local")
+  endif()
 endif ()
 
 option(OCPN_USE_EXTERN_CURL "Use external libcurl" OFF)
@@ -740,6 +745,10 @@ if (NOT QT_ANDROID)
   endif ()
 
   #find_package(wxWidgets COMPONENTS ${wxWidgets_FIND_COMPONENTS} REQUIRED )
+  if(APPLE AND OCPN_USE_DEPS_BUNDLE)
+    set(wxWidgets_CONFIG_EXECUTABLE "${OCPN_DEPS_BUNDLE_PATH}/lib/wx/config/osx_cocoa-unicode-3.2")
+    set(wxWidgets_CONFIG_OPTIONS "--prefix=${OCPN_DEPS_BUNDLE_PATH}")
+  endif()
   find_package(wxWidgets COMPONENTS ${wxWidgets_FIND_COMPONENTS})
   if (wxWidgets_FOUND AND OCPN_USE_WEBVIEW)
     message(STATUS "Found wxWidgets webview add-on")
@@ -913,11 +922,13 @@ set(
   include/LinkPropDlg.h
   include/load_errors_dlg.h
   include/logger.h
+  include/meteo_points.h
   include/MarkIcon.h
   include/MarkInfo.h
   include/mbtiles.h
   include/multiplexer.h
   include/nav_object_database.h
+  include/n0183_ctx_factory.h
   include/navutil.h
   include/navutil_base.h
   include/NMEALogWindow.h
@@ -1008,6 +1019,7 @@ set(MODEL_SRC
   ${CMAKE_SOURCE_DIR}/src/catalog_handler.cpp
   ${CMAKE_SOURCE_DIR}/src/catalog_parser.cpp
   ${CMAKE_SOURCE_DIR}/src/chartdata_input_stream.cpp
+  ${CMAKE_SOURCE_DIR}/src/cmdline.cpp
   ${CMAKE_SOURCE_DIR}/src/comm_ais.cpp
   ${CMAKE_SOURCE_DIR}/src/comm_navmsg.cpp
   ${CMAKE_SOURCE_DIR}/src/comm_navmsg_bus.cpp
@@ -1039,6 +1051,7 @@ set(MODEL_SRC
   ${CMAKE_SOURCE_DIR}/src/georef.cpp
   ${CMAKE_SOURCE_DIR}/src/hyperlink.cpp
   ${CMAKE_SOURCE_DIR}/src/logger.cpp
+  ${CMAKE_SOURCE_DIR}/src/multiplexer.cpp
   ${CMAKE_SOURCE_DIR}/src/nav_object_database.cpp
   ${CMAKE_SOURCE_DIR}/src/navutil_base.cpp
   ${CMAKE_SOURCE_DIR}/src/ocpn_plugin.cpp
@@ -1108,7 +1121,6 @@ set(
   src/mDNS_query.cpp
   src/mDNS_service.cpp
   src/MUIBar.cpp
-  src/multiplexer.cpp
   src/navutil.cpp
   src/NMEALogWindow.cpp
   src/ocpCursor.cpp
@@ -1259,6 +1271,12 @@ if (APPLE)
     ${PACKAGE_NAME}
     PRIVATE /usr/X11/include /usr/X11/include/GL
   )
+  if(OCPN_USE_DEPS_BUNDLE)
+    target_include_directories(
+      ${PACKAGE_NAME}
+      PRIVATE "${OCPN_DEPS_BUNDLE_PATH}/include"
+    )
+  endif()
 endif ()
 
 # IF(NOT WIN32) include(OcpnFindGpsd) if (TARGET ocpn::gpsd)
@@ -1563,7 +1581,7 @@ if (OCPN_USE_SVG)
     set(PKGPROJ_TEMPLATE OpenCPN.FrameDir.pkgproj.in)
   else()
     message(STATUS "wxWidgets older than 3.1.6 detected, using wxSVG")
-    set(PKGPROJ_TEMPLATE OpenCPN.pkgproj.in)
+    set(PKGPROJ_TEMPLATE OpenCPN.FrameDir.pkgproj.in)
     if (NOT QT_ANDROID)
       include(OcpnFindCairo)
       include(OcpnFindExpat)
@@ -2664,14 +2682,27 @@ if (WIN32 AND NOT UNIX)
 endif (WIN32 AND NOT UNIX)
 
 if (APPLE)
-  find_library(
-    MPG123 NAMES mpg123
-    PATHS /usr/local/opt/mpg123/lib NO_DEFAULT_PATH
-    REQUIRED
-  )
+  if(OCPN_USE_DEPS_BUNDLE)
+    message (status "PATH: ${OCPN_DEPS_BUNDLE_PATH}")
+    find_library(
+      MPG123 NAMES libmpg3 mpg123
+      HINTS "${OCPN_DEPS_BUNDLE_PATH}/lib"
+      NO_DEFAULT_PATH
+      REQUIRED
+    )
+  else()
+    find_library(
+      MPG123 NAMES libmpg3 mpg123
+      REQUIRED
+    )
+  endif()
   target_link_libraries(${PACKAGE_NAME} PUBLIC ${MPG123})
   message(STATUS "MPG123: ${MPG123}")
-  find_library(MP3LAME NAMES mp3lame lame REQUIRED)
+  if(OCPN_USE_DEPS_BUNDLE)
+    find_library(MP3LAME NAMES mp3lame lame HINTS "${OCPN_DEPS_BUNDLE_PATH}/lib" NO_DEFAULT_PATH REQUIRED)
+  else()
+    find_library(MP3LAME NAMES mp3lame lame REQUIRED)
+  endif()
   target_link_libraries(${PACKAGE_NAME} PUBLIC ${MP3LAME})
   message(STATUS "MP3LAME: ${MP3LAME}")
 endif ()
@@ -2920,7 +2951,7 @@ configure_file(
 #
 set(PKG_DESCR [=[
 OpenCPN is a concise ChartPlotter/Navigator. The application supports:
-GPS/GPDS Position Input, BSB Raster Chart Display, S57 Vector ENChart
+GPS/GPSD Position Input, BSB Raster Chart Display, S57 Vector ENChart
 Display, AIS Input Decoding, Waypoint Autopilot Navigation. ]=])
 
 if (UNIX AND NOT APPLE)
@@ -3214,7 +3245,18 @@ if (NOT QT_ANDROID)
     endif ()
   endif ()
 
+  if(APPLE AND OCPN_USE_DEPS_BUNDLE)
+    target_include_directories(
+      opencpn-cmd
+      PUBLIC
+      ${OCPN_DEPS_BUNDLE_PATH}/include
+    )
+  endif()
+
   if (NOT WIN32)
+    if(APPLE AND OCPN_USE_DEPS_BUNDLE)
+      set(OPENSSL_ROOT_DIR ${OCPN_DEPS_BUNDLE_PATH})
+    endif()
     find_package(OpenSSL)
     if (OPENSSL_FOUND)
       message(STATUS
@@ -3254,3 +3296,5 @@ if (QT_ANDROID)
 
     add_definitions(-DMG_ENABLE_OPENSSL)
 endif (QT_ANDROID)
+
+add_custom_target(print-model-files COMMAND cmake -E echo ${MODEL_SRC})

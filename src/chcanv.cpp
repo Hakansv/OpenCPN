@@ -39,6 +39,7 @@
 #include <wx/listimpl.cpp>
 
 #include "chcanv.h"
+#include "cmdline.h"
 #include "TCWin.h"
 #include "geodesic.h"
 #include "styles.h"
@@ -188,7 +189,6 @@ extern double AnchorPointMinDist;
 extern bool AnchorAlertOn1;
 extern bool AnchorAlertOn2;
 extern int g_nAWMax;
-extern int g_iDistanceFormat;
 
 extern RouteManagerDialog *pRouteManagerDialog;
 extern GoToPositionDialog *pGoToPositionDialog;
@@ -264,7 +264,6 @@ extern PlugInManager *g_pi_manager;
 extern OCPN_AUIManager *g_pauimgr;
 
 extern bool g_bopengl;
-extern bool g_bdisable_opengl;
 
 extern bool g_bFullScreenQuilt;
 
@@ -6609,6 +6608,8 @@ void ChartCanvas::ToggleCPAWarn() {
 void ChartCanvas::OnActivate(wxActivateEvent &event) { ReloadVP(); }
 
 void ChartCanvas::OnSize(wxSizeEvent &event) {
+  if ((event.m_size.GetWidth() < 1) || (event.m_size.GetHeight() < 1))
+    return;
   GetClientSize(&m_canvas_width, &m_canvas_height);
 
 #ifdef __WXOSX__
@@ -8253,9 +8254,12 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
         if (m_pRoutePointEditTarget) {
           m_pRoutePointEditTarget->m_bRPIsBeingEdited = false;
           m_pRoutePointEditTarget->m_bPtIsSelected = false;
-          wxRect wp_rect;
-          RoutePointGui(*m_pRoutePointEditTarget).CalculateDCRect(m_dc_route, this, &wp_rect);
-          RefreshRect(wp_rect, true);
+          if (!g_bopengl) {
+            wxRect wp_rect;
+            RoutePointGui(*m_pRoutePointEditTarget)
+                .CalculateDCRect(m_dc_route, this, &wp_rect);
+            RefreshRect(wp_rect, true);
+          }
           m_pRoutePointEditTarget = NULL;
         }
         m_bRouteEditing = true;
@@ -8713,7 +8717,7 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
       if (b_start_rollover)
         m_RolloverPopupTimer.Start(m_rollover_popup_timer_msec,
                                    wxTIMER_ONE_SHOT);
-      Route *tail, *current;
+      Route *tail = 0, *current;
       bool appending = false;
       bool inserting = false;
       int connect = 0;
@@ -9219,10 +9223,13 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
             pConfig->UpdateWayPoint(m_pRoutePointEditTarget);
           undo->AfterUndoableAction(m_pRoutePointEditTarget);
           m_pRoutePointEditTarget->m_bRPIsBeingEdited = false;
-          wxRect wp_rect;
-          RoutePointGui(*m_pRoutePointEditTarget).CalculateDCRect(m_dc_route, this, &wp_rect);
-          m_pRoutePointEditTarget->m_bPtIsSelected = false;
-          RefreshRect(wp_rect, true);
+          if (!g_bopengl) {
+            wxRect wp_rect;
+            RoutePointGui(*m_pRoutePointEditTarget)
+                .CalculateDCRect(m_dc_route, this, &wp_rect);
+            m_pRoutePointEditTarget->m_bPtIsSelected = false;
+            RefreshRect(wp_rect, true);
+          }
         }
         m_pRoutePointEditTarget = NULL;
         m_bMarkEditing = false;

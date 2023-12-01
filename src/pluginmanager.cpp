@@ -227,8 +227,6 @@ extern unsigned int g_canvasConfig;
 
 extern wxString g_CmdSoundString;
 
-extern int g_iSDMMFormat;
-
 unsigned int gs_plib_flags;
 wxString g_lastPluginMessage;
 extern ChartCanvas* g_focusCanvas;
@@ -250,8 +248,6 @@ WX_DEFINE_LIST(Plugin_HyperlinkList);
 
 wxDEFINE_EVENT(EVT_N0183_PLUGIN, ObservedEvt);
 wxDEFINE_EVENT(EVT_SIGNALK, ObservedEvt);
-
-wxDECLARE_APP(MyApp);
 
 static void SendAisJsonMessage(std::shared_ptr<const AisTargetData> pTarget) {
   //  Only send messages if someone is listening...
@@ -953,6 +949,9 @@ PlugInManager::PlugInManager(MyFrame* parent) {
 
   HandlePluginLoaderEvents();
   InitCommListeners();
+  auto msg_sent_action = [](ObservedEvt ev) {
+    SendNMEASentenceToAllPlugIns(ev.GetString()); };
+  m_on_msg_sent_listener.Init(g_pRouteMan->on_message_sent, msg_sent_action);
 }
 PlugInManager::~PlugInManager() {
 #if !defined(__ANDROID__) && defined(OCPN_USE_CURL)
@@ -1482,7 +1481,7 @@ bool PlugInManager::RenderAllCanvasOverlayPlugIns(ocpnDC& dc,
               if (priority > 0) break;
               opencpn_plugin_18* ppi =
                   dynamic_cast<opencpn_plugin_18*>(pic->m_pplugin);
-              if (ppi) b_rendered = ppi->RenderOverlay(*pdc, &pivp);
+              if (ppi) b_rendered = ppi->RenderOverlay(mdc, &pivp);
               break;
             }
             case 116:
@@ -1491,12 +1490,12 @@ bool PlugInManager::RenderAllCanvasOverlayPlugIns(ocpnDC& dc,
               opencpn_plugin_18* ppi =
                   dynamic_cast<opencpn_plugin_18*>(pic->m_pplugin);
               if (ppi) {
-                b_rendered = ppi->RenderOverlay(*pdc, &pivp);
+                b_rendered = ppi->RenderOverlay(mdc, &pivp);
               }
               opencpn_plugin_116* ppi116 =
                   dynamic_cast<opencpn_plugin_116*>(pic->m_pplugin);
               if (ppi116)
-                b_rendered = ppi116->RenderOverlayMultiCanvas(*pdc, &pivp,
+                b_rendered = ppi116->RenderOverlayMultiCanvas(mdc, &pivp,
                                                               g_canvasConfig);
               break;
             }
@@ -1505,14 +1504,14 @@ bool PlugInManager::RenderAllCanvasOverlayPlugIns(ocpnDC& dc,
                 opencpn_plugin_18* ppi =
                     dynamic_cast<opencpn_plugin_18*>(pic->m_pplugin);
                 if (ppi) {
-                  b_rendered = ppi->RenderOverlay(*pdc, &pivp);
+                  b_rendered = ppi->RenderOverlay(mdc, &pivp);
                 }
               }
               opencpn_plugin_118* ppi118 =
                   dynamic_cast<opencpn_plugin_118*>(pic->m_pplugin);
               if (ppi118)
                 b_rendered = ppi118->RenderOverlayMultiCanvas(
-                    *pdc, &pivp, g_canvasConfig, priority);
+                    mdc, &pivp, g_canvasConfig, priority);
               break;
             }
             default: {
@@ -3053,8 +3052,16 @@ double toUsrSpeed_Plugin(double kts_speed, int unit) {
   return toUsrSpeed(kts_speed, unit);
 }
 
+double toUsrWindSpeed_Plugin(double kts_speed, int unit) {
+  return toUsrWindSpeed(kts_speed, unit);
+}
+
 double fromUsrSpeed_Plugin(double usr_speed, int unit) {
   return fromUsrSpeed(usr_speed, unit);
+}
+
+double fromUsrWindSpeed_Plugin(double usr_wspeed, int unit) {
+  return fromUsrWindSpeed(usr_wspeed, unit);
 }
 
 double toUsrTemp_Plugin(double cel_temp, int unit) {
@@ -3070,6 +3077,8 @@ wxString getUsrDistanceUnit_Plugin(int unit) {
 }
 
 wxString getUsrSpeedUnit_Plugin(int unit) { return getUsrSpeedUnit(unit); }
+
+wxString getUsrWindSpeedUnit_Plugin(int unit) { return getUsrWindSpeedUnit(unit); }
 
 wxString getUsrTempUnit_Plugin(int unit) { return getUsrTempUnit(unit); }
 
@@ -4669,6 +4678,10 @@ void PluginPanel::SetSelected(bool selected) {
         break;
     }
     SetActionLabel(label);
+    const auto plugin_name = m_plugin.m_common_name.ToStdString();
+    if (ocpn::exists(PluginHandler::ImportedMetadataPath(plugin_name))) {
+       m_pButtonAction->Hide();
+    }
 
     Layout();
   } else {

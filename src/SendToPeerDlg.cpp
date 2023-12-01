@@ -23,6 +23,7 @@
  */
 #include <memory>
 
+#include "cmdline.h"
 #include "config_vars.h"
 #include "mDNS_query.h"
 #include "OCPNPlatform.h"
@@ -45,7 +46,6 @@
 extern OCPNPlatform* g_Platform;
 extern std::vector<std::shared_ptr<ocpn_DNS_record_t>> g_DNS_cache;
 extern wxDateTime g_DNS_cache_time;
-extern bool g_bportable;
 extern int navobj_transfer_progress;
 
 IMPLEMENT_DYNAMIC_CLASS(SendToPeerDlg, wxDialog)
@@ -157,7 +157,7 @@ void SendToPeerDlg::CreateControls(const wxString& hint) {
 
   m_RescanButton = new wxButton(itemDialog1, ID_STP_SCAN, _("Scan again"),
                                 wxDefaultPosition, wxDefaultSize, 0);
-  itemBoxSizer3->Add(m_RescanButton, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
+  itemBoxSizer3->Add(m_RescanButton, 0, wxALL, 5);
 
   m_pgauge = new wxGauge(itemDialog1, -1, m_scanTime * 2,
                           wxDefaultPosition, wxSize(-1, GetCharHeight()));

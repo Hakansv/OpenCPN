@@ -51,6 +51,7 @@
 #include "chartdb.h"
 #include "chartdbs.h"
 #include "chcanv.h"
+#include "cmdline.h"
 #include "config.h"
 #include "config_vars.h"
 #include "dychart.h"
@@ -218,10 +219,6 @@ extern double g_TrackDeltaDistance;
 extern double g_TrackDeltaDistance;
 extern int g_nTrackPrecision;
 
-extern int g_iSDMMFormat;
-extern int g_iDistanceFormat;
-extern int g_iSpeedFormat;
-
 extern bool g_bAdvanceRouteWaypointOnArrivalOnly;
 
 extern int g_cm93_zoom_factor;
@@ -262,8 +259,6 @@ extern ocpnGLOptions g_GLOptions;
 extern s52plib *ps52plib;
 
 extern wxString g_locale;
-extern bool g_bportable;
-extern bool g_bdisable_opengl;
 
 extern ChartGroupArray *g_pGroupArray;
 

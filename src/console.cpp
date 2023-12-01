@@ -64,6 +64,7 @@
 #include "comm_navmsg_bus.h"
 #include "config_vars.h"
 #include "downloader.h"
+#include "nmea_log.h"
 #include "observable_evtvar.h"
 #include "ocpn_utils.h"
 #include "plugin_handler.h"
@@ -77,8 +78,6 @@ class Multiplexer;
 class Select;
 
 BasePlatform* g_BasePlatform = 0;
-bool g_bportable = false;
-wxString g_winPluginDir;
 void* g_pi_manager = reinterpret_cast<void*>(1L);
 wxString g_compatOS = PKG_TARGET;
 wxString g_compatOsVersion = PKG_TARGET_VERSION;
@@ -162,16 +161,17 @@ bool g_bMagneticAPB;
 
 Routeman* g_pRouteMan;
 
+class NmeaLogDummy: public NmeaLog {
+  bool Active() const { return false; }
+  void Add(const wxString& s) {};
+};
+
 static void InitRouteman() {
   struct RoutePropDlgCtx ctx;
   auto RouteMgrDlgUpdateListCtrl = [&]() {};
-  g_pRouteMan = new Routeman(ctx, RouteMgrDlgUpdateListCtrl);
+  static  NmeaLogDummy dummy_log;
+  g_pRouteMan = new Routeman(ctx, RouteMgrDlgUpdateListCtrl, dummy_log);
 }
-
-// navutil_base context
-int g_iDistanceFormat = 0;
-int g_iSDMMFormat = 0;
-int g_iSpeedFormat = 0;
 
 namespace safe_mode {
 bool get_mode() { return false; }
@@ -404,7 +404,7 @@ public:
     }
   }
 
-  bool OnCmdLineParsed(wxCmdLineParser& parser) {
+  bool OnCmdLineParsed(wxCmdLineParser& parser) override {
     wxInitializer initializer;
     if (!initializer) {
       std::cerr << "Failed to initialize the wxWidgets library, aborting.";

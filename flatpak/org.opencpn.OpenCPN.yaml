@@ -107,11 +107,8 @@ modules:
     - name: wxGTK3
       sources:
           - type: archive
-            url: https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.1/wxWidgets-3.2.1.tar.bz2
-            sha256: c229976bb413eb88e45cb5dfb68b27890d450149c09b331abd751e7ae0f5fa66
-          - type: patch
-            paths:
-              - patches/0101-Add-wxDEPRECATED_EXPORT_CORE-macro-for-wxTransformMa.patch
+            url: https://github.com/wxWidgets/wxWidgets/releases/download/v3.2.3/wxWidgets-3.2.3.tar.bz2
+            sha256: c170ab67c7e167387162276aea84e055ee58424486404bba692c401730d1a67a
       config-opts:
           - --with-gtk=3
           - --with-opengl
@@ -126,7 +123,7 @@ modules:
     - name:  zlib
       sources:
           - type: archive
-            url: http://zlib.net/zlib-1.2.13.tar.gz
+            url: https://www.zlib.net/fossils/zlib-1.2.13.tar.gz
             sha256: b3a24de97a8fdbc835b9833169501030b8977031bcb54b3b3ac13740f846ab30
 
     - name: opencpn
