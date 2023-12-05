@@ -1273,12 +1273,26 @@ static void AISDrawTarget(AisTargetData *td, ocpnDC &dc, ViewPort &vp,
       dc.SetPen(wxPen(UBLCK, 1));
     }
 
-  } else if (td->Class == AIS_METEO) {
+  } else if (td->Class == AIS_METEO) {  // Meteorologic
     wxPen target_pen(UBLCK, 2);
     dc.SetPen(target_pen);
     dc.SetBrush(wxBrush(UBLCK, wxBRUSHSTYLE_TRANSPARENT));
-    dc.StrokeCircle(TargetPoint.x, TargetPoint.y, 1.8 * AIS_icon_diameter);
-    dc.StrokeCircle(TargetPoint.x, TargetPoint.y, 1);
+    double met_radius = 1.8 * AIS_icon_diameter;
+    dc.StrokeCircle(TargetPoint.x, TargetPoint.y, met_radius);
+
+      /* Inscribed "W" in the circle. */
+      // Left part
+    dc.StrokeLine(TargetPoint.x, TargetPoint.y - met_radius / 4,
+      TargetPoint.x - met_radius / 3, TargetPoint.y + met_radius / 2);
+    dc.StrokeLine(
+      TargetPoint.x - met_radius / 3, TargetPoint.y + met_radius / 2,
+      TargetPoint.x - met_radius / 2, TargetPoint.y - met_radius / 2);
+      // Right part
+    dc.StrokeLine(TargetPoint.x, TargetPoint.y - met_radius / 4,
+      TargetPoint.x + met_radius / 3, TargetPoint.y + met_radius / 2);
+    dc.StrokeLine(
+      TargetPoint.x + met_radius / 3, TargetPoint.y + met_radius / 2,
+      TargetPoint.x + met_radius / 2, TargetPoint.y - met_radius / 2);
 
   } else if (td->Class == AIS_ATON) {  // Aid to Navigation
     AtoN_Diamond(dc, TargetPoint.x, TargetPoint.y,
