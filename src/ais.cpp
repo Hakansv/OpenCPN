@@ -1274,13 +1274,13 @@ static void AISDrawTarget(AisTargetData *td, ocpnDC &dc, ViewPort &vp,
     }
 
   } else if (td->Class == AIS_METEO) {  // Meteorologic
-    wxPen target_pen(UBLCK, 2);
-    dc.SetPen(target_pen);
+    dc.SetPen(wxPen(UBLCK, 1.5 * AIS_nominal_line_width_pix));
     dc.SetBrush(wxBrush(UBLCK, wxBRUSHSTYLE_TRANSPARENT));
     double met_radius = 1.8 * AIS_icon_diameter;
     dc.StrokeCircle(TargetPoint.x, TargetPoint.y, met_radius);
 
       /* Inscribed "W" in the circle. */
+    dc.SetPen(wxPen(AIS_nominal_line_width_pix));
       // Left part
     dc.StrokeLine(TargetPoint.x, TargetPoint.y - met_radius / 4,
       TargetPoint.x - met_radius / 3, TargetPoint.y + met_radius / 2);
