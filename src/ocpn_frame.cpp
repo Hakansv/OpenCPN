@@ -404,9 +404,9 @@ void DeInitializeUserColors(void);
 void SetSystemColors(ColorScheme cs);
 
 static bool LoadAllPlugIns(bool load_enabled) {
-  g_Platform->ShowBusySpinner();
+  AbstractPlatform::ShowBusySpinner();
   bool b = PluginLoader::getInstance()->LoadAllPlugIns(load_enabled);
-  g_Platform->HideBusySpinner();
+  AbstractPlatform::HideBusySpinner();
   return b;
 }
 
@@ -3826,7 +3826,7 @@ int MyFrame::DoOptionsDialog() {
   g_last_ChartScaleFactor = g_ChartScaleFactor;
 
   if (NULL == g_options) {
-    g_Platform->ShowBusySpinner();
+    AbstractPlatform::ShowBusySpinner();
 
     int sx, sy;
     pConfig->SetPath("/Settings");
@@ -3840,7 +3840,7 @@ int MyFrame::DoOptionsDialog() {
     g_options =
         new options(optionsParent, -1, _("Options"), wxPoint(-1, -1), wxSize(sx, sy));
 
-    g_Platform->HideBusySpinner();
+    AbstractPlatform::HideBusySpinner();
   }
 
   //    Set initial Chart Dir
@@ -4464,7 +4464,7 @@ void MyFrame::RefreshCanvasOther(ChartCanvas *ccThis) {
 void MyFrame::ChartsRefresh() {
   if (!ChartData) return;
 
-  OCPNPlatform::ShowBusySpinner();
+  AbstractPlatform::ShowBusySpinner();
 
   bool b_run = FrameTimer1.IsRunning();
 
@@ -4484,7 +4484,7 @@ void MyFrame::ChartsRefresh() {
 
   if (b_run) FrameTimer1.Start(TIMER_GFRAME_1, wxTIMER_CONTINUOUS);
 
-  OCPNPlatform::HideBusySpinner();
+  AbstractPlatform::HideBusySpinner();
 }
 
 void MyFrame::InvalidateAllQuilts() {
@@ -4522,7 +4522,7 @@ bool MyFrame::UpdateChartDatabaseInplace(ArrayOfCDI &DirArray, bool b_force,
   //     delete pCurrentStack;
   //     pCurrentStack = NULL;
 
-  OCPNPlatform::ShowBusySpinner();
+  AbstractPlatform::ShowBusySpinner();
 
   wxGenericProgressDialog *pprog = nullptr;
   if (b_prog) {
@@ -4570,7 +4570,7 @@ bool MyFrame::UpdateChartDatabaseInplace(ArrayOfCDI &DirArray, bool b_force,
 
   delete pprog;
 
-  OCPNPlatform::HideBusySpinner();
+  AbstractPlatform::HideBusySpinner();
 
   pConfig->UpdateChartDirs(DirArray);
 
@@ -4770,9 +4770,9 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
     case 2: {
       if (m_initializing) break;
       m_initializing = true;
-      g_Platform->ShowBusySpinner();
+      AbstractPlatform::ShowBusySpinner();
       PluginLoader::getInstance()->LoadAllPlugIns(true);
-      g_Platform->HideBusySpinner();
+      AbstractPlatform::HideBusySpinner();
       //            RequestNewToolbars();
       RequestNewMasterToolbar();
       // A Plugin (e.g. Squiddio) may have redefined some routepoint icons...
@@ -6885,13 +6885,13 @@ void MyFrame::applySettingsString(wxString settings) {
   UpdateGPSCompassStatusBoxes(true);
 
   if (b_newToolbar) {
-    g_Platform->ShowBusySpinner();
+    AbstractPlatform::ShowBusySpinner();
 
     SetAllToolbarScale();
     RequestNewToolbars(
         true);  // Force rebuild, to pick up bGUIexpert and scale settings.
 
-    g_Platform->HideBusySpinner();
+    AbstractPlatform::HideBusySpinner();
 
     RequestNewMasterToolbar(true);
   }
