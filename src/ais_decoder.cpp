@@ -667,6 +667,7 @@ bool AisDecoder::HandleN2K_129041( std::shared_ptr<const Nmea2000Msg> n2k_msg ){
 
     data.AtoNName[34] = 0;
     strncpy(pTargetData->ShipName, data.AtoNName, SHIP_NAME_LEN - 1);
+    pTargetData->ShipName[sizeof(pTargetData->ShipName) - 1] = '\0';
     pTargetData->b_nameValid = true;
     pTargetData->MID = 124;  // Indicates a name from n2k
     pTargetData->Class = AIS_ATON;
@@ -739,8 +740,9 @@ bool AisDecoder::HandleN2K_129794( std::shared_ptr<const Nmea2000Msg> n2k_msg ){
 
     //Populate the target_data
     pTargetData->MMSI = mmsi;
-    Name[sizeof(Name) - 1] = 0;
     strncpy(pTargetData->ShipName, Name, SHIP_NAME_LEN - 1);
+    pTargetData->ShipName[sizeof(pTargetData->ShipName) - 1] = '\0';
+    Name[sizeof(Name) - 1] = 0;
     pTargetData->b_nameValid = true;
     pTargetData->MID = 124;  // Indicates a name from n2k
 
@@ -754,9 +756,11 @@ bool AisDecoder::HandleN2K_129794( std::shared_ptr<const Nmea2000Msg> n2k_msg ){
     pTargetData->Draft = Draught;
     pTargetData->IMO = IMOnumber;
     strncpy(pTargetData->CallSign, Callsign, CALL_SIGN_LEN - 1);
+    pTargetData->CallSign[sizeof(pTargetData->CallSign) - 1] = '\0';
     pTargetData->ShipType = (unsigned char)VesselType;
-    Destination[sizeof(Destination) - 1] = 0;
     strncpy(pTargetData->Destination, Destination, DESTINATION_LEN - 1);
+    pTargetData->Destination[sizeof(pTargetData->Destination) - 1] = '\0';
+    Destination[sizeof(Destination) - 1] = 0;
 
     if (!N2kIsNA(ETAdate) && !N2kIsNA(ETAtime)) {
       long secs = (ETAdate * 24 * 3600) + wxRound(ETAtime);
@@ -870,6 +874,7 @@ bool AisDecoder::HandleN2K_129810( std::shared_ptr<const Nmea2000Msg> n2k_msg ){
     pTargetData->DimC = Beam - PosRefStbd;
     pTargetData->DimD = PosRefStbd;
     strncpy(pTargetData->CallSign, Callsign, CALL_SIGN_LEN - 1);
+    pTargetData->CallSign[sizeof(pTargetData->CallSign) - 1] = '\0';
     pTargetData->ShipType = (unsigned char)VesselType;
 
     pSelectAIS->DeleteSelectablePoint((void *)(long)mmsi, SELTYPE_AISTARGET);
@@ -3306,8 +3311,15 @@ bool AisDecoder::Parse_VDXBitstring(AisBitstring *bstr,
               1 - 401 = 800 - 1200 hPa*/
             ptd->met_data.airpress = bstr->GetInt(183, 9) + 799;
             ptd->met_data.airpress_tend = bstr->GetInt(192, 2);
-            ptd->met_data.hor_vis = bstr->GetInt(194, 8) / 10.;
-            //int MSB = bstr->GetInt(194, 8) < 0;
+
+            int horVis = bstr->GetInt(194, 8);
+            if (horVis & 0x80u) { // if MSB = 1
+              horVis &= 0x7F;     // We print >x.x
+              ptd->met_data.hor_vis_GT = true;
+            } else
+              ptd->met_data.hor_vis_GT = false;
+
+            ptd->met_data.hor_vis = horVis / 10.0;
 
             ptd->met_data.water_lev_dev = (bstr->GetInt(202, 12) / 100.) - 10.;
             ptd->met_data.water_lev_trend = bstr->GetInt(214, 2);
@@ -3331,6 +3343,9 @@ bool AisDecoder::Parse_VDXBitstring(AisBitstring *bstr,
             ptd->met_data.ice = bstr->GetInt(349, 2);
 
             ptd->Class = AIS_METEO;
+            ptd->COG = -1.;
+            ptd->HDG = 511;
+            ptd->SOG = -1.;
             ptd->b_NoTrack = true;
             ptd->b_show_track = false;
             ptd->b_positionDoubtful = false;
@@ -3338,8 +3353,6 @@ bool AisDecoder::Parse_VDXBitstring(AisBitstring *bstr,
             b_posn_report = true;
             ptd->PositionReportTicks = now.GetTicks();
             ptd->b_nameValid = true;
-            ptd->b_show_AIS_CPA = false;
-            ptd->bCPA_Valid = false;
 
             parse_result = true;
           }
@@ -3486,14 +3499,15 @@ bool AisDecoder::Parse_VDXBitstring(AisBitstring *bstr,
 
           if (ptd->b_positionOnceValid) {
             ptd->Class = AIS_METEO;
+            ptd->COG = -1.;
+            ptd->HDG = 511;
+            ptd->SOG = -1.;
             ptd->b_NoTrack = true;
             ptd->b_show_track = false;
             ptd->b_positionDoubtful = false;
             b_posn_report = true;
             ptd->PositionReportTicks = now.GetTicks();
             ptd->b_nameValid = true;
-            ptd->b_show_AIS_CPA = false;
-            ptd->bCPA_Valid = false;
 
             parse_result = true;
           }
@@ -3833,6 +3847,11 @@ void AisDecoder::UpdateOneCPA(AisTargetData *ptarget) {
   if (dist <= 1e-5) ptarget->Brg = -1.0;  // Brg is undefined if Range == 0.
 
   if (!ptarget->b_positionOnceValid || !bGPSValid) {
+    ptarget->bCPA_Valid = false;
+    return;
+  }
+  //  Ais Meteo is not a hard target in danger for collision
+  if (ptarget->Class == AIS_METEO) {
     ptarget->bCPA_Valid = false;
     return;
   }

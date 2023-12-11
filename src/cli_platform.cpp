@@ -1,11 +1,5 @@
-/***************************************************************************
- *
- * Project:  OpenCPN
- * Purpose:  Routeman drawing stuff
- * Author:   David Register, Alec Leamas
- *
- ***************************************************************************
- *   Copyright (C) 2022 by David Register, Alec Leamas                     *
+ /***************************************************************************
+ *   Copyright (C) 2019 Alec Leamas                                        *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -21,29 +15,13 @@
  *   along with this program; if not, write to the                         *
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
- **************************************************************************/
+ ***************************************************************************/
 
-#ifndef _ROUTEMAN_GUI_H
-#define _ROUTEMAN_GUI_H
+#include "cli_platform.h"
 
-#include "routeman.h"
-
-class RoutemanGui {
-public:
-  RoutemanGui(Routeman& routeman) : m_routeman(routeman) {}
-
-  static RoutemanDlgCtx GetDlgCtx();
-
-  void DeleteAllTracks();
-  void DeleteTrack(Track *pTrack);
-  bool UpdateProgress(); 
-
-
-private:
-  void DoAdvance(void);
-
-  Routeman& m_routeman;
-};
-
-
-#endif   // _ROUTEMAN_GUI_H
+bool CliPlatform::InitializeLogFile() {
+  wxLog::SetActiveTarget(new wxLogStderr);
+  wxLog::SetTimestamp("");
+  wxLog::SetLogLevel(wxLOG_Warning);
+  return true;
+}
