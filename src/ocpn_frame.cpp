@@ -91,6 +91,7 @@
 #include "idents.h"
 #include "iENCToolbar.h"
 #include "Layer.h"
+#include "local_api.h"
 #include "load_errors_dlg.h"
 #include "MarkInfo.h"
 #include "MUIBar.h"
@@ -4917,6 +4918,7 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
     }
 
     case 5: {
+      // FIXME (leamas) Remove, delegate to CmdlineClient ctor
       if (!g_params.empty()) {
         for (size_t n = 0; n < g_params.size(); n++) {
           wxString path = g_params[n];
@@ -4940,6 +4942,7 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
     }
     case 6: {
       InitAppMsgBusListener();
+      InitApiListeners();
 
       break;
     }
@@ -5025,6 +5028,23 @@ void MyFrame::InitAppMsgBusListener() {
   });
 
 }
+
+/** Setup handling of events from the local ipc/dbus API. */
+#ifdef __ANDROID__
+void MyFrame::InitApiListeners() {}
+
+#else
+void MyFrame::InitApiListeners() {
+  auto& server = LocalServerApi::GetInstance();
+  m_on_raise_listener.Init(server.on_raise, [&](ObservedEvt){ Raise(); });
+  m_on_quit_listener.Init(server.on_quit, [&](ObservedEvt){ FastClose(); });
+  server.SetGetRestApiEndpointCb(
+    [&]{ return wxGetApp().m_RESTserver.GetEndpoint(); });
+  server.open_file_cb =
+      [](const std::string& path) { return wxGetApp().OpenFile(path); };
+
+}
+#endif
 
 void MyFrame::HandleGPSWatchdogMsg(std::shared_ptr<const GPSWatchdogMsg> msg) {
 

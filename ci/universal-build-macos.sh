@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -e
+set -x
 
 #
 # Build the OSX artifacts
@@ -80,6 +80,10 @@ echo 'export PATH="/usr/local/opt/gettext/bin:$PATH"' >> ~/.bash_profile
 mkdir -p build
 cd build
 test -n "$TRAVIS_TAG" && CI_BUILD=OFF || CI_BUILD=ON
+
+# Make the build script fail if there are errors from now on
+set -e
+
 # Configure the build
 cmake -DOCPN_CI_BUILD=$CI_BUILD \
   -DOCPN_VERBOSE=ON \
@@ -109,6 +113,9 @@ tar czf OpenCPN-$(git rev-parse --short HEAD).dSYM.tar.gz OpenCPN.dSYM
 
 make create-pkg
 make create-dmg
+
+# The build is over, if there is error now it is not ours
+set +e
 
 # Install the stuff needed for upload to the Cloudsmith repository
 pip3 install --user  -q cloudsmith-cli
