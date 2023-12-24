@@ -47,8 +47,9 @@ int x_alabel, y_alabel, a_plotdown, a_plotup, a_plotheight;
 
 DashboardInstrument_Altitude::DashboardInstrument_Altitude(wxWindow* parent,
                                                      wxWindowID id,
-                                                     wxString title)
-    : DashboardInstrument(parent, id, title, OCPN_DBP_STC_ALTI) {
+                                                     wxString title,
+                                                     InstrumentProperties* Properties)
+    : DashboardInstrument(parent, id, title, OCPN_DBP_STC_ALTI, Properties) {
   m_cap_flag.set(OCPN_DBP_STC_TMP);
   m_MaxAltitude = 0;
   m_Altitude = 0;
@@ -62,10 +63,26 @@ DashboardInstrument_Altitude::DashboardInstrument_Altitude(wxWindow* parent,
 wxSize DashboardInstrument_Altitude::GetSize(int orient, wxSize hint) {
   wxClientDC dc(this);
   int w;
-  dc.GetTextExtent(m_title, &w, &m_TitleHeight, 0, 0, g_pFontTitle);
-  dc.GetTextExtent("15.7 Feet", &w, &m_aDataHeight, 0, 0, g_pFontData);
-  // Space for bottom(temp)text later.
-  dc.GetTextExtent("20.8 C", &x_alabel, &y_alabel, 0, 0, g_pFontLabel);
+  wxFont f;
+  if (m_Properties)
+  {
+      f = m_Properties->m_TitelFont.GetChosenFont();
+      dc.GetTextExtent(m_title, &w, &m_TitleHeight, 0, 0, &f);
+      f = m_Properties->m_DataFont.GetChosenFont();
+      dc.GetTextExtent("15.7 Feet", &w, &m_aDataHeight, 0, 0, &f);
+      f = m_Properties->m_LabelFont.GetChosenFont();
+      dc.GetTextExtent("20.8 C", &x_alabel, &y_alabel, 0, 0, &f);
+  }
+  else
+  {
+      f = g_pFontTitle->GetChosenFont();
+      dc.GetTextExtent(m_title, &w, &m_TitleHeight, 0, 0, &f);
+      f = g_pFontData->GetChosenFont();
+      dc.GetTextExtent("15.7 Feet", &w, &m_aDataHeight, 0, 0, &f);
+      // Space for bottom(temp)text later.
+      f = g_pFontLabel->GetChosenFont();
+      dc.GetTextExtent("20.8 C", &x_alabel, &y_alabel, 0, 0, &f);
+  }
   int y_total =
       //  Title         Alt. data       plot area     air-temp
       m_TitleHeight + m_aDataHeight + 4 * m_aDataHeight + y_alabel;
@@ -86,7 +103,7 @@ void DashboardInstrument_Altitude::SetData(DASH_CAP st, double data,
     // save FLOPS by just accumulating the FIFO changes
     m_meanAltitude += (m_Altitude - m_ArrayAltitude[0]) / ALTITUDE_RECORD_COUNT;
     m_sum2Altitude += (m_Altitude*m_Altitude - m_ArrayAltitude[0]*m_ArrayAltitude[0]);
-    
+
     for (int idx = 1; idx < ALTITUDE_RECORD_COUNT; idx++) {
       m_ArrayAltitude[idx - 1] = m_ArrayAltitude[idx];      // shift FIFO
     }
@@ -149,13 +166,28 @@ void DashboardInstrument_Altitude::Draw(wxGCDC* dc) {
 void DashboardInstrument_Altitude::DrawBackground(wxGCDC* dc) {
   wxSize size = GetClientSize();
   wxColour cl;
-
-  GetGlobalColor(_T("DASHL"), &cl);
-  dc->SetTextForeground(cl);
+  if (m_Properties)
+  {
+      dc->SetTextForeground(GetColourSchemeFont(m_Properties->m_LabelFont.GetColour()));
+  }
+  else
+  {
+      if (GetColourSchemeFont(g_pFontSmall->GetColour()) == GetColourSchemeFont(g_pFontLabel->GetColour()))
+      {
+          GetGlobalColor(_T("DASHL"), &cl);
+          dc->SetTextForeground(cl);
+      }
+      else
+          dc->SetTextForeground(GetColourSchemeFont(g_pFontLabel->GetColour()));
+  }
 
   wxPen pen;
   pen.SetStyle(wxPENSTYLE_SOLID);
-  GetGlobalColor(_T("DASHF"), &cl);
+  if (m_Properties)
+      cl = GetColourSchemeFont(m_Properties->m_SmallFont.GetColour());
+  else
+      cl = GetColourSchemeFont(g_pFontSmall->GetColour());
+  //GetGlobalColor(_T("DASHF"), &cl);
   pen.SetColour(cl);
   pen.SetWidth(1);
   dc->SetPen(pen);
@@ -183,9 +215,16 @@ void DashboardInstrument_Altitude::DrawBackground(wxGCDC* dc) {
                a_plotup + a_plotheight * 2 / 4);
   dc->DrawLine(3, a_plotup + a_plotheight * 3 / 4, size.x - 3,
                a_plotup + a_plotheight * 3 / 4);
-
-  dc->SetFont(*g_pFontSmall);
-
+  if (m_Properties)
+  {
+      dc->SetFont(m_Properties->m_SmallFont.GetChosenFont());
+      dc->SetTextForeground(GetColourSchemeFont(m_Properties->m_SmallFont.GetColour()));
+  }
+  else
+  {
+      dc->SetFont(g_pFontSmall->GetChosenFont());
+      dc->SetTextForeground(GetColourSchemeFont(g_pFontSmall->GetColour()));
+  }
   double MaxAltitude =   -9999.0;
   double MinAltitude = 9999999.0;
   // evaluate buffered data
@@ -197,7 +236,7 @@ void DashboardInstrument_Altitude::DrawBackground(wxGCDC* dc) {
   // calculate 1st and 2nd Moments
   double varAltitude = m_sum2Altitude / ALTITUDE_RECORD_COUNT;  // biased estimator, avoid / N-1
   varAltitude  -= m_meanAltitude*m_meanAltitude;
-  
+
   // do AGC to adjust scaling
   double range  = MaxAltitude-MinAltitude;
   if (range > 1.1*m_Range )
@@ -206,11 +245,11 @@ void DashboardInstrument_Altitude::DrawBackground(wxGCDC* dc) {
     setAttenuation(-1);
   double grid = getAttenuation();
   m_Range = grid*c_GridLines;
-  //printf("m_Range = %5.1f  range = %5.1f  att=%d , mean=%3.2f, std=%3.2f\n", 
+  //printf("m_Range = %5.1f  range = %5.1f  att=%d , mean=%3.2f, std=%3.2f\n",
   //  m_Range, range, getAttenuation(), meanAltitude, sqrt(varAltitude));  // debug output
 
   // only update axes on major corridor changes
-  if( (MaxAltitude - m_MaxAltitude)/grid >  0.25 || 
+  if( (MaxAltitude - m_MaxAltitude)/grid >  0.25 ||
       (MaxAltitude - m_MaxAltitude)/grid < -0.75*c_GridLines ) {
     m_MaxAltitude = (round(MaxAltitude/grid) + 1)*grid;
     m_MinAltitude = m_MaxAltitude - m_Range;
@@ -220,23 +259,42 @@ void DashboardInstrument_Altitude::DrawBackground(wxGCDC* dc) {
     m_MinAltitude = (round(MinAltitude/grid) - 1)*grid;
     m_MaxAltitude = m_MinAltitude + m_Range;
   }
- 
+
   wxString label;
   label.Printf(_T("+/-%.1f %8.0f ") + m_AltitudeUnit, sqrt(varAltitude), m_MaxAltitude);
   int width, height;
-  dc->GetTextExtent(label, &width, &height, 0, 0, g_pFontSmall);
+  wxFont f;
+  if (m_Properties)
+      f = m_Properties->m_SmallFont.GetChosenFont();
+  else
+      f = g_pFontSmall->GetChosenFont();
+  dc->GetTextExtent(label, &width, &height, 0, 0, &f);
   dc->DrawText(label, size.x - width - 1, a_plotup - height);
 
   label.Printf(_T("%.1f/ %8.0f ") + m_AltitudeUnit, m_Range/c_GridLines, m_MinAltitude);
-  dc->GetTextExtent(label, &width, &height, 0, 0, g_pFontSmall);
+  if (m_Properties)
+      f = m_Properties->m_SmallFont.GetChosenFont();
+  else
+      f = g_pFontSmall->GetChosenFont();
+  dc->GetTextExtent(label, &width, &height, 0, 0, &f);
   dc->DrawText(label, size.x - width - 1, a_plotdown);
 }
 
 void DashboardInstrument_Altitude::DrawForeground(wxGCDC* dc) {
   wxSize size = GetClientSize();
   wxColour cl;
-
-  GetGlobalColor(_T("DASH1"), &cl);
+  if (m_Properties)
+  {
+      cl = GetColourSchemeFont(m_Properties->m_LabelFont.GetColour());
+  }
+  else
+  {
+      if (GetColourSchemeFont(g_pFontSmall->GetColour()) == GetColourSchemeFont(g_pFontLabel->GetColour()))
+          GetGlobalColor(_T("DASH1"), &cl);
+      else
+          cl = GetColourSchemeFont(g_pFontLabel->GetColour());
+  }
+  //GetGlobalColor(_T("DASH1"), &cl);
   wxBrush brush;
   brush.SetStyle(wxBRUSHSTYLE_SOLID);
   brush.SetColour(cl);
@@ -286,10 +344,17 @@ void DashboardInstrument_Altitude::DrawForeground(wxGCDC* dc) {
   points[ALTITUDE_RECORD_COUNT + 1].y = a_plotdown;
   dc->DrawPolygon(ALTITUDE_RECORD_COUNT + 2, points);
 #endif
-
-  GetGlobalColor(_T("DASHF"), &cl);
-  dc->SetTextForeground(cl);
-  dc->SetFont(*g_pFontData);
+  if (m_Properties)
+  {
+      dc->SetFont(m_Properties->m_DataFont.GetChosenFont());
+      dc->SetTextForeground(GetColourSchemeFont(m_Properties->m_DataFont.GetColour()));
+  }
+  else
+  {
+      //GetGlobalColor(_T("DASHF"), &cl);
+      dc->SetTextForeground(GetColourSchemeFont(g_pFontData->GetColour()));
+      dc->SetFont(g_pFontData->GetChosenFont());
+  }
   if (m_AltitudeUnit != _T("-")) {  // Watchdog
     wxString s_alti = wxString::Format(_T("%.1f"), m_meanAltitude);
     dc->DrawText(s_alti + _T(" ") + m_AltitudeUnit, 10, m_TitleHeight);
@@ -297,8 +362,18 @@ void DashboardInstrument_Altitude::DrawForeground(wxGCDC* dc) {
     dc->DrawText(_T("---"), 10, m_TitleHeight);
 
   // TODO: test display air temperature ID_DBP_I_ATMP
-  dc->SetFont(*g_pFontLabel);
+  if (m_Properties)
+      dc->SetFont(m_Properties->m_LabelFont.GetChosenFont());
+  else
+      dc->SetFont(g_pFontLabel->GetChosenFont());
   int width, height;
-  dc->GetTextExtent(m_Temp, &width, &height, 0, 0, g_pFontLabel);
+  wxFont f;
+  if(m_Properties) {
+      f = m_Properties->m_LabelFont.GetChosenFont();
+      dc->GetTextExtent(m_Temp, &width, &height, 0, 0, &f);
+  } else {
+      f = g_pFontLabel->GetChosenFont();
+      dc->GetTextExtent(m_Temp, &width, &height, 0, 0, &f);
+  }
   dc->DrawText(m_Temp, 3, a_plotdown);
 }
