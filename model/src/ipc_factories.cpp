@@ -74,4 +74,5 @@ LocalServerApi& LocalServerApi:: GetInstance() {
 InstanceCheck& InstanceCheck::GetInstance() {
   return GetWxInstanceChk();
 }
+
 #endif    // __linux__

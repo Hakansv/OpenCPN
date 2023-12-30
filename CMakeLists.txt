@@ -1088,13 +1088,6 @@ endif ()
 set(SRCS ${GUI_SRC} )
 set(HDRS ${GUI_HDRS})
 
-# Temporary support for #3513, to be removed
-file(WRITE ${CMAKE_BINARY_DIR}/gui-src.txt "${GUI_SRC}")
-file(WRITE ${CMAKE_BINARY_DIR}/gui-headers.txt "${GUI_HDRS}")
-file(WRITE ${CMAKE_BINARY_DIR}/model-hdrs.txt "${MODEL_HDRS}")
-file(WRITE ${CMAKE_BINARY_DIR}/model-src.txt "${MODEL_SRC}")
-
-
 if (APPLE)
   add_executable(${PACKAGE_NAME} MACOSX_BUNDLE ${HDRS} ${SRCS})
 elseif (WIN32)
@@ -1110,7 +1103,6 @@ if (QT_ANDROID)
   include(libs/AndroidLibs.cmake)
 endif ()
 
-#
 add_library(_opencpn INTERFACE) # plugin link target.
 target_link_libraries(_opencpn INTERFACE ${PACKAGE_NAME})
 target_include_directories(
