@@ -139,6 +139,7 @@ bool g_bMagneticAPB;
 
 Routeman* g_pRouteMan;
 
+bool g_endWinsuspend;
 
 wxString g_catalog_custom_url;
 wxString g_catalog_channel;
