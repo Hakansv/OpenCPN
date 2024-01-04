@@ -534,7 +534,6 @@ int dashboard_pi::Init(void) {
   mALT_Watchdog = 2;
   mLOG_Watchdog = 2;
   mTrLOG_Watchdog = 2;
-  colourschemecounter = 0;
 
   g_pFontTitle = new wxFontData();
   g_pFontTitle->SetChosenFont(wxFont(10, wxFONTFAMILY_SWISS, wxFONTSTYLE_ITALIC, wxFONTWEIGHT_NORMAL));
@@ -1774,17 +1773,17 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
         for (int i = 0; i < m_NMEA0183.Xdr.TransducerCnt; i++) {
           xdrdata = m_NMEA0183.Xdr.TransducerInfo[i].MeasurementData;
           // XDR Airtemp
-          if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("C") &&
+          if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("C") && (
               m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
                    _T("Te") ||
               m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
-                   _T("TempAir")) ||
+                   _T("TempAir") ||
               m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
                   _T("AIRTEMP") ||
               m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
                   _T("ENV_OUTAIR_T") ||
               m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
-                  _T("ENV_OUTSIDE_T")) {
+                  _T("ENV_OUTSIDE_T"))) {
             if (mPriATMP >= 4) {
               mPriATMP = 4;
               SendSentenceToAllInstruments(
@@ -3203,24 +3202,7 @@ void dashboard_pi::ShowPreferencesDialog(wxWindow *parent) {
 }
 
 void dashboard_pi::SetColorScheme(PI_ColorScheme cs) {
-    // what on hell is this. ... getting several Coloursheme from Maim OPENCPN when changing the colourscheme.
-    // so this is necessary
-    switch (cs) {
-    case PI_GLOBAL_COLOR_SCHEME_RGB: break;
-
-    case PI_GLOBAL_COLOR_SCHEME_DAY:
-        if (colourschemecounter == 0)
-            aktuellColorScheme = PI_GLOBAL_COLOR_SCHEME_DAY;
-        colourschemecounter++;
-    case   PI_GLOBAL_COLOR_SCHEME_DUSK:
-        if (colourschemecounter == 0)
-            aktuellColorScheme = PI_GLOBAL_COLOR_SCHEME_DUSK;
-        colourschemecounter++;
-    case    PI_GLOBAL_COLOR_SCHEME_NIGHT:
-        if (colourschemecounter == 0)
-            aktuellColorScheme = PI_GLOBAL_COLOR_SCHEME_NIGHT;
-        colourschemecounter = 0;
-    }
+  aktuellColorScheme = cs;
   for (size_t i = 0; i < m_ArrayOfDashboardWindow.GetCount(); i++) {
     DashboardWindow *dashboard_window =
         m_ArrayOfDashboardWindow.Item(i)->m_pDashboardWindow;
@@ -3689,7 +3671,7 @@ bool dashboard_pi::SaveConfig(void) {
               }
           }
       }
-      for (unsigned int j = 0; j < cont->m_aInstrumentList.GetCount(); j++)
+      for (size_t j = 0; j < cont->m_aInstrumentList.GetCount(); j++)
       {
           pConf->Write(wxString::Format(_T("Instrument%d"), j + 1), cont->m_aInstrumentList.Item(j));
           InstrumentProperties* Inst = NULL;
@@ -3697,10 +3679,10 @@ bool dashboard_pi::SaveConfig(void) {
           if (pConf->Exists(wxString::Format(_T("InstTitelFont%d"), j + 1)))
           {
               bool Delete = true;
-              for (unsigned int i = 0; i < (cont->m_aInstrumentPropertyList.GetCount()); i++)
+              for (size_t i = 0; i < cont->m_aInstrumentPropertyList.GetCount(); i++)
               {
                   Inst = cont->m_aInstrumentPropertyList.Item(i);
-                  if (Inst->m_Listplace == j)
+                  if (Inst->m_Listplace == (int)j)
                   {
                       Delete = false;
                       break;
@@ -3723,10 +3705,10 @@ bool dashboard_pi::SaveConfig(void) {
               }
           }
           Inst = NULL;
-          for (unsigned int i = 0; i < (cont->m_aInstrumentPropertyList.GetCount()); i++)
+          for (size_t i = 0; i < (cont->m_aInstrumentPropertyList.GetCount()); i++)
           {
               Inst = cont->m_aInstrumentPropertyList.Item(i);
-              if (Inst->m_Listplace == j)
+              if (Inst->m_Listplace == (int)j)
               {
                   pConf->Write(wxString::Format(_T("InstTitelFont%d"), j + 1), Inst->m_TitelFont.GetChosenFont().GetNativeFontInfoDesc());
                   pConf->Write(wxString::Format(_T("InstTitelColor%d"), j + 1), Inst->m_TitelFont.GetColour().GetAsString(wxC2S_HTML_SYNTAX));
@@ -4711,7 +4693,7 @@ void DashboardPreferencesDialog::OnInstrumentDelete(wxCommandEvent &event) {
       for (unsigned int i = 0; i < (cont->m_aInstrumentPropertyList.GetCount()); i++)
       {
           Inst = cont->m_aInstrumentPropertyList.Item(i);
-          if (Inst->m_aInstrument == m_pListCtrlInstruments->GetItemData(itemID) &&
+          if (Inst->m_aInstrument == (int)m_pListCtrlInstruments->GetItemData(itemID) &&
               Inst->m_Listplace == itemID)
           {
               cont->m_aInstrumentPropertyList.Remove(Inst);
@@ -4753,7 +4735,7 @@ void DashboardPreferencesDialog::OnInstrumentEdit(wxCommandEvent &event) {
     for (unsigned int i = 0; i < (cont->m_aInstrumentPropertyList.GetCount()); i++)
     {
         Inst = cont->m_aInstrumentPropertyList.Item(i); // m_pListCtrlInstruments->GetItemData(itemID)
-        if (Inst->m_aInstrument == m_pListCtrlInstruments->GetItemData(itemID)) // Is for right Instrumenttype.
+        if (Inst->m_aInstrument == (int)m_pListCtrlInstruments->GetItemData(itemID)) // Is for right Instrumenttype.
         {
             if (Inst->m_Listplace == itemID)
                 break;
@@ -4837,7 +4819,7 @@ void DashboardPreferencesDialog::OnInstrumentUp(wxCommandEvent &event) {
           Inst = cont->m_aInstrumentPropertyList.Item(i);
           if (Inst->m_Listplace  == (itemID - 1))
               Inst->m_Listplace = itemID;
-          if (Inst->m_aInstrument == m_pListCtrlInstruments->GetItemData(itemID) &&
+          if (Inst->m_aInstrument == (int)m_pListCtrlInstruments->GetItemData(itemID) &&
               Inst->m_Listplace == itemID)
           {
               cont->m_aInstrumentPropertyList.Item(i)->m_Listplace = itemID - 1;
@@ -4877,9 +4859,9 @@ void DashboardPreferencesDialog::OnInstrumentDown(wxCommandEvent &event) {
       for (unsigned int i = 0; i < (cont->m_aInstrumentPropertyList.GetCount()); i++)
       {
           Inst = cont->m_aInstrumentPropertyList.Item(i);
-          if (Inst->m_Listplace == (itemID + 1) && Inst->m_aInstrument != m_pListCtrlInstruments->GetItemData(itemID))
+          if (Inst->m_Listplace == (itemID + 1) && Inst->m_aInstrument != (int)m_pListCtrlInstruments->GetItemData(itemID))
               Inst->m_Listplace = itemID;
-          if (Inst->m_aInstrument == m_pListCtrlInstruments->GetItemData(itemID) &&
+          if (Inst->m_aInstrument == (int)m_pListCtrlInstruments->GetItemData(itemID) &&
               Inst->m_Listplace == itemID)
           {
               cont->m_aInstrumentPropertyList.Item(i)->m_Listplace = itemID + 1;
@@ -5482,9 +5464,9 @@ void DashboardWindow::SetInstrumentList(wxArrayInt list, wxArrayOfInstrumentProp
   for (size_t i = 0; i < list.GetCount(); i++) {
     int id = list.Item(i);
     Properties = NULL;
-    for (unsigned int j = 0; j < InstrumentPropertyList->GetCount(); j++)
+    for (size_t j = 0; j < InstrumentPropertyList->GetCount(); j++)
     {
-        if (InstrumentPropertyList->Item(j)->m_aInstrument == id && InstrumentPropertyList->Item(j)->m_Listplace == i)
+        if (InstrumentPropertyList->Item(j)->m_aInstrument == id && InstrumentPropertyList->Item(j)->m_Listplace == (int)i)
         {
             Properties = InstrumentPropertyList->Item(j);
             break;
