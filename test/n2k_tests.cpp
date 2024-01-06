@@ -10,25 +10,25 @@
 
 #include "config.h"
 
-#include "cli_platform.h"
-#include "cmdline.h"
-#include "comm_ais.h"
-#include "comm_appmsg_bus.h"
-#include "comm_bridge.h"
-#include "comm_drv_file.h"
-#include "comm_drv_registry.h"
-#include "comm_navmsg_bus.h"
-#include "config_vars.h"
-#include "conn_params.h"
+#include "model/cli_platform.h"
+#include "model/cmdline.h"
+#include "model/comm_ais.h"
+#include "model/comm_appmsg_bus.h"
+#include "model/comm_bridge.h"
+#include "model/comm_drv_file.h"
+#include "model/comm_drv_registry.h"
+#include "model/comm_navmsg_bus.h"
+#include "model/config_vars.h"
+#include "model/conn_params.h"
 #include "observable_confvar.h"
-#include "ocpn_types.h"
-#include "own_ship.h"
-#include "routeman.h"
-#include "ais_defs.h"
-#include "ais_decoder.h"
-#include "select.h"
+#include "model/ocpn_types.h"
+#include "model/own_ship.h"
+#include "model/routeman.h"
+#include "model/ais_defs.h"
+#include "model/ais_decoder.h"
+#include "model/select.h"
 
-#include "comm_drv_n2k_socketcan.h"
+#include "model/comm_drv_n2k_socketcan.h"
 
 #ifdef _MSC_VER
 const static std::string kSEP("\\");
@@ -121,7 +121,6 @@ extern bool g_bAISRolloverShowClass;
 extern Multiplexer* g_pMUX;
 extern std::vector<Track*> g_TrackList;
 extern int g_WplAction;
-extern AISTargetAlertDialog* g_pais_alert_dialog_active;
 extern wxString AISTargetNameFileName;
 extern double g_AISShowTracks_Mins;
 extern bool g_bAIS_CPA_Alert;
@@ -130,10 +129,9 @@ extern double g_RemoveLost_Mins;
 extern double g_MarkLost_Mins;
 extern float g_selection_radius_mm;
 extern float g_selection_radius_touch_mm;
-extern int g_nCOMPortCheck;
 extern bool g_benableUDPNullHeader;
 
-extern AbstractPlatform* g_BasePlatform;
+extern BasePlatform* g_BasePlatform;
 extern void* g_pi_manager;
 extern wxString g_compatOS;
 extern wxString g_compatOsVersion;
@@ -188,7 +186,7 @@ protected:
   wxAppConsole* app;
 
   virtual void SetUp()  override {
-    g_BasePlatform = new CliPlatform();
+    g_BasePlatform = new BasePlatform();
     pSelectAIS = new Select();
     pSelect = new Select();
     g_pAIS = new AisDecoder(AisDecoderCallbacks());
@@ -274,7 +272,7 @@ public:
     wxAppConsole::OnInit();
 
     //Observable::Clear();
-    g_BasePlatform = new CliPlatform();
+    g_BasePlatform = new BasePlatform();
     delete pSelectAIS;
     pSelectAIS = new Select();
     delete pSelect;

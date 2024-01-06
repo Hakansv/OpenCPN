@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -e
+
 #
 # Build the OSX artifacts using dependencies from Homebrew and the OS to minimize impact on the environment
 # The resulting build product is NOT ABI compatible with the upstream packages and plugins and should NEVER be distributed
@@ -18,6 +20,7 @@ brew list --versions python3 || {
 }
 
 # Install the build dependencies for OpenCPN
+brew install boost   # Pre-10.15 compatibility
 brew install cmake
 brew install gettext
 brew install lame
@@ -56,7 +59,7 @@ cmake -DOCPN_CI_BUILD=$CI_BUILD \
   -DOCPN_USE_SYSTEM_LIBARCHIVE=OFF \
   -DCMAKE_INSTALL_PREFIX=/tmp/opencpn \
   -DOCPN_RELEASE=0 \
-  -DOCPN_BUILD_TEST=OFF \
+  -DOCPN_BUILD_TEST=ON \
   ..
 
 # Compile OpenCPN

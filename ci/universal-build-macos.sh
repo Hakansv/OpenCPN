@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+set -x
+
+# Install the stuff needed for upload to the Cloudsmith repository
+# before messing w /usr/local
+pip3 install --user  -q cloudsmith-cli
+
 #
 # Build the OSX artifacts
 #
@@ -40,6 +46,7 @@ brew list --versions python3 || {
 
 
 # Install the build dependencies for OpenCPN
+brew install boost    # pre-10.15 compatibility
 brew install cmake
 brew install gettext
 
@@ -77,6 +84,10 @@ echo 'export PATH="/usr/local/opt/gettext/bin:$PATH"' >> ~/.bash_profile
 mkdir -p build
 cd build
 test -n "$TRAVIS_TAG" && CI_BUILD=OFF || CI_BUILD=ON
+
+# Make the build script fail if there are errors from now on
+set -e
+
 # Configure the build
 cmake -DOCPN_CI_BUILD=$CI_BUILD \
   -DOCPN_VERBOSE=ON \
@@ -93,7 +104,7 @@ cmake -DOCPN_CI_BUILD=$CI_BUILD \
   ..
 
 # Compile OpenCPN
-make -sj$(sysctl -n hw.physicalcpu)
+make -j$(sysctl -n hw.physicalcpu)
 # Create the package artifacts
 mkdir -p /tmp/opencpn/bin/OpenCPN.app/Contents/MacOS
 mkdir -p /tmp/opencpn/bin/OpenCPN.app/Contents/SharedSupport/plugins
@@ -107,5 +118,6 @@ tar czf OpenCPN-$(git rev-parse --short HEAD).dSYM.tar.gz OpenCPN.dSYM
 make create-pkg
 make create-dmg
 
-# Install the stuff needed for upload to the Cloudsmith repository
-pip3 install --user  -q cloudsmith-cli
+# The build is over, if there is error now it is not ours
+set +e
+

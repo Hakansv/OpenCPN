@@ -19,14 +19,14 @@ jobs:
       - run: ci/generic-build-debian.sh
       - run: ci/generic-upload.sh
 
-  build-bionic:
+  build-focal:
     docker:
-      - image: circleci/buildpack-deps:bionic-scm
+      - image: circleci/buildpack-deps:focal-scm
         auth:
           username: $DOCKER_USER
           password: $DOCKER_PW
     environment:
-      - OCPN_TARGET: bionic
+      - OCPN_TARGET: focal
     steps:
       - checkout
       - run: cat /etc/apt/sources.list
@@ -74,7 +74,7 @@ jobs:
 
   build-android-armhf:
     docker:
-      - image: circleci/android:api-28-ndk
+      - image: cimg/android:2023.12-ndk
     environment:
       - OCPN_TARGET: android-armhf
     steps:
@@ -104,7 +104,7 @@ jobs:
 
   build-macos-universal:
     macos:
-      xcode: "13.4.1"
+      xcode: "15.1.0"
     environment:
       - OCPN_TARGET:  macos
       - pkg_mod: 11
@@ -164,7 +164,7 @@ workflows:
       - build-bookworm:
           <<: *std-filters
 
-      - build-bionic:
+      - build-focal:
           <<: *std-filters
 
       - build-jammy:

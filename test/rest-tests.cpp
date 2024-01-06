@@ -22,22 +22,22 @@
 
 #include <gtest/gtest.h>
 
-#include "certificates.h"
-#include "cli_platform.h"
-#include "config_vars.h"
-#include "mDNS_query.h"
+#include "model/certificates.h"
+#include "model/cli_platform.h"
+#include "model/config_vars.h"
+#include "model/mDNS_query.h"
 #include "observable_confvar.h"
-#include "ocpn_types.h"
-#include "ocpn_utils.h"
-#include "rest_server.h"
-#include "routeman.h"
+#include "model/ocpn_types.h"
+#include "model/ocpn_utils.h"
+#include "model/rest_server.h"
+#include "model/routeman.h"
 
 using namespace std::chrono_literals;
 
 extern WayPointman* pWayPointMan;
 extern RouteList* pRouteList;
 extern Select* pSelect;
-extern AbstractPlatform* g_BasePlatform;
+extern BasePlatform* g_BasePlatform;
 
 static std::string s_result;
 static int int_result0;
@@ -215,7 +215,8 @@ protected:
   }
 };
 
-class RestServerObjectApp : public RestServerApp {
+class
+RestServerObjectApp : public RestServerApp {
 public:
   RestServerObjectApp(RestServerDlgCtx ctx, RouteCtx route_ctx, bool& portable)
       : RestServerApp(ctx, route_ctx, portable) {}
@@ -225,7 +226,7 @@ protected:
     auto colour_func = [] (wxString c) { return *wxBLACK; };
     pWayPointMan = new WayPointman(colour_func);
     pRouteList = new RouteList;
-    g_BasePlatform = new CliPlatform();
+    g_BasePlatform = new BasePlatform();
     pSelect =  new Select();
 
     auto outpath = fs::path(CMAKE_BINARY_DIR) / "curl-result";
@@ -317,7 +318,7 @@ protected:
     auto colour_func = [] (wxString c) { return *wxBLACK; };
     pWayPointMan = new WayPointman(colour_func);
     pRouteList = new RouteList;
-    g_BasePlatform = new CliPlatform();
+    g_BasePlatform = new BasePlatform();
     pSelect = new Select();
 
     fs::path curl_prog(CURLPROG);
