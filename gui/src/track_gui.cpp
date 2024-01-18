@@ -16,7 +16,6 @@ extern wxColour g_colourTrackLineColour;
 
 extern wxColor GetDimColor(wxColor c);
 extern bool g_bHighliteTracks;
-extern float g_GLMinSymbolLineWidth;
 
 extern ocpnGLOptions g_GLOptions;
 
