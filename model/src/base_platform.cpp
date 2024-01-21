@@ -152,6 +152,11 @@ BasePlatform::BasePlatform() {
   InitializeLogFile();
 }
 
+BasePlatform::~BasePlatform() {
+  delete m_osDetail;
+  delete wxLog::SetActiveTarget(new wxLogStderr());
+}
+
 //--------------------------------------------------------------------------
 //      Per-Platform file/directory support
 //--------------------------------------------------------------------------
@@ -672,6 +677,9 @@ bool BasePlatform::InitializeLogFile(void) {
   if (wxLog::GetLogLevel() > wxLOG_User) wxLog::SetLogLevel(wxLOG_Info);
 
   auto logger = new OcpnLog(mlog_file.mb_str());
+  if (m_old_logger) {
+    delete m_old_logger;
+  }
   m_old_logger = wxLog::SetActiveTarget(logger);
 
   return true;
@@ -679,7 +687,8 @@ bool BasePlatform::InitializeLogFile(void) {
 
 void AbstractPlatform::CloseLogFile(void) {
   if (m_old_logger) {
-    wxLog::SetActiveTarget(m_old_logger);
+    delete wxLog::SetActiveTarget(m_old_logger);
+    m_old_logger = nullptr;
   }
 }
 
@@ -790,8 +799,13 @@ double BasePlatform::GetDisplayDPmm() { return getAndroidDPmm(); }
 
 #else
 double BasePlatform::GetDisplayDPmm() {
-  double r = getDisplaySize().x;  // dots
-  return r / GetDisplaySizeMM();
+  if (dynamic_cast<wxApp*>(wxAppConsole::GetInstance())) {
+    double r = getDisplaySize().x;  // dots
+    return r / GetDisplaySizeMM();
+  } else {
+    // This is a console app... assuming 300 DPI ~ 12 DPmm
+    return 12.0;
+  }
 }
 #endif
 
