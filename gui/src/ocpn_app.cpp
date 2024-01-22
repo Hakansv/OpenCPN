@@ -507,7 +507,6 @@ int osMajor, osMinor;
 
 bool GetMemoryStatus(int *mem_total, int *mem_used);
 bool g_bHasHwClock;
-bool g_endWinsuspend;
 
 int g_nAIS_activity_timer;
 

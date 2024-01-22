@@ -63,8 +63,6 @@ using namespace std::literals::chrono_literals;
 
 void* g_pi_manager = reinterpret_cast<void*>(1L);
 
-bool g_endWinsuspend;
-
 wxLog* g_logger;
 
 wxDEFINE_EVENT(EVT_FOO, ObservedEvt);

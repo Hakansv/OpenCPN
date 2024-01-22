@@ -321,7 +321,6 @@ extern int g_memUsed;
 extern int g_chart_zoom_modifier_vector;
 extern bool g_config_display_size_manual;
 
-extern bool g_endWinsuspend;
 
 #ifdef __WXMSW__
 // System color control support
@@ -6874,7 +6873,7 @@ void MyFrame::OnResume(wxPowerEvent &WXUNUSED(event)) {
     //       printf("   Restarting streams\n");
     g_last_resume_ticks = now.GetTicks();
 //FIXME (dave)
-#if 1
+#if 0
     if (g_pMUX) {
       g_endWinsuspend = true; //Hakan
       //g_pMUX->ClearStreams();
