@@ -184,8 +184,6 @@ using namespace std::literals::chrono_literals;
 
 extern int ShowNavWarning();
 
-static void UpdatePositionCalculatedSogCog();
-
 const char* const kUsage =
 R"""(Usage:
   opencpn -h | --help
@@ -245,7 +243,6 @@ WX_DEFINE_OBJARRAY(ArrayOfCDI);
 OCPNPlatform *g_Platform;
 BasePlatform *g_BasePlatform;   // points to g_platform, handles brain-dead MS linker.
 
-wxString g_vs;
 bool g_bFirstRun;
 bool g_bUpgradeInProcess;
 
@@ -259,9 +256,7 @@ MyFrame *gFrame;
 ConsoleCanvas *console;
 
 MyConfig *pConfig;
-ChartBase *Current_Vector_Ch;
 ChartDB *ChartData;
-wxString *pdir_list[20];
 int g_restore_stackindex;
 int g_restore_dbindex;
 double g_ChartNotRenderScaleFactor;
@@ -286,7 +281,6 @@ RouteManagerDialog *pRouteManagerDialog;
 GoToPositionDialog *pGoToPositionDialog;
 
 double vLat, vLon;
-double initial_scale_ppm, initial_rotation;
 
 int g_nbrightness = 100;
 
@@ -324,7 +318,7 @@ int file_user_id;
 
 int quitflag;
 int g_tick = 0;
-int g_mem_total, g_mem_used, g_mem_initial;
+int g_mem_total, g_mem_initial;
 
 bool s_bSetSystemTime;
 
@@ -396,15 +390,10 @@ ColorScheme global_color_scheme = GLOBAL_COLOR_SCHEME_DAY;
 wxArrayPtrVoid *UserColourHashTableArray;
 wxColorHashMap *pcurrent_user_color_hash;
 
-int gGPS_Watchdog;
 bool bGPSValid;
 bool bVelocityValid;
 
 int gHDx_Watchdog;
-int gHDT_Watchdog;
-int gVAR_Watchdog;
-
-int gSAT_Watchdog;
 
 bool g_bDebugCM93;
 bool g_bDebugS57;
@@ -465,8 +454,6 @@ double g_ownship_HDTpredictor_miles;
 
 bool g_own_ship_sog_cog_calc;
 int g_own_ship_sog_cog_calc_damp_sec;
-wxDateTime last_own_ship_sog_cog_calc_ts;
-double last_own_ship_sog_cog_calc_lat, last_own_ship_sog_cog_calc_lon;
 
 Multiplexer *g_pMUX;
 
@@ -493,14 +480,9 @@ bool g_bframemax;
 bool g_bAutoAnchorMark;
 
 wxRect g_blink_rect;
-IDX_entry *gpIDX;
-int gpIDXn;
 long gStart_LMT_Offset;
 
 wxArrayString *pMessageOnceArray;
-
-FILE *s_fpdebug;
-bool bAutoOpen;
 
 bool g_bUseGLL = true;
 
@@ -508,7 +490,6 @@ int g_nCacheLimit;
 int g_memCacheLimit;
 bool g_bGDAL_Debug;
 
-double g_VPRotate;  // Viewport rotation angle, used on "Course Up" mode
 bool g_bCourseUp;
 int g_COGAvgSec = 15;  // COG average period (sec.) for Course Up Mode
 double g_COGAvg;
@@ -525,8 +506,6 @@ double g_plus_minus_zoom_factor;
 
 bool g_b_legacy_input_filter_behaviour;  // Support original input filter
                                          // process or new process
-
-bool g_bbigred;
 
 PlugInManager *g_pi_manager;
 
@@ -559,14 +538,6 @@ wxSize options_lastWindowSize(0, 0);
 
 bool g_bSleep;
 bool g_bsimplifiedScalebar;
-
-int g_grad_default;
-wxColour g_border_color_default;
-int g_border_size_default;
-int g_sash_size_default;
-wxColour g_caption_color_default;
-wxColour g_sash_color_default;
-wxColour g_background_color_default;
 
 int osMajor, osMinor;
 
@@ -626,8 +597,6 @@ double g_TrackIntervalSeconds;
 double g_TrackDeltaDistance;
 int g_nTrackPrecision;
 
-int g_total_NMEAerror_messages;
-
 int g_cm93_zoom_factor;
 PopUpDSlide *pPopupDetailSlider;
 bool g_bShowDetailSlider;
@@ -661,16 +630,10 @@ wxString g_locale;
 wxString g_localeOverride;
 bool g_b_assume_azerty;
 
-bool g_bUseRaster;
-bool g_bUseVector;
-bool g_bUseCM93;
-
 int g_click_stop;
 
-int g_MemFootSec;
 int g_MemFootMB;
 
-wxStaticBitmap *g_pStatBoxTool;
 bool g_bShowStatusBar;
 
 bool g_bquiting;
@@ -692,7 +655,6 @@ OCPN_AUIManager *g_pauimgr;
 wxAuiDefaultDockArt *g_pauidockart;
 
 wxString g_toolbarConfig = _T("XXXXXXXXXXXXXXXXXXXXXXXXXXXXX");
-wxString g_toolbarConfigSecondary = _T("....XX..X........XXXXXXXXXXXX");
 
 ocpnFloatingToolbarDialog *g_MainToolbar;
 int g_maintoolbar_x;
@@ -713,17 +675,13 @@ bool g_bMagneticAPB;
 
 bool g_bInlandEcdis;
 
-int g_GPU_MemSize;
-
 wxString g_uiStyle;
 
-//      Values returned from WMM_PI for variation computation request
-//      Initialize to invalid value so we don't use if if WMM hasn't updated yet
+// Values returned from WMM_PI for variation computation request.
+// Initialize to invalid so we don't use it if WMM hasn't updated yet
 double gQueryVar = 361.0;
 
 char bells_sound_file_name[2][12] = {"1bells.wav", "2bells.wav"};
-
-int portaudio_initialized;
 
 bool g_bAIS_GCPA_Alert_Audio;
 bool g_bAIS_SART_Alert_Audio;
@@ -832,7 +790,6 @@ static bool LoadAllPlugIns(bool load_enabled) {
 wxString newPrivateFileName(wxString, const char *name,
                             [[maybe_unused]] const char *windowsName) {
   wxString fname = wxString::FromUTF8(name);
-  wxString fwname = wxString::FromUTF8(windowsName);
   wxString filePathAndName;
 
   filePathAndName = g_Platform->GetPrivateDataDir();
@@ -840,6 +797,7 @@ wxString newPrivateFileName(wxString, const char *name,
     filePathAndName.Append(wxFileName::GetPathSeparator());
 
 #ifdef __WXMSW__
+  wxString fwname = wxString::FromUTF8(windowsName);
   filePathAndName.Append(fwname);
 #else
   filePathAndName.Append(fname);
@@ -849,7 +807,7 @@ wxString newPrivateFileName(wxString, const char *name,
 }
 
 
-// `Main program' equivalent, creating windows and returning main app frame
+// `Main program` equivalent, creating windows and returning main app frame
 //------------------------------------------------------------------------------
 // MyApp
 //------------------------------------------------------------------------------
@@ -1043,22 +1001,6 @@ bool MyApp::OnExceptionInMainLoop() {
 
 void MyApp::OnActivateApp(wxActivateEvent &event) {
   return;
-  //    Code carefully in this method.
-  //    It is called in some unexpected places,
-  //    such as on closure of dialogs, etc.
-
-  if (!event.GetActive()) {
-    //  Remove a temporary Menubar when the application goes inactive
-    //  This is one way to handle properly ALT-TAB navigation on the Windows
-    //  desktop without accidentally leaving an unwanted Menubar shown.
-#ifdef __WXMSW__
-    if (g_bTempShowMenuBar) {
-      g_bTempShowMenuBar = false;
-      if (gFrame) gFrame->ApplyGlobalSettings(false);
-    }
-#endif
-  }
-  event.Skip();
 }
 
 
@@ -1090,7 +1032,6 @@ bool MyApp::OnInit() {
 #endif
 
   GpxDocument::SeedRandom();
-  last_own_ship_sog_cog_calc_ts = wxInvalidDateTime;
 
 #if defined(__WXGTK__) && defined(ocpnUSE_GLES) && defined(__ARM_ARCH)
   // There is a race condition between cairo which is used for text rendering
@@ -1114,7 +1055,8 @@ bool MyApp::OnInit() {
     if (m_checker.IsMainInstance()) {
       // Server is created on first call to GetInstance()
       if (m_parsed_cmdline.action == CmdlineAction::Skip) {
-        auto& server = LocalServerApi::GetInstance();
+        // Server starts running when referenced.
+        [[maybe_unused]] auto& server = LocalServerApi::GetInstance();
       } else {
         std::cerr << "No remote opencpn found. Giving up.\n";
         m_exitcode = 1;
@@ -1218,7 +1160,6 @@ bool MyApp::OnInit() {
   //      Send init message
   wxLogMessage(_T("\n\n________\n"));
 
-  g_vs = wxString(VERSION_FULL).Trim(true).Trim(false);
   wxDateTime now = wxDateTime::Now();
   LOG_INFO("------- OpenCPN version %s restarted at %s -------\n", VERSION_FULL,
            now.FormatISODate().mb_str().data());
@@ -1430,7 +1371,7 @@ bool MyApp::OnInit() {
     pSelectAIS->SetSelectPixelRadius(SelectPixelRadius);
   }
 
-  //        Is this the first run after a clean install?
+  //  Is this the first run after a clean installation?
   if (!n_NavMessageShown) g_bFirstRun = true;
 
     //  Now we can set the locale
@@ -1569,9 +1510,6 @@ bool MyApp::OnInit() {
     g_sAIS_Alert_Sound_File = g_Platform->NormalizePath(default_sound);
   }
 
-  gpIDX = NULL;
-  gpIDXn = 0;
-
   g_Platform->Initialize_2();
 
   //  Set up the frame initial visual parameters
@@ -1698,18 +1636,6 @@ bool MyApp::OnInit() {
 
   // g_pauimgr->SetFlags(g_pauimgr->GetFlags() | wxAUI_MGR_LIVE_RESIZE);
 
-  g_grad_default = g_pauidockart->GetMetric(wxAUI_DOCKART_GRADIENT_TYPE);
-  g_border_color_default =
-      g_pauidockart->GetColour(wxAUI_DOCKART_BORDER_COLOUR);
-  g_border_size_default =
-      g_pauidockart->GetMetric(wxAUI_DOCKART_PANE_BORDER_SIZE);
-  g_sash_size_default = g_pauidockart->GetMetric(wxAUI_DOCKART_SASH_SIZE);
-  g_caption_color_default =
-      g_pauidockart->GetColour(wxAUI_DOCKART_INACTIVE_CAPTION_COLOUR);
-  g_sash_color_default = g_pauidockart->GetColour(wxAUI_DOCKART_SASH_COLOUR);
-  g_background_color_default =
-      g_pauidockart->GetColour(wxAUI_DOCKART_BACKGROUND_COLOUR);
-
   // tell wxAuiManager to manage the frame
   g_pauimgr->SetManagedWindow(gFrame);
 
@@ -1812,7 +1738,7 @@ bool MyApp::OnInit() {
       g_restore_dbindex = 0;
   }
 
-  //  Apply the inital Group Array structure to the chart data base
+  //  Apply the inital Group Array structure to the chart database
   ChartData->ApplyGroupArray(g_pGroupArray);
 
   //      All set to go.....
