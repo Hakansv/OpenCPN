@@ -26,8 +26,6 @@
 #include "model/logger.h"
 #include "model/ocpn_utils.h"
 
-extern BasePlatform* g_BasePlatform;
-
 // FIXME (leamas) Bad name
 std::string GetSocketPath() {
   auto const static sep = static_cast<char>(wxFileName::GetPathSeparator());
