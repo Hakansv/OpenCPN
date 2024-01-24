@@ -71,6 +71,7 @@
 #include "config.h"
 
 #include "model/ais_decoder.h"
+#include "model/ais_state_vars.h"
 #include "ais.h"
 #include "model/ais_target_data.h"
 #include "chart_ctx_factory.h"
@@ -150,7 +151,6 @@ extern bool g_bShowDepthUnits;
 extern bool g_bskew_comp;
 extern bool g_bopengl;
 extern bool g_bsmoothpanzoom;
-extern bool g_bShowTrue, g_bShowMag;
 extern double gVar;
 extern int g_chart_zoom_modifier_raster;
 extern int g_chart_zoom_modifier_vector;
@@ -173,45 +173,9 @@ extern bool g_bShowLiveETA;
 extern double g_defaultBoatSpeed;
 extern double g_defaultBoatSpeedUserUnit;
 
-//    AIS Global configuration
-extern bool g_bCPAMax;
-extern double g_CPAMax_NM;
-extern bool g_bCPAWarn;
-extern double g_CPAWarn_NM;
-extern bool g_bTCPA_Max;
-extern double g_TCPA_Max;
-extern bool g_bMarkLost;
-extern double g_MarkLost_Mins;
-extern bool g_bRemoveLost;
-extern double g_RemoveLost_Mins;
-extern bool g_bShowCOG;
-extern double g_ShowCOG_Mins;
-extern bool g_bSyncCogPredictors;
-extern bool g_bAISShowTracks;
-extern double g_AISShowTracks_Mins;
-extern double g_ShowMoored_Kts;
-extern bool g_bHideMoored;
-extern bool g_bAllowShowScaled;
-extern int g_ShowScaled_Num;
-extern bool g_bAIS_CPA_Alert;
-extern bool g_bAIS_CPA_Alert_Audio;
-extern wxString g_sAIS_Alert_Sound_File;
-extern bool g_bAIS_CPA_Alert_Suppress_Moored;
-extern bool g_bShowAreaNotices;
-extern bool g_bDrawAISSize;
-extern bool g_bDrawAISRealtime;
-extern double g_AIS_RealtPred_Kts;
-extern bool g_bShowAISName;
-extern int g_Show_Target_Name_Scale;
-extern int g_WplAction;
-
 extern int g_iNavAidRadarRingsNumberVisible;
 extern float g_fNavAidRadarRingsStep;
 extern int g_pNavAidRadarRingsStepUnits;
-extern int g_iWaypointRangeRingsNumber;
-extern float g_fWaypointRangeRingsStep;
-extern int g_iWaypointRangeRingsStepUnits;
-extern wxColour g_colourWaypointRangeRingsColour;
 extern bool g_bWayPointPreventDragging;
 extern wxColour g_colourOwnshipRangeRingsColour;
 extern bool g_bShowShipToActive;
@@ -237,16 +201,9 @@ extern double g_n_ownship_beam_meters;
 extern double g_n_gps_antenna_offset_y;
 extern double g_n_gps_antenna_offset_x;
 extern int g_n_ownship_min_mm;
-extern double g_n_arrival_circle_radius;
 
 extern bool g_bEnableZoomToCursor;
-extern bool g_bTrackDaily;
-extern int g_track_rotate_time;
-extern int g_track_rotate_time_type;
 extern bool g_bHighliteTracks;
-extern double g_TrackDeltaDistance;
-extern double g_TrackDeltaDistance;
-extern int g_nTrackPrecision;
 extern wxColour g_colourTrackLineColour;
 
 extern bool g_bAdvanceRouteWaypointOnArrivalOnly;
@@ -261,17 +218,9 @@ extern bool g_bLookAhead;
 extern double g_ownship_predictor_minutes;
 extern double g_ownship_HDTpredictor_miles;
 
-extern bool g_bAISRolloverShowClass;
-extern bool g_bAISRolloverShowCOG;
-extern bool g_bAISRolloverShowCPA;
-
-extern bool g_bAIS_ACK_Timeout;
-extern double g_AckTimeout_Mins;
-
 extern bool g_bQuiltEnable;
 extern bool g_bFullScreenQuilt;
 extern bool g_bConfirmObjectDelete;
-extern wxString g_compatOS;
 
 #if wxUSE_XLOCALE || !wxCHECK_VERSION(3, 0, 0)
 extern wxLocale* plocale_def_lang;
@@ -281,16 +230,6 @@ extern double g_mouse_zoom_sensitivity;
 extern int g_mouse_zoom_sensitivity_ui;
 
 extern OcpnSound* g_anchorwatch_sound;
-extern wxString g_anchorwatch_sound_file;
-extern wxString g_DSC_sound_file;
-extern wxString g_SART_sound_file;
-extern wxString g_AIS_sound_file;
-extern bool g_bAIS_GCPA_Alert_Audio;
-extern bool g_bAIS_SART_Alert_Audio;
-extern bool g_bAIS_DSC_Alert_Audio;
-extern bool g_bAnchor_Alert_Audio;
-
-extern bool g_bMagneticAPB;
 
 extern bool g_fog_overzoom;
 extern bool g_oz_vector_scale;
@@ -321,13 +260,11 @@ options* g_pOptions;
 extern bool g_bShowMenuBar;
 extern bool g_bShowCompassWin;
 
-extern bool g_btouch;
 extern bool g_bresponsive;
 extern bool g_bAutoHideToolbar;
 extern int g_nAutoHideToolbar;
 extern int g_GUIScaleFactor;
 extern int g_ChartScaleFactor;
-extern float g_ChartScaleFactorExp;
 extern float g_MarkScaleFactorExp;
 extern bool g_bRollover;
 extern int g_ShipScaleFactor;
@@ -338,15 +275,10 @@ extern bool g_bShowMuiZoomButtons;
 
 extern double g_config_display_size_mm;
 extern bool g_config_display_size_manual;
-extern bool g_bInlandEcdis;
 extern unsigned int g_canvasConfig;
 extern bool g_useMUI;
 extern wxString g_lastAppliedTemplateGUID;
 extern wxString g_default_wp_icon;
-extern wxString g_default_routepoint_icon;
-extern int g_iWpt_ScaMin;
-extern bool g_bUseWptScaMin;
-bool g_bOverruleScaMin;
 extern int osMajor, osMinor;
 extern bool g_bShowMuiZoomButtons;
 extern MyConfig* pConfig;
@@ -1592,6 +1524,10 @@ options::options(wxWindow* parent, wxWindowID id, const wxString& caption,
     PluginLoader::getInstance()->LoadAllPlugIns(false);
     m_pPlugInCtrl->ReloadPluginPanels();
   });
+  auto action = [&](wxCommandEvent &evt) {
+      g_persist_active_route = m_persist_active_route_chkbox->IsChecked(); };
+  m_persist_active_route_chkbox->Bind(wxEVT_CHECKBOX, action);
+  m_persist_active_route_chkbox->SetValue(g_persist_active_route);
 }
 
 options::~options(void) {
@@ -2254,6 +2190,17 @@ void options::CreatePanel_Routes(size_t parent, int border_size,
       new wxStaticBox(itemPanelRoutes, wxID_ANY, _("New Routes"));
   wxStaticBoxSizer* routeSizer = new wxStaticBoxSizer(routeText, wxVERTICAL);
   Routes->Add(routeSizer, 0, wxGROW | wxALL, border_size);
+
+  wxStaticBox* activeRouteText =
+      new wxStaticBox(itemPanelRoutes, wxID_ANY, _("Active Route"));
+  wxStaticBoxSizer* activeRouteSizer =
+      new wxStaticBoxSizer(activeRouteText, wxVERTICAL);
+
+  m_persist_active_route_chkbox = new wxCheckBox(
+          itemPanelRoutes, wxID_ANY,
+          _("Persist active route, automatically activate on start up"));
+  activeRouteSizer->Add(m_persist_active_route_chkbox, 0, wxALL, 5);
+  Routes->Add(activeRouteSizer, 0, wxGROW | wxALL, border_size);
 
   routeSizer->AddSpacer(5);
 

@@ -52,39 +52,24 @@
 #include "model/routeman.h"
 #include "model/track.h"
 
+#include "observable_globvar.h"
+
 #ifdef __ANDROID__
 #include "androidUTIL.h"
 #endif
 
-extern BasePlatform* g_BasePlatform;
-extern AisDecoder *g_pAIS;
-extern RouteList *pRouteList;
-extern std::vector<Track*> g_TrackList;
-extern Select *pSelect;
-extern Routeman *g_pRouteMan;
-extern bool bGPSValid;
-
-extern wxRect g_blink_rect;
-
-extern bool g_bMagneticAPB;
-
-extern RoutePoint *pAnchorWatchPoint1;
-extern RoutePoint *pAnchorWatchPoint2;
-
-extern ActiveTrack *g_pActiveTrack;
-extern int g_track_line_width;
-
-extern int g_route_line_width;
-
-extern bool g_bAdvanceRouteWaypointOnArrivalOnly;
-extern Route *pAISMOBRoute;
-extern bool g_btouch;
-extern float g_ChartScaleFactorExp;
-
-extern bool g_bShowShipToActive;
-extern bool g_bAllowShipToActive;
 
 bool g_bPluginHandleAutopilotRoute;
+
+Routeman* g_pRouteMan;
+Route *pAISMOBRoute;
+
+RoutePoint *pAnchorWatchPoint1;
+RoutePoint *pAnchorWatchPoint2;
+
+RouteList *pRouteList;
+
+float g_ChartScaleFactorExp;
 
 //    List definitions for Waypoint Manager Icons
 WX_DECLARE_LIST(wxBitmap, markicon_bitmap_list_type);
@@ -100,6 +85,19 @@ WX_DEFINE_LIST(markicon_description_list_type);
 // Helper conditional file name dir slash
 void appendOSDirSlash(wxString *pString);
 
+static void ActivatePersistedRoute(Routeman* routeman) {
+  if (g_active_route == "") {
+    wxLogWarning("\"Persist route\" but no persisted route configured");
+    return;
+  }
+  Route* route = routeman->FindRouteByGUID(g_active_route);
+  if (!route) {
+    wxLogWarning("Persisted route GUID not available");
+    return;
+  }
+  routeman->ActivateRoute(route);   // FIXME (leamas) better start point
+}
+
 
 //--------------------------------------------------------------------------------
 //      Routeman   "Route Manager"
@@ -108,13 +106,19 @@ void appendOSDirSlash(wxString *pString);
 Routeman::Routeman(struct RoutePropDlgCtx ctx,
                    struct RoutemanDlgCtx route_dlg_ctx,
                    NmeaLog& nmea_log)
-    : m_NMEA0183(NmeaCtxFactory()),
+    : pActiveRoute(0),
+      pActivePoint(0),
+      pRouteActivatePoint(0),
+      m_NMEA0183(NmeaCtxFactory()),
       m_prop_dlg_ctx(ctx),
       m_route_dlg_ctx(route_dlg_ctx),
       m_nmea_log(nmea_log) {
-  pActiveRoute = NULL;
-  pActivePoint = NULL;
-  pRouteActivatePoint = NULL;
+  if (g_persist_active_route) ActivatePersistedRoute(this);
+
+  GlobalVar<wxString> active_route(&g_active_route);
+  auto route_action = [&] (wxCommandEvent) {
+      if (g_persist_active_route) ActivatePersistedRoute(this); };
+  active_route_listener.Init(active_route, route_action);
 }
 
 Routeman::~Routeman() {
@@ -265,6 +269,7 @@ bool Routeman::ActivateRoute(Route *pRouteToActivate, RoutePoint *pStartPoint) {
   if (g_bPluginHandleAutopilotRoute) return true;
 
   pActiveRoute = pRouteToActivate;
+  g_active_route = pActiveRoute->GetGUID();
 
   if (pStartPoint) {
     pActivePoint = pStartPoint;
@@ -955,7 +960,9 @@ WayPointman::~WayPointman() {
 
   if (pmarkicon_image_list) pmarkicon_image_list->RemoveAll();
   delete pmarkicon_image_list;
+  m_pLegacyIconArray->Clear();
   delete m_pLegacyIconArray;
+  m_pExtendedIconArray->Clear();
   delete m_pExtendedIconArray;
 }
 
@@ -1447,6 +1454,15 @@ void WayPointman::DeleteAllWaypoints(bool b_delete_used) {
   return;
 }
 
+RoutePoint* WayPointman::FindWaypointByGuid(const std::string& guid) {
+  wxRoutePointListNode *node = m_pWayPointList->GetFirst();
+  while (node) {
+    RoutePoint* rp  = node->GetData();
+    if (guid == rp->m_GUID) return rp;
+    node = node->GetNext();
+  }
+  return 0;
+}
 void WayPointman::DestroyWaypoint(RoutePoint *pRp, bool b_update_changeset) {
   if (!b_update_changeset)
     NavObjectChanges::getInstance()->m_bSkipChangeSetUpdate = true;

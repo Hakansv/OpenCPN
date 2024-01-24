@@ -214,7 +214,6 @@ extern wxArrayString g_locale_catalog_array;
 extern int g_GUIScaleFactor;
 extern int g_ChartScaleFactor;
 extern wxString g_locale;
-extern bool g_btouch;
 extern ocpnFloatingToolbarDialog* g_MainToolbar;
 
 extern int g_chart_zoom_modifier_raster;
@@ -232,8 +231,6 @@ wxString g_lastPluginMessage;
 extern ChartCanvas* g_focusCanvas;
 extern ChartCanvas* g_overlayCanvas;
 extern bool g_bquiting;
-extern wxString g_catalog_channel;
-extern wxString g_catalog_custom_url;
 
 WX_DEFINE_ARRAY_PTR(ChartCanvas*, arrayofCanvasPtr);
 extern arrayofCanvasPtr g_canvasArray;
@@ -2242,8 +2239,6 @@ int PlugInManager::AddToolbarTool(wxString label, wxString SVGfile,
   // In case there is some problem with the SVG file(s) specified.
   ocpnStyle::Style* style = g_StyleManager->GetCurrentStyle();
   pttc->bitmap_day = new wxBitmap(style->GetIcon(_T("default_pi")));
-  pttc->bitmap_Rollover_day = new wxBitmap(style->GetIcon(_T("default_pi")));
-
   pttc->bitmap_dusk = BuildDimmedToolBitmap(pttc->bitmap_day, 128);
   pttc->bitmap_night = BuildDimmedToolBitmap(pttc->bitmap_day, 32);
   pttc->bitmap_Rollover_day = new wxBitmap(*pttc->bitmap_day);
@@ -4122,7 +4117,7 @@ void PluginListPanel::ReloadPluginPanels() {
   /* Remove duplicates. */
   struct Comp {
     bool operator()(const PluginMetadata& lhs, const PluginMetadata rhs) const {
-      return lhs.key().compare(rhs.key()) < 0;
+      return lhs.name.compare(rhs.name) < 0;
     }
   } comp;
   std::set<PluginMetadata, Comp> unique_entries(comp);

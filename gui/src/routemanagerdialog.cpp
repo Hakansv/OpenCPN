@@ -65,7 +65,7 @@
 #include "model/mDNS_query.h"
 #include "SendToPeerDlg.h"
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
 #include "androidUTIL.h"
 #endif
 
@@ -94,7 +94,6 @@ extern bool g_bShowLayers;
 extern wxString g_default_wp_icon;
 extern AisDecoder *g_pAIS;
 extern OCPNPlatform *g_Platform;
-extern bool g_bOverruleScaMin;
 extern std::vector<std::shared_ptr<ocpn_DNS_record_t>> g_DNS_cache;
 extern wxDateTime g_DNS_cache_time;
 
@@ -317,6 +316,8 @@ RouteManagerDialog::RouteManagerDialog(wxWindow *parent) {
   btnExportViz = NULL;
 
   Create();
+  routes_update_listener.Init(g_pRouteMan->on_routes_update,
+                              [&](wxCommandEvent) { UpdateRouteListCtrl(); });
 }
 
 void RouteManagerDialog::Create() {

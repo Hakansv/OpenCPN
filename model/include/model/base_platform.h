@@ -46,6 +46,11 @@
 #define PLATFORM_CAP_PLUGINS 1
 #define PLATFORM_CAP_FASTPAN 2
 
+class BasePlatform;   // forward
+
+/// points to g_platform, handles brain-dead MS linker.
+extern BasePlatform* g_BasePlatform;
+
 typedef struct {
   char tsdk[20];
   char hn[20];
@@ -159,6 +164,8 @@ protected:
 class BasePlatform : public AbstractPlatform {
 public:
   BasePlatform();
+  ~BasePlatform();
+
   bool InitializeLogFile() override;
 
   wxSize getDisplaySize() override;

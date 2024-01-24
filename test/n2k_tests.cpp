@@ -10,6 +10,7 @@
 
 #include "config.h"
 
+#include "model/ais_state_vars.h"
 #include "model/cli_platform.h"
 #include "model/cmdline.h"
 #include "model/comm_ais.h"
@@ -94,47 +95,12 @@ static const std::vector<std::pair<double, double>> expected_targets =
 class AISTargetAlertDialog;
 class Multiplexer;
 
-extern bool g_bAIS_ACK_Timeout;
-extern bool g_bAIS_CPA_Alert_Suppress_Moored;
-extern bool g_bCPAMax;
-extern bool g_bCPAWarn;
-extern bool g_bHideMoored;
-extern bool g_bTCPA_Max;
-extern double g_AckTimeout_Mins;
-extern double g_CPAMax_NM;
-extern double g_CPAWarn_NM;
-extern double g_ShowMoored_Kts;
-extern double g_TCPA_Max;
-extern bool g_bShowMag;
-extern bool g_bShowTrue;
-extern bool bGPSValid;
-extern bool g_bInlandEcdis;
-extern bool g_bRemoveLost;
-extern bool g_bMarkLost;
-extern bool g_bShowScaled;
-extern bool g_bAllowShowScaled;
-extern bool g_bAISRolloverShowCOG;
-extern bool g_bAISRolloverShowCPA;
-extern bool g_bAISShowTracks;
-extern bool g_bAISRolloverShowClass;
-
 extern Multiplexer* g_pMUX;
 extern std::vector<Track*> g_TrackList;
-extern int g_WplAction;
 extern wxString AISTargetNameFileName;
-extern double g_AISShowTracks_Mins;
-extern bool g_bAIS_CPA_Alert;
-extern Route *pAISMOBRoute;
-extern double g_RemoveLost_Mins;
-extern double g_MarkLost_Mins;
-extern float g_selection_radius_mm;
-extern float g_selection_radius_touch_mm;
-extern bool g_benableUDPNullHeader;
 
 extern BasePlatform* g_BasePlatform;
 extern void* g_pi_manager;
-extern wxString g_compatOS;
-extern wxString g_compatOsVersion;
 
 extern bool g_bHDT_Rx;
 extern int g_NMEAAPBPrecision;

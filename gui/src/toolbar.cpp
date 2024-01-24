@@ -32,6 +32,7 @@
 #include <vector>
 
 #include "config.h"
+#include "model/ais_state_vars.h"
 #include "model/ocpn_types.h"
 #include "navutil.h"
 #include "styles.h"
@@ -56,7 +57,6 @@ extern ocpnStyle::StyleManager *g_StyleManager;
 extern MyFrame *gFrame;
 extern PlugInManager *g_pi_manager;
 extern bool g_bPermanentMOBIcon;
-extern bool g_btouch;
 extern bool g_bsmoothpanzoom;
 extern OCPNPlatform *g_Platform;
 extern bool g_bmasterToolbarFull;
@@ -1132,7 +1132,6 @@ void ocpnFloatingToolbarDialog::DestroyToolBar() {
 #include "compass.h"
 #include "chartdb.h"
 
-extern bool g_bAllowShowScaled;
 extern bool g_bTrackActive;
 extern s52plib *ps52plib;
 

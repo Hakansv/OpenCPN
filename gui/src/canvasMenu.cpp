@@ -50,6 +50,7 @@
 #include "TrackPropDlg.h"
 #include "ais.h"
 #include "model/ais_decoder.h"
+#include "model/ais_state_vars.h"
 #include "model/ais_target_data.h"
 #include "canvasMenu.h"
 #include "chartdb.h"
@@ -77,8 +78,9 @@
 #include "tide_time.h"
 #include "track_gui.h"
 #include "undo.h"
-#include "peer_client.h"
+#include "peer_client_dlg.h"
 #include "model/mDNS_query.h"
+#include "model/own_ship.h"
 #include "OCPNPlatform.h"
 
 #ifdef __OCPN__ANDROID__
@@ -93,9 +95,6 @@ extern void pupHandler_PasteTrack();
 extern void pupHandler_PasteWaypoint();
 
 extern AisDecoder *g_pAIS;
-extern bool g_bCPAWarn;
-extern bool g_bShowAreaNotices;
-extern bool bGPSValid;
 extern Routeman *g_pRouteMan;
 extern bool g_bskew_comp;
 extern double vLat, vLon;
@@ -104,8 +103,6 @@ extern ChartGroupArray *g_pGroupArray;
 extern PlugInManager *g_pi_manager;
 extern int g_nAWMax;
 extern int g_nAWDefault;
-extern RoutePoint *pAnchorWatchPoint1;
-extern RoutePoint *pAnchorWatchPoint2;
 extern wxString g_AW1GUID;
 extern wxString g_AW2GUID;
 extern int g_click_stop;
@@ -124,7 +121,6 @@ extern CM93OffsetDialog *g_pCM93OffsetDialog;
 extern GoToPositionDialog *pGoToPositionDialog;
 extern RouteList *pRouteList;
 extern wxString g_default_wp_icon;
-extern bool g_btouch;
 extern bool g_bBasicMenus;
 extern TrackPropDlg *pTrackPropDialog;
 extern double gHdt;

@@ -27,21 +27,12 @@
 #include <wx/intl.h>
 #include <wx/string.h>
 
+#include "model/ais_state_vars.h"
 #include "model/ais_target_data.h"
 #include "model/config_vars.h"
-#include "ocpn_frame.h"
 #include "model/navutil_base.h"
-#include "navutil.h"
-
-extern bool bGPSValid;
-extern bool g_bAISRolloverShowClass;
-extern bool g_bAISRolloverShowCOG;
-extern bool g_bAISRolloverShowCPA;
-extern bool g_bShowMag;
-extern bool g_bShowTrue;
-//extern MyFrame *gFrame;
-extern bool g_bAISShowTracks;
-extern double gVar;
+#include "model/own_ship.h"
+#include "ocpn_frame.h"
 
 static std::unordered_map<int, wxString> s_ERI_hash;
 

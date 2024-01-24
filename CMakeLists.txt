@@ -799,7 +799,7 @@ set(GUI_HDRS
     ${GUI_HDR_DIR}/OCPNRegion.h
     ${GUI_HDR_DIR}/options.h
     ${GUI_HDR_DIR}/piano.h
-    ${GUI_HDR_DIR}/peer_client.h
+    ${GUI_HDR_DIR}/peer_client_dlg.h
     ${GUI_HDR_DIR}/pluginmanager.h
     ${GUI_HDR_DIR}/printtable.h
     ${GUI_HDR_DIR}/priority_gui.h
@@ -910,7 +910,7 @@ set(GUI_SRC
     ${GUI_SRC_DIR}/OCPNRegion.cpp
     ${GUI_SRC_DIR}/options.cpp
     ${GUI_SRC_DIR}/Osenc.cpp
-    ${GUI_SRC_DIR}/peer_client.cpp
+    ${GUI_SRC_DIR}/peer_client_dlg.cpp
     ${GUI_SRC_DIR}/piano.cpp
     ${GUI_SRC_DIR}/pluginmanager.cpp
     ${GUI_SRC_DIR}/printtable.cpp
@@ -1862,7 +1862,10 @@ add_subdirectory(libs/gdal)
 add_subdirectory(libs/geoprim)
 add_subdirectory(libs/iso8211)
 add_subdirectory(libs/mDNS)
+
+set(MSVC_INCLUDE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cache/buildwin/include)
 add_subdirectory(libs/mongoose)
+
 add_subdirectory(libs/N2KParser)
 add_subdirectory(libs/nmea0183)
 add_subdirectory(libs/observable)
@@ -2672,7 +2675,7 @@ if (NOT TARGET uninstall)
 endif ()
 
 add_subdirectory(model)
-target_link_libraries(${PACKAGE_NAME} PUBLIC ocpn::model)
+target_link_libraries(${PACKAGE_NAME} PUBLIC ocpn::model-src ocpn::model)
 
 if (NOT QT_ANDROID)
   add_subdirectory(cli)

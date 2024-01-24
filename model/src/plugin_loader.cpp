@@ -81,10 +81,6 @@
 #include <Psapi.h>
 #endif
 
-extern BasePlatform* g_BasePlatform;
-extern wxWindow* gFrame;
-extern ChartDB* ChartData;
-
 static const std::vector<std::string> SYSTEM_PLUGINS = {
     "chartdownloader", "wmm", "dashboard", "grib"};
 
@@ -537,6 +533,7 @@ bool PluginLoader::LoadPluginCandidate(const wxString& file_name,
   const auto path = std::string("/PlugIns/") + plugin_file.ToStdString();
   ConfigVar<bool> enabled(path, "bEnabled", TheBaseConfig());
   if (load_enabled && !enabled.Get(true)) {
+    pic->m_destroy_fn(pic->m_pplugin);
     delete pic;
     wxLogMessage("Skipping not enabled candidate.");
     return true;
@@ -849,9 +846,8 @@ PluginMetadata PluginLoader::MetadataByName(const std::string& name) {
   if (matches.size() == 1) return matches[0];  // only one found with given name
 
   auto version = VersionFromManifest(name);
-  auto predicate = [version](const PluginMetadata& md) {
-    return version == md.version;
-  };
+  auto predicate =
+          [version](const PluginMetadata& md) { return version == md.version; };
   auto found = find_if(matches.begin(), matches.end(), predicate);
   return found != matches.end() ? *found : matches[0];
 }

@@ -47,6 +47,7 @@
 #include <wx/listimpl.cpp>
 #include <wx/progdlg.h>
 
+#include "model/ais_state_vars.h"
 #include "navutil.h"
 #include "chcanv.h"
 #include "model/georef.h"
@@ -90,7 +91,6 @@ extern int g_restore_stackindex;
 extern int g_restore_dbindex;
 extern LayerList *pLayerList;
 extern MyConfig *pConfig;
-extern double initial_scale_ppm, initial_rotation;
 extern int g_nbrightness;
 extern bool g_bShowTrue, g_bShowMag;
 extern bool g_bShowStatusBar;
@@ -136,69 +136,12 @@ extern bool g_bframemax;
 extern int g_route_prop_x, g_route_prop_y;
 extern int g_route_prop_sx, g_route_prop_sy;
 
-extern double g_PlanSpeed;
 extern wxString g_VisibleLayers;
 extern wxString g_InvisibleLayers;
 
 // LIVE ETA OPTION
 extern bool g_bShowLiveETA;
 extern double g_defaultBoatSpeed;
-
-//    AIS Global configuration
-extern bool g_bCPAMax;
-extern double g_CPAMax_NM;
-extern bool g_bCPAWarn;
-extern double g_CPAWarn_NM;
-extern bool g_bTCPA_Max;
-extern double g_TCPA_Max;
-extern bool g_bMarkLost;
-extern double g_MarkLost_Mins;
-extern bool g_bRemoveLost;
-extern double g_RemoveLost_Mins;
-extern bool g_bShowCOG;
-extern bool g_bSyncCogPredictors;
-extern double g_ShowCOG_Mins;
-extern bool g_bAISShowTracks;
-extern bool g_bTrackCarryOver;
-extern bool g_bTrackDaily;
-extern int g_track_rotate_time;
-extern int g_track_rotate_time_type;
-extern double g_AISShowTracks_Mins;
-extern double g_AISShowTracks_Limit;
-extern bool g_bHideMoored;
-extern double g_ShowMoored_Kts;
-extern bool g_bAllowShowScaled;
-extern bool g_bShowScaled;
-extern int g_ShowScaled_Num;
-extern bool g_bAIS_CPA_Alert;
-extern bool g_bAIS_CPA_Alert_Audio;
-extern int g_ais_alert_dialog_x, g_ais_alert_dialog_y;
-extern int g_ais_alert_dialog_sx, g_ais_alert_dialog_sy;
-extern int g_ais_query_dialog_x, g_ais_query_dialog_y;
-extern wxString g_sAIS_Alert_Sound_File;
-extern bool g_bAIS_CPA_Alert_Suppress_Moored;
-extern bool g_bAIS_ACK_Timeout;
-extern double g_AckTimeout_Mins;
-extern wxString g_AisTargetList_perspective;
-extern int g_AisTargetList_range;
-extern int g_AisTargetList_sortColumn;
-extern bool g_bAisTargetList_sortReverse;
-extern wxString g_AisTargetList_column_spec;
-extern wxString g_AisTargetList_column_order;
-extern bool g_bShowAreaNotices;
-extern bool g_bDrawAISSize;
-extern bool g_bDrawAISRealtime;
-extern double g_AIS_RealtPred_Kts;
-extern bool g_bShowAISName;
-extern int g_Show_Target_Name_Scale;
-extern int g_WplAction;
-extern bool g_benableAISNameCache;
-extern int g_ScaledNumWeightSOG;
-extern int g_ScaledNumWeightCPA;
-extern int g_ScaledNumWeightTCPA;
-extern int g_ScaledNumWeightRange;
-extern int g_ScaledNumWeightSizeOfT;
-extern int g_ScaledSizeMinimal;
 
 extern int g_S57_dialog_sx, g_S57_dialog_sy;
 
@@ -241,7 +184,6 @@ extern double g_n_ownship_beam_meters;
 extern double g_n_gps_antenna_offset_y;
 extern double g_n_gps_antenna_offset_x;
 extern int g_n_ownship_min_mm;
-extern double g_n_arrival_circle_radius;
 
 extern bool g_bPreserveScaleOnX;
 extern bool g_bsimplifiedScalebar;
@@ -254,7 +196,6 @@ extern wxString g_localeOverride;
 extern bool g_bCourseUp;
 extern bool g_bLookAhead;
 extern int g_COGAvgSec;
-extern bool g_bMagneticAPB;
 extern bool g_bShowChartBar;
 
 extern int g_MemFootMB;
@@ -265,10 +206,6 @@ extern int g_BSBImgDebug;
 
 extern wxString g_config_version_string;
 extern wxString g_config_version_string;
-
-extern bool g_bAISRolloverShowClass;
-extern bool g_bAISRolloverShowCOG;
-extern bool g_bAISRolloverShowCPA;
 
 extern bool g_bDebugGPSD;
 
@@ -296,8 +233,6 @@ extern bool g_bHighliteTracks;
 extern int g_cog_predictor_width;
 extern int g_ais_cog_predictor_width;
 
-extern int g_route_line_width;
-extern int g_track_line_width;
 extern wxColour g_colourTrackLineColour;
 extern wxString g_default_wp_icon;
 
@@ -309,7 +244,6 @@ extern wxString g_uploadConnection;
 extern std::vector<std::string> TideCurrentDataSet;
 extern wxString g_TCData_Dir;
 
-extern bool g_btouch;
 extern bool g_bresponsive;
 
 extern bool g_bGLexpert;
@@ -338,13 +272,11 @@ extern int g_GUIScaleFactor;
 extern int g_ChartScaleFactor;
 extern int g_ShipScaleFactor;
 
-extern bool g_bInlandEcdis;
 extern int g_iENCToolbarPosX;
 extern int g_iENCToolbarPosY;
 
 extern bool g_bSpaceDropMark;
 
-extern bool g_benableUDPNullHeader;
 extern bool g_bShowMenuBar;
 extern bool g_bShowCompassWin;
 
