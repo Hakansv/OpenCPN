@@ -187,7 +187,6 @@ private:
   AIS_Target_Name_Hash *AISTargetNamesNC;
 
   ObservableListener listener_N0183_VDM;
-  ObservableListener listener_N0183_AIVSD;
   ObservableListener listener_N0183_FRPOS;
   ObservableListener listener_N0183_CDDSC;
   ObservableListener listener_N0183_CDDSE;

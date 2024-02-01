@@ -87,7 +87,6 @@ wxString AISTargetNameFileName;
 
 wxDEFINE_EVENT(EVT_N0183_VDO, ObservedEvt);
 wxDEFINE_EVENT(EVT_N0183_VDM, ObservedEvt);
-wxDEFINE_EVENT(EVT_N0183_AIVSD, ObservedEvt);
 wxDEFINE_EVENT(EVT_N0183_FRPOS, ObservedEvt);
 wxDEFINE_EVENT(EVT_N0183_CDDSC, ObservedEvt);
 wxDEFINE_EVENT(EVT_N0183_CDDSE, ObservedEvt);
@@ -248,15 +247,6 @@ void AisDecoder::InitCommListeners(void) {
         auto ptr = ev.GetSharedPtr();
         auto n0183_msg = std::static_pointer_cast<const Nmea0183Msg>(ptr);
         HandleN0183_AIS( n0183_msg );
-      });
-
-  // AIVSD Voyage data from AIS Class A
-  Nmea0183Msg n0183_msg_AIVSD("AIVSD");
-  listener_N0183_AIVSD.Listen(n0183_msg_AIVSD, this, EVT_N0183_AIVSD);
-  Bind(EVT_N0183_AIVSD, [&](ObservedEvt ev) {
-        auto ptr = ev.GetSharedPtr();
-        auto n0183_msg = std::static_pointer_cast<const Nmea0183Msg>(ptr);
-        HandleN0183_AIS(n0183_msg);
       });
 
   //FRPOS
