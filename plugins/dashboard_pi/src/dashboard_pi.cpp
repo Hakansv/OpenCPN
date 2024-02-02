@@ -1773,23 +1773,37 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
         for (int i = 0; i < m_NMEA0183.Xdr.TransducerCnt; i++) {
           xdrdata = m_NMEA0183.Xdr.TransducerInfo[i].MeasurementData;
           // XDR Airtemp
-          if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("C") && (
-              m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
-                   _T("Te") ||
-              m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
-                   _T("TempAir") ||
-              m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
-                  _T("AIRTEMP") ||
-              m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
-                  _T("ENV_OUTAIR_T") ||
-              m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
-                  _T("ENV_OUTSIDE_T"))) {
-            if (mPriATMP >= 4) {
-              mPriATMP = 4;
-              SendSentenceToAllInstruments(
-                  OCPN_DBP_STC_ATMP, toUsrTemp_Plugin(xdrdata, g_iDashTempUnit),
-                  getUsrTempUnit_Plugin(g_iDashTempUnit));
-              mATMP_Watchdog = no_nav_watchdog_timeout_ticks;
+          if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("C")){
+            if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.MakeUpper()
+                    .Contains(_T("AIR")) ||
+                m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("Te") ||
+                m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
+                    _T("ENV_OUTAIR_T") ||
+                m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
+                    _T("ENV_OUTSIDE_T")) {
+              if (mPriATMP >= 4) {
+                mPriATMP = 4;
+                SendSentenceToAllInstruments(
+                    OCPN_DBP_STC_ATMP,
+                    toUsrTemp_Plugin(xdrdata, g_iDashTempUnit),
+                    getUsrTempUnit_Plugin(g_iDashTempUnit));
+                mATMP_Watchdog = no_nav_watchdog_timeout_ticks;
+              }
+            }   // Water temp
+            else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.MakeUpper()
+                    .Contains("WATER") ||
+                     m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
+                         "WTHI") {
+                  if (mPriWTP >= 3) {
+                    mPriWTP = 3;
+                    SendSentenceToAllInstruments(
+                        OCPN_DBP_STC_TMP,
+                        toUsrTemp_Plugin(
+                            m_NMEA0183.Xdr.TransducerInfo[i].MeasurementData,
+                            g_iDashTempUnit),
+                        getUsrTempUnit_Plugin(g_iDashTempUnit));
+                    mWTP_Watchdog = no_nav_watchdog_timeout_ticks;
+                  }
             }
           }
           // XDR Pressure
@@ -1844,28 +1858,14 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
               }
             }
             // XDR Rudder Angle
-            else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
-                     _T("RUDDER")) {
+            else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName.MakeUpper()
+                         .Contains("RUDDER")) {
               if (mPriRSA > 4) {
                 SendSentenceToAllInstruments(OCPN_DBP_STC_RSA, xdrdata,
                                              _T("\u00B0"));
                 mRSA_Watchdog = gps_watchdog_timeout_ticks;
                 mPriRSA = 4;
               }
-            }
-          }
-          // Nasa style water temp
-          if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
-              _T("ENV_WATER_T")) {
-            if (mPriWTP >= 3) {
-              mPriWTP = 3;
-              SendSentenceToAllInstruments(
-                  OCPN_DBP_STC_TMP,
-                  toUsrTemp_Plugin(
-                      m_NMEA0183.Xdr.TransducerInfo[i].MeasurementData,
-                      g_iDashTempUnit),
-                  getUsrTempUnit_Plugin(g_iDashTempUnit));
-              mWTP_Watchdog = no_nav_watchdog_timeout_ticks;
             }
           }
           // XDR Windlass chain counter
