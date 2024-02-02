@@ -1868,6 +1868,34 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
               }
             }
           }
+              // Depth sounding
+          if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("D"))) {
+            bool goodvalue = false;
+            if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
+                                    _T("XDHI") && mPriDepth >= 6) {
+              goodvalue = true;
+              mPriDepth = 6;
+            } else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
+                                    _T("XDLO") && mPriDepth >= 7) {
+              goodvalue = true;
+              mPriDepth = 7;
+            }
+            if (goodvalue) {
+              wxString unit = m_NMEA0183.Xdr.TransducerInfo[i]
+                                  .UnitOfMeasurement.MakeLower();
+              if (unit == "m") {
+                double depth = NAN;
+                depth = xdrdata;
+                if (!std::isnan(depth)) {
+                  depth += g_dDashDBTOffset;
+                  SendSentenceToAllInstruments( OCPN_DBP_STC_DPT,
+                      toUsrDistance_Plugin(depth / 1852.0, g_iDashDepthUnit),
+                      getUsrDistanceUnit_Plugin(g_iDashDepthUnit));
+                  mDPT_DBT_Watchdog = gps_watchdog_timeout_ticks;
+                }
+              }
+            }
+          }
           // XDR Windlass chain counter
           if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("D"))) {
             if(m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("WINDLASS") ||
