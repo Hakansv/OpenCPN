@@ -4820,7 +4820,9 @@ void DashboardPreferencesDialog::OnInstrumentEdit(wxCommandEvent &event) {
         }
     }
     delete Edit;
-    cont->m_pDashboardWindow->SetInstrumentList(cont->m_aInstrumentList, &(cont->m_aInstrumentPropertyList));
+    if (cont->m_pDashboardWindow) {
+      cont->m_pDashboardWindow->SetInstrumentList(cont->m_aInstrumentList, &(cont->m_aInstrumentPropertyList));
+    }
     if (DefaultFont) delete Inst;
 }
 
