@@ -717,10 +717,10 @@ static void AISDrawTarget(AisTargetData *td, ocpnDC &dc, ViewPort &vp,
   if (NULL == td) return;
 
   static bool firstTimeUse = true;
-  // First time AIS received
+  //  First time AIS received
   if (firstTimeUse) {
     g_AisFirstTimeUse = true;
-    // Show Status Bar CPA warning status
+    //   Show Status Bar CPA warning status
     cp->ToggleCPAWarn();
     g_AisFirstTimeUse = false;
     firstTimeUse = false;

@@ -6581,15 +6581,14 @@ void ChartCanvas::ToggleCPAWarn() {
     g_bTCPA_Max = false;
     mess = _("OFF");
   }
-
   // Print to status bar if available.
   if (STAT_FIELD_SCALE >= 4 && parent_frame->GetStatusBar()) {
     parent_frame->SetStatusText(_("CPA alarm ") + mess, STAT_FIELD_SCALE);
   } else {
     if (!g_AisFirstTimeUse) {
       OCPNMessageBox(this,
-                     _("CPA Alarm is switched") + _T(" ") + mess.MakeLower(),
-                     _("CPA") + _T(" ") + mess, 4, 4);
+      _("CPA Alarm is switched") + _T(" ") + mess.MakeLower(),
+      _("CPA") + _T(" ") + mess, 4, 4);
     }
   }
 }
