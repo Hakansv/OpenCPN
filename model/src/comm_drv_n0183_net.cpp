@@ -61,17 +61,19 @@
 #include <wx/wx.h>
 #include <wx/sckaddr.h>
 
-#include "model/garmin_protocol_mgr.h"
-
 #include "model/comm_drv_n0183_net.h"
 #include "model/comm_navmsg_bus.h"
+#include "model/garmin_protocol_mgr.h"
 #include "model/idents.h"
+#include "model/sys_events.h"
+
+#include "observable.h"
 
 #define N_DOG_TIMEOUT 25
 
 
 // FIXME (dave)  This should be in some more "common" space, but where?
-bool CheckSumCheck(const std::string &sentence) {
+bool CheckSumCheck(const std::string& sentence) {
   size_t check_start = sentence.find('*');
   if (check_start == wxString::npos || check_start > sentence.size() - 3)
     return false;  // * not found, or it didn't have 2 characters following it.
@@ -88,7 +90,7 @@ bool CheckSumCheck(const std::string &sentence) {
   return calculated_checksum == checksum;
 }
 
-class MrqContainer{
+class MrqContainer {
 public:
   struct ip_mreq m_mrq;
   void SetMrqAddr(unsigned int addr) {
@@ -164,13 +166,18 @@ CommDriverN0183Net::CommDriverN0183Net(const ConnectionParams* params,
   m_socketread_watchdog_timer.SetOwner(this, TIMER_SOCKET + 1);
   this->attributes["netAddress"] = params->NetworkAddress.ToStdString();
   char port_char[10];
-  sprintf(port_char, "%d",params->NetworkPort);
+  sprintf(port_char, "%d", params->NetworkPort);
   this->attributes["netPort"] = std::string(port_char);
 
   // Prepare the wxEventHandler to accept events from the actual hardware thread
   Bind(wxEVT_COMMDRIVER_N0183_NET, &CommDriverN0183Net::handle_N0183_MSG, this);
 
   m_mrq_container = new MrqContainer;
+
+  auto resume_action = [&](ObservedEvt&) {
+    wxTimerEvent evt;
+    OnTimerSocket(evt); };
+  resume_listener.Init(SystemEvents::GetInstance().evt_resume, resume_action);
 
   Open();
 }
@@ -250,7 +257,8 @@ void CommDriverN0183Net::OpenNetworkUDP(unsigned int addr) {
     if ((ntohl(addr) & 0xf0000000) == 0xe0000000) {
       SetMulticast(true);
       m_mrq_container->SetMrqAddr(addr);
-      GetSock()->SetOption(IPPROTO_IP, IP_ADD_MEMBERSHIP, &m_mrq_container->m_mrq,
+      GetSock()->SetOption(IPPROTO_IP, IP_ADD_MEMBERSHIP,
+                           &m_mrq_container->m_mrq,
                            sizeof(m_mrq_container->m_mrq));
     }
 
@@ -332,24 +340,16 @@ void CommDriverN0183Net::OpenNetworkGPSD() {
 void CommDriverN0183Net::OnSocketReadWatchdogTimer(wxTimerEvent& event) {
   m_dog_value--;
   if (m_dog_value <= 0) {  // No receive in n seconds, assume connection lost
-    wxString log = wxString::Format(_T(" TCP NetworkDataStream watchdog timeout: %s."),
-      GetPort().c_str());
+    wxString log =
+        wxString::Format(_T("    TCP NetworkDataStream watchdog timeout: %s."),
+                         GetPort().c_str());
     if (!GetParams().NoDataReconnect) {
-      wxDateTime now = wxDateTime::Now();
-      static wxDateTime startwait = now;
-      wxLongLong waittime = now.Subtract(startwait).GetSeconds();
-      if (waittime < 90 || waittime > 100) {
-        // Check for leftovers from last run
-        if (waittime > 100) startwait = now;
-        log.Append(wxString::Format(
-            _T(" Reconnection is disabled, waiting another %d seconds."),
-            N_DOG_TIMEOUT));
-        m_dog_value = N_DOG_TIMEOUT;
-        wxLogMessage(log);
-      } else {
-        log.Append(
-            " Waited for 90 seconds. Try to reconnect instead.");
-      }
+      log.Append(wxString::Format(
+          _T(" Reconnection is disabled, waiting another %d seconds."),
+          N_DOG_TIMEOUT));
+      m_dog_value = N_DOG_TIMEOUT;
+      wxLogMessage(log);
+      return;
     }
     wxLogMessage(log);
 
@@ -364,15 +364,15 @@ void CommDriverN0183Net::OnSocketReadWatchdogTimer(wxTimerEvent& event) {
   }
 }
 
-void CommDriverN0183Net::OnTimerSocket(wxTimerEvent& event) {
+void CommDriverN0183Net::OnTimerSocket(wxTimerEvent&) {
   //  Attempt a connection
   wxSocketClient* tcp_socket = dynamic_cast<wxSocketClient*>(GetSock());
   if (tcp_socket) {
     if (tcp_socket->IsDisconnected()) {
       SetBrxConnectEvent(false);
       tcp_socket->Connect(GetAddr(), FALSE);
-      GetSocketTimer()->Start(5000,
-                              wxTIMER_ONE_SHOT);  // schedule another attempt
+      // schedule another attempt
+      GetSocketTimer()->Start(5000, wxTIMER_ONE_SHOT);
     }
   }
 }
@@ -383,9 +383,8 @@ bool CommDriverN0183Net::SendMessage(std::shared_ptr<const NavMsg> msg,
   return SendSentenceNetwork(msg_0183->payload.c_str());
 }
 
-
 void CommDriverN0183Net::OnSocketEvent(wxSocketEvent& event) {
-  //#define RD_BUF_SIZE    200
+  // #define RD_BUF_SIZE    200
 #define RD_BUF_SIZE \
   4096  // Allows handling of high volume data streams, such as a National AIS
         // stream with 100s of msgs a second.

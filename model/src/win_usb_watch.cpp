@@ -1,11 +1,5 @@
 /***************************************************************************
- *
- * Project:  OpenCPN
- * Purpose:  Serial ports suppprt, notably enumeration
- * Author:   David Register
- *
- ***************************************************************************
- *   Copyright (C) 2010 by David S. Register                               *
+ *   Copyright (C) 2024  Alec Leamas                                       *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -22,15 +16,46 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
  **************************************************************************/
-#ifndef SER_PORTS_H
-#define SER_PORTS_H
 
-// FIXME (leamas): Return by value instead!
+/** \file win_watch_daemon.cpp Implement win_watch_daemon.h */
 
-/**
- * Enumerate all serial ports
- * @return List of available port names owned by caller.
- */
-wxArrayString *EnumerateSerialPorts(void);
+#include <windows.h>
+#include <Dbt.h>
 
-#endif
+#include <wx/frame.h>
+#include <wx/log.h>
+#include <wx/window.h>
+
+#include "model/gui.h"
+#include "model/sys_events.h"
+#include "model/win_usb_watch.h"
+
+
+class UsbListenFrame : public wxFrame {
+public:
+  UsbListenFrame() : wxFrame(GetTopWindow(), wxID_ANY, "") {}
+
+  virtual WXLRESULT MSWWindowProc(WXUINT nMsg, WXWPARAM wParam,
+                                  WXLPARAM lParam) {
+    if (nMsg == WM_DEVICECHANGE) {
+      wxLogDebug("WM_DEVICECHANGE %x %x", wParam, lParam);
+      if (wParam == DBT_DEVICEARRIVAL || wParam == DBT_DEVICEREMOVECOMPLETE) {
+        SystemEvents::GetInstance().evt_dev_change.Notify();
+      }
+    }
+    return wxFrame::MSWWindowProc(nMsg, wParam, lParam);
+  }
+};
+
+void WinUsbWatchDaemon::Start() {
+  if (m_frame) return;
+  m_frame = new UsbListenFrame();
+  m_frame->Hide();
+}
+
+
+void WinUsbWatchDaemon::Stop() {
+  if (!m_frame) return;
+  delete m_frame;
+  m_frame = 0;
+}

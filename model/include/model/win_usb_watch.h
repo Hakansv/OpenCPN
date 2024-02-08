@@ -1,11 +1,5 @@
-/***************************************************************************
- *
- * Project:  OpenCPN
- * Purpose:  Serial ports suppprt, notably enumeration
- * Author:   David Register
- *
- ***************************************************************************
- *   Copyright (C) 2010 by David S. Register                               *
+/**************************************************************************
+ *   Copyright (C) 2024 Alec Leamas                                        *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -22,15 +16,30 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
  **************************************************************************/
-#ifndef SER_PORTS_H
-#define SER_PORTS_H
 
-// FIXME (leamas): Return by value instead!
+/** \file win_usb_watch.h Windows specific hardware events interface */
+
+#ifndef _WIN32
+#error "This file can only be compiled on windows. "
+#endif
+
+#include "model/usb_watch_daemon.h"
+
+#include <windows.h>
 
 /**
- * Enumerate all serial ports
- * @return List of available port names owned by caller.
+ * Listen to OS signals reflecting for example suspend/resume,
+ * new USB devicesbeing plugged in, etc; update EventVars in SysEvents
+ * accordingly
  */
-wxArrayString *EnumerateSerialPorts(void);
+class WinUsbWatchDaemon : public UsbWatchDaemon {
+public:
+  WinUsbWatchDaemon(SystemEvents& se) : UsbWatchDaemon(se), m_frame(0)  {}
+  virtual ~WinUsbWatchDaemon() = default;
 
-#endif
+  void Start();
+  void Stop();
+
+private:
+  wxFrame* m_frame;
+};

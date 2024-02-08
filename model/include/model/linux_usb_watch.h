@@ -1,11 +1,5 @@
-/***************************************************************************
- *
- * Project:  OpenCPN
- * Purpose:  Serial ports suppprt, notably enumeration
- * Author:   David Register
- *
- ***************************************************************************
- *   Copyright (C) 2010 by David S. Register                               *
+/**************************************************************************
+ *   Copyright (C) 2024 Alec Leamas                                        *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -22,15 +16,35 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
  **************************************************************************/
-#ifndef SER_PORTS_H
-#define SER_PORTS_H
 
-// FIXME (leamas): Return by value instead!
+/** \file linux_usb_watch.h Linux specific hardware events DBus interface */
+
+#ifndef __linux__
+#error "This file can only be compiled on linux. "
+#endif
+
+#include "model/usb_watch_daemon.h"
+
+#include <gio/gio.h>
 
 /**
- * Enumerate all serial ports
- * @return List of available port names owned by caller.
+ * Listen to DBus system bus signals reflecting for example suspend/resume,
+ * new USB devicesbeing plugged in, etc; update EventVars in SysEvents
+ * accordingly
  */
-wxArrayString *EnumerateSerialPorts(void);
+class LinuxUsbWatchDaemon : public UsbWatchDaemon {
+public:
+  LinuxUsbWatchDaemon(SystemEvents& se) : UsbWatchDaemon(se) {}
+  ~LinuxUsbWatchDaemon();
 
-#endif
+  void Start();
+  void Stop();
+
+private:
+  void DoStart();
+
+  GDBusConnection* m_conn;
+  GMainLoop* m_main_loop;
+  GMainContext* m_worker_context;
+  std::thread m_thread;
+};

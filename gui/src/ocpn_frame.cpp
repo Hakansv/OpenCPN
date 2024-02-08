@@ -67,6 +67,7 @@
 #include "model/config_vars.h"
 #include "model/cutil.h"
 #include "model/georef.h"
+#include "model/gui.h"
 #include "model/idents.h"
 #include "model/local_api.h"
 #include "model/multiplexer.h"
@@ -76,6 +77,7 @@
 #include "model/plugin_loader.h"
 #include "model/routeman.h"
 #include "model/select.h"
+#include "model/sys_events.h"
 #include "model/track.h"
 
 #include "AboutFrameImpl.h"
@@ -630,7 +632,7 @@ static void onBellsFinishedCB(void *ptr) {
 // My frame constructor
 MyFrame::MyFrame(wxFrame *frame, const wxString &title, const wxPoint &pos,
                  const wxSize &size, long style)
-    : wxFrame(frame, -1, title, pos, size, style)
+    : wxFrame(frame, -1, title, pos, size, style, kTopLevelWindowName)
       {
   m_last_track_rotation_ts = 0;
   m_ulLastNMEATicktime = 0;
@@ -4941,6 +4943,7 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
   wxLog::FlushActive();
 
   RefreshAllCanvas(true);
+  wxGetApp().m_usb_watcher.Start();
 }
 
 wxDEFINE_EVENT(EVT_BASIC_NAV_DATA, ObservedEvt);
@@ -6871,12 +6874,13 @@ void MyFrame::OnSuspendCancel(wxPowerEvent &WXUNUSED(event)) {
 int g_last_resume_ticks;
 void MyFrame::OnResume(wxPowerEvent &WXUNUSED(event)) {
   wxDateTime now = wxDateTime::Now();
-  //    printf("OnResume...%d\n", now.GetTicks());
   wxLogMessage(_T("System resumed from suspend."));
 
+
   if ((now.GetTicks() - g_last_resume_ticks) > 5) {
-    wxLogMessage(_T("Restarting streams."));
-    //       printf("   Restarting streams\n");
+    SystemEvents::GetInstance().evt_resume.Notify();
+
+    wxLogMessage("Restarting streams.");
     g_last_resume_ticks = now.GetTicks();
 //FIXME (dave)
 #if 0

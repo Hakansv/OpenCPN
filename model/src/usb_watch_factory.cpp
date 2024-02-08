@@ -1,11 +1,5 @@
-/***************************************************************************
- *
- * Project:  OpenCPN
- * Purpose:  Serial ports suppprt, notably enumeration
- * Author:   David Register
- *
- ***************************************************************************
- *   Copyright (C) 2010 by David S. Register                               *
+/**************************************************************************
+ *   Copyright (C) 2024 Alec Leamas                                        *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -22,15 +16,33 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
  **************************************************************************/
-#ifndef SER_PORTS_H
-#define SER_PORTS_H
 
-// FIXME (leamas): Return by value instead!
+/** \file usb_watch_factory.cpp UsbWatchDaemon factory */
 
-/**
- * Enumerate all serial ports
- * @return List of available port names owned by caller.
- */
-wxArrayString *EnumerateSerialPorts(void);
+#if defined(__linux__) && !defined(__ANDROID__)
+#include "model/linux_usb_watch.h"
+#include "model/sys_events.h"
 
+UsbWatchDaemon& UsbWatchDaemon::GetInstance() {
+  static LinuxUsbWatchDaemon instance(SystemEvents::GetInstance());
+  return instance;
+}
+
+#elif defined(_WIN32)
+#include "model/win_usb_watch.h"
+#include "model/sys_events.h"
+
+UsbWatchDaemon& UsbWatchDaemon::GetInstance() {
+  static WinUsbWatchDaemon instance(SystemEvents::GetInstance());
+  return instance;
+}
+
+
+#else
+#include "model/usb_watch_daemon.h"
+
+UsbWatchDaemon& UsbWatchDaemon::GetInstance() {
+  static DummyWatchDaemon instance;
+  return instance;
+}
 #endif

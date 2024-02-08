@@ -1,11 +1,5 @@
-/***************************************************************************
- *
- * Project:  OpenCPN
- * Purpose:  Serial ports suppprt, notably enumeration
- * Author:   David Register
- *
- ***************************************************************************
- *   Copyright (C) 2010 by David S. Register                               *
+/**************************************************************************
+ *   Copyright (C) 2024 Alec Leamas                                        *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -22,15 +16,12 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
  **************************************************************************/
-#ifndef SER_PORTS_H
-#define SER_PORTS_H
 
-// FIXME (leamas): Return by value instead!
+/** \file gui.h  Hooks int gui available in model. */
 
-/**
- * Enumerate all serial ports
- * @return List of available port names owned by caller.
- */
-wxArrayString *EnumerateSerialPorts(void);
+#include <wx/window.h>
 
-#endif
+static const char* const kTopLevelWindowName = "MainWindow";
+
+/** Return the top level window a k a gFrame. */
+wxWindow* GetTopWindow();
