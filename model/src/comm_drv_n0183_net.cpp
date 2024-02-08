@@ -69,7 +69,7 @@
 
 #include "observable.h"
 
-#define N_DOG_TIMEOUT 25
+#define N_DOG_TIMEOUT 10
 
 
 // FIXME (dave)  This should be in some more "common" space, but where?
