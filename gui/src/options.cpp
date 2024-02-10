@@ -8106,7 +8106,6 @@ void options::DoOnPageChange(size_t page) {
     if (m_sconfigSelect_twovertical) m_sconfigSelect_twovertical->Refresh(true);
   }
 #endif
-
   //    User selected Chart Page?
   //    If so, build the "Charts" page variants
   if (1 == i) {  // 2 is the index of "Charts" page
@@ -8127,7 +8126,6 @@ void options::DoOnPageChange(size_t page) {
       current_sel = GetOCPNKnownLanguage(g_locale);
 
       int nLang = sizeof(lang_list) / sizeof(int);
-
 #ifdef __WXMSW__
       // always add us english
       m_itemLangListBox->Append(_T("English (U.S.)"));
@@ -8162,7 +8160,6 @@ void options::DoOnPageChange(size_t page) {
 
       // always add us english
       lang_array.Add(_T("en_US"));
-
       for (int it = 0; it < nLang; it++) {
         {
           wxLog::EnableLogging(
@@ -8179,12 +8176,15 @@ void options::DoOnPageChange(size_t page) {
           ltest.AddCatalog(_T("opencpn"));
 
           wxLog::EnableLogging(TRUE);
-
           if (ltest.IsLoaded(_T("opencpn"))) {
-            wxString s0 =
-                wxLocale::GetLanguageInfo(lang_list[it])->CanonicalName;
+            auto x = wxLocale::GetLanguageInfo(lang_list[it]);
+            wxString s0;
+            if (x) s0 = x->CanonicalName;
+            else continue;
             wxString sl = wxLocale::GetLanguageName(lang_list[it]);
-            if (wxNOT_FOUND == lang_array.Index(s0)) lang_array.Add(s0);
+            if (wxNOT_FOUND == lang_array.Index(s0)) {
+              lang_array.Add(s0);
+            }
           }
         }
       }
@@ -8195,7 +8195,6 @@ void options::DoOnPageChange(size_t page) {
         m_itemLangListBox->Append(loc_lang_name);
       }
 #endif
-
       // BUGBUG
       //  Remember that wxLocale ctor has the effect of changing the system
       //  locale, including the "C" libraries.
