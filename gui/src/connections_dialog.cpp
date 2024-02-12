@@ -983,6 +983,13 @@ void ConnectionsDialog::SetSelectedConnectionPanel(
     m_sbConnEdit->SetLabel("");
     ClearNMEAForm();
   }
+
+  RecalculateSize();
+  m_container->FitInside();
+  //  Scroll the panel to allow the user to see more of the NMEA parameter
+  //  settings area
+  wxPoint buttonPosition = m_buttonAdd->GetPosition();
+  m_container->Scroll(-1, buttonPosition.y / m_parent->GetScrollRate());
 }
 
 void ConnectionsDialog::EnableConnection(ConnectionParams* conn, bool value) {
@@ -1108,10 +1115,10 @@ void ConnectionsDialog::OnUploadFormatChange(wxCommandEvent& event) {
 #endif
 
 void ConnectionsDialog::ShowNMEACommon(bool visible) {
-  m_rbTypeSerial->Show(TRUE);
-  m_rbTypeNet->Show(TRUE);
+  m_rbTypeSerial->Show(visible);
+  m_rbTypeNet->Show(visible);
 #if defined(__linux__) && !defined(__ANDROID__) && !defined(__WXOSX__)
-  m_rbTypeCAN->Show(TRUE);
+  m_rbTypeCAN->Show(visible);
 #endif
   if (m_rbTypeInternalGPS) m_rbTypeInternalGPS->Show(visible);
   if (m_rbTypeInternalBT) m_rbTypeInternalBT->Show(visible);
@@ -1759,6 +1766,12 @@ void ConnectionsDialog::OnAddDatasourceClick(wxCommandEvent& event) {
 
   m_buttonRemove->Hide();  // Disable();
   m_buttonAdd->Hide();     // Disable();
+
+  m_rbTypeSerial->Show(true);
+  m_rbTypeNet->Show(true);
+#if defined(__linux__) && !defined(__ANDROID__) && !defined(__WXOSX__)
+  m_rbTypeCAN->Show(true);
+#endif
 
   // Default is always "serial"
   m_rbTypeSerial->SetValue(TRUE);
