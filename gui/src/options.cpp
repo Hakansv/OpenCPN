@@ -178,6 +178,7 @@ extern double g_defaultBoatSpeed;
 extern double g_defaultBoatSpeedUserUnit;
 
 extern int g_iNavAidRadarRingsNumberVisible;
+extern bool g_bNavAidRadarRingsShown;
 extern float g_fNavAidRadarRingsStep;
 extern int g_pNavAidRadarRingsStepUnits;
 extern bool g_bWayPointPreventDragging;
@@ -6967,6 +6968,7 @@ void options::OnApplyClick(wxCommandEvent& event) {
   double temp_dbl;
   g_iNavAidRadarRingsNumberVisible =
       pNavAidRadarRingsNumberVisible->GetSelection();
+  g_bNavAidRadarRingsShown = g_iNavAidRadarRingsNumberVisible > 0;
   if (pNavAidRadarRingsStep->GetValue().ToDouble(&temp_dbl))
     g_fNavAidRadarRingsStep = temp_dbl;
   g_pNavAidRadarRingsStepUnits = m_itemRadarRingsUnits->GetSelection();
