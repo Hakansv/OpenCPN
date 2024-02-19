@@ -3280,6 +3280,9 @@ With a higher value, the same zoom level shows a more detailed chart."));
           pTransparentToolbar->Disable();
     */
   }
+#ifdef __WXGTK__
+  m_ChartDisplayPage->Fit();
+#endif
 }
 
 void options::CreatePanel_VectorCharts(size_t parent, int border_size,
@@ -4606,6 +4609,9 @@ void options::CreatePanel_Units(size_t parent, int border_size,
 
     bearingsSizer->Add(varText);
   }
+#ifdef __WXGTK__
+  panelUnits->Fit();
+#endif
 }
 
 class OCPNSoundPanel: public wxPanel
