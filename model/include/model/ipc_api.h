@@ -75,6 +75,7 @@ friend  class IpcServer;
 
 public:
   static LocalServerApi& GetInstance();
+  static void ReleaseInstance();
 
   IpcConnection(IpcConnection&) = delete;
   void operator= (const IpcConnection&) = delete;
@@ -98,6 +99,7 @@ protected:
 
 private:
   std::string buffer;
+  static IpcServer* s_instance;
 };
 
 /**
