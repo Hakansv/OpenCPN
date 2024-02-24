@@ -100,6 +100,7 @@
 #include "model/conn_params.h"
 #include "route_gui.h"
 #include "line_clip.h"
+#include "displays.h"
 
 #ifdef __ANDROID__
 #include "androidUTIL.h"
@@ -1715,19 +1716,6 @@ bool ChartCanvas::DoCanvasUpdate(void) {
           SetQuiltRefChart(initial_db_index);
           m_pCurrentStack->SetCurrentEntryFromdbIndex(initial_db_index);
         }
-
-        // Check proposed scale, see how much underzoom results
-        // Adjust as necessary to prevent slow loading on initial startup
-        // For MBTILES we skip this test because they are always shown in
-        // reasonable range of scale
-        if (pc) {
-          if (pc->GetChartType() != CHART_TYPE_MBTILES)
-            proposed_scale_onscreen =
-                wxMin(proposed_scale_onscreen, 4.0 * pc->GetNativeScale());
-          else
-            proposed_scale_onscreen =
-                wxMin(proposed_scale_onscreen, 32.0 * pc->GetNativeScale());
-        }
       }
 
       bNewView |= SetViewPoint(vpLat, vpLon,
@@ -2366,7 +2354,10 @@ void ChartCanvas::SetDisplaySizeMM(double size) {
   m_pix_per_mm = (horizontal) / ((double)m_display_size_mm);
   m_canvas_scale_factor = (horizontal) / (m_display_size_mm / 1000.);
 
-  if (ps52plib) ps52plib->SetPPMM(m_pix_per_mm);
+  if (ps52plib) {
+    ps52plib->SetDisplayWidth(g_monitor_info[g_current_monitor].width);
+    ps52plib->SetPPMM(m_pix_per_mm);
+  }
 
   wxString msg;
   msg.Printf(
@@ -2376,8 +2367,9 @@ void ChartCanvas::SetDisplaySizeMM(double size) {
   wxLogMessage(msg);
 
   int ssx, ssy;
-  ::wxDisplaySize(&ssx, &ssy);
-  msg.Printf(_T("wxDisplaySize(): %d %d"), ssx, ssy);
+  ssx = g_monitor_info[g_current_monitor].width;
+  ssy = g_monitor_info[g_current_monitor].height;
+  msg.Printf(_T("monitor size: %d %d"), ssx, ssy);
   wxLogMessage(msg);
 
   m_focus_indicator_pix = /*std::round*/ wxRound(1 * GetPixPerMM());
@@ -6781,8 +6773,7 @@ void ChartCanvas::ShowCompositeInfoWindow(int x, int n_charts, int scale) {
     if (!m_pCIWin->IsShown() || (m_pCIWin->chart_scale != scale)) {
       wxString s;
 
-      s = _("Composite charts");
-      s += '\n';
+      s = _("Composite of ");
 
       wxString s1;
       s1.Printf( "%d ", n_charts);
@@ -6799,7 +6790,6 @@ void ChartCanvas::ShowCompositeInfoWindow(int x, int n_charts, int scale) {
       s2.Printf("1:%d\n", scale);
       s += s1;
       s += s2;
-      s += '\n';
 
       s1 = _("Zoom in for more information");
       s += s1;
@@ -6807,7 +6797,7 @@ void ChartCanvas::ShowCompositeInfoWindow(int x, int n_charts, int scale) {
       m_pCIWin->SetString(s);
 
       int char_width = s1.Length();
-      int char_height = 5;
+      int char_height = 3;
       m_pCIWin->FitToChars(char_width, char_height);
 
       //m_pCIWin->SetClientSize(
