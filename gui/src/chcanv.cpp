@@ -347,6 +347,7 @@ extern int g_GUIScaleFactor;
 // Win DPI scale factor
 double g_scaler;
 wxString g_lastS52PLIBPluginMessage;
+extern bool g_bChartBarEx;
 
 #define MIN_BRIGHT 10
 #define MAX_BRIGHT 100
@@ -1402,6 +1403,8 @@ void ChartCanvas::SetGroupIndex(int index, bool autoSwitch) {
   //    Refresh the canvas, selecting the "best" chart,
   //    applying the prior ViewPort exactly
   canvasChartsRefresh(dbi_hint);
+
+  UpdateCanvasControlBar();
 
   if (!autoSwitch && bgroup_override) {
     // show a short timed message box
@@ -4486,6 +4489,18 @@ void ChartCanvas::DoZoomCanvas(double factor, bool can_zoom_to_cursor) {
       int new_db_index = m_pQuilt->AdjustRefOnZoomIn(proposed_scale_onscreen);
       if (new_db_index >= 0)
         pc = ChartData->OpenChartFromDB(new_db_index, FULL_INIT);
+      else {  // for whatever reason, no reference chart is known
+              // Choose the smallest scale chart on the current stack
+              // and then adjust for scale range
+        int current_ref_stack_index = -1;
+        if (m_pCurrentStack->nEntry) {
+          int trial_index = m_pCurrentStack->GetDBIndex(m_pCurrentStack->nEntry - 1);
+          m_pQuilt->SetReferenceChart(trial_index);
+          new_db_index = m_pQuilt->AdjustRefOnZoomIn(proposed_scale_onscreen);
+          if (new_db_index >= 0)
+            pc = ChartData->OpenChartFromDB(new_db_index, FULL_INIT);
+        }
+      }
 
       if (m_pCurrentStack)
         m_pCurrentStack->SetCurrentEntryFromdbIndex(
@@ -4781,6 +4796,30 @@ bool ChartCanvas::PanCanvas(double dx, double dy) {
         double tweak_scale_ppm =
             pc->GetNearestPreferredScalePPM(VPoint.view_scale_ppm);
         SetVPScale(tweak_scale_ppm);
+      }
+    }
+
+    if(new_ref_dbIndex == -1) {
+      // for whatever reason, no reference chart is known
+      // Probably panned out of the coverage region
+      // If any charts are anywhere on-screen, choose the smallest
+      // scale chart on the screen to be a new reference chart.
+     int trial_index = -1;
+     if (m_pCurrentStack->nEntry) {
+        int trial_index =
+            m_pCurrentStack->GetDBIndex(m_pCurrentStack->nEntry - 1);
+     }
+
+      if (trial_index < 0) {
+        auto full_screen_array = GetQuiltFullScreendbIndexArray();
+        if (full_screen_array.size())
+          trial_index = full_screen_array[full_screen_array.size()-1];
+     }
+
+      if (trial_index >= 0){
+        m_pQuilt->SetReferenceChart(trial_index);
+        SetViewPoint(dlat, dlon, VPoint.view_scale_ppm, VPoint.skew, VPoint.rotation);
+        ReloadVP();
       }
     }
   }
@@ -6799,8 +6838,7 @@ void ChartCanvas::ShowCompositeInfoWindow(int x, int n_charts, int scale,
       int char_width = s1.Length();
       int char_height = 3;
 
-      bool bmore = true;
-      if (bmore) {
+      if (g_bChartBarEx) {
         s += '\n';
         int j = 0;
         for (int i : index_vector ) {
