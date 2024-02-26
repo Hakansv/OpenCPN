@@ -736,6 +736,8 @@ message(STATUS "*** Staging to build ${PACKAGE_NAME}  ***")
 message(STATUS "*** Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "*** Will install to ${CMAKE_INSTALL_PREFIX}  ***")
 
+set(GUI_S57_DIR ${CMAKE_SOURCE_DIR}/gui/src/s57)
+
 set(GUI_HDR_DIR ${CMAKE_SOURCE_DIR}/gui/include/gui)
 set(GUI_HDRS
     ${GUI_HDR_DIR}/AboutFrame.h
@@ -787,7 +789,6 @@ set(GUI_HDRS
     ${GUI_HDR_DIR}/MUIBar.h
     ${GUI_HDR_DIR}/n0183_ctx_factory.h
     ${GUI_HDR_DIR}/navutil.h
-    ${GUI_HDR_DIR}/nmea_ctx_factory.h
     ${GUI_HDR_DIR}/NMEALogWindow.h
     ${GUI_HDR_DIR}/ocpCursor.h
     ${GUI_HDR_DIR}/ocpndc.h
@@ -851,9 +852,13 @@ set(GUI_HDRS
     ${GUI_HDR_DIR}/waypointman_gui.h
     ${GUI_HDR_DIR}/WindowDestroyListener.h
     ${GUI_HDR_DIR}/WindowDestroyListener.h
-    ${GUI_HDR_DIR}/wx_instance_chk.h
 )
-
+list(APPEND  GUI_HDRS
+    ${GUI_S57_DIR}/include/ogr_s57.h
+    ${GUI_S57_DIR}/include/S57ClassRegistrar.h
+    ${GUI_S57_DIR}/include/s57.h
+    ${GUI_S57_DIR}/include/s57RegistrarMgr.h
+)
 set(GUI_SRC_DIR ${CMAKE_SOURCE_DIR}/gui/src)
 set(GUI_SRC
     ${GUI_SRC_DIR}/about.cpp
@@ -934,7 +939,6 @@ set(GUI_SRC
     ${GUI_SRC_DIR}/RoutePropDlg.cpp
     ${GUI_SRC_DIR}/RoutePropDlgImpl.cpp
     ${GUI_SRC_DIR}/s57chart.cpp
-    ${GUI_SRC_DIR}/s57obj.cpp
     ${GUI_SRC_DIR}/S57QueryDialog.cpp
     ${GUI_SRC_DIR}/safe_mode_gui.cpp
     ${GUI_SRC_DIR}/SencManager.cpp
@@ -962,6 +966,17 @@ set(GUI_SRC
     ${GUI_SRC_DIR}/viewport.cpp
     ${GUI_SRC_DIR}/waypointman_gui.cpp
 )
+
+list(APPEND GUI_SRC
+  ${GUI_S57_DIR}/src/ogrs57datasource.cpp
+  ${GUI_S57_DIR}/src/ogrs57layer.cpp
+  ${GUI_S57_DIR}/src/s57classregistrar.cpp
+  ${GUI_S57_DIR}/src/s57featuredefns.cpp
+  ${GUI_S57_DIR}/src/s57obj.cpp
+  ${GUI_S57_DIR}/src/s57reader.cpp
+  ${GUI_S57_DIR}/src/s57RegistrarMgr.cpp
+)
+
 
 if (OCPN_USE_GARMINHOST)
   message(STATUS "GarminHost is enabled.")
@@ -1035,10 +1050,11 @@ set_target_properties(
 
 target_include_directories(
   ${PACKAGE_NAME} BEFORE
-  PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/model/include
+  PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/gui/include/gui
           ${CMAKE_CURRENT_SOURCE_DIR}/include
           ${CMAKE_CURRENT_SOURCE_DIR}/resources
           ${CMAKE_CURRENT_SOURCE_DIR}/gui/src/mbtiles
+          ${CMAKE_CURRENT_SOURCE_DIR}/gui/src/s57/include
 )
 
 if (QT_ANDROID)
@@ -1491,7 +1507,6 @@ if (MSVC)
 endif ()
 
 message(STATUS "S57 ENC support: enabled")
-add_subdirectory(s57)
 
 if (OCPN_USE_GARMINHOST)
   add_subdirectory("libs/garmin")
@@ -1533,7 +1548,6 @@ if ("${wxWidgets_LIBRARIES}" MATCHES "gtk3u")
   endif ()
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__WXGTK3__")
 endif ()
-##include(SoundConfig)
 configure_file(
   ${CMAKE_SOURCE_DIR}/cmake/in-files/config.h.in
   ${CMAKE_BINARY_DIR}/include/config.h
