@@ -870,6 +870,8 @@ void MarkInfoDlg::RecalculateSize(void) {
 
   m_defaultClientSize = GetClientSize();
   Center();
+#elif defined(__WXMSW__)
+  //  Do nothing
 #else
   wxSize dsize = GetParent()->GetClientSize();
   SetSize(wxMin(500, dsize.x / 3), wxMin(600, dsize.y / 1.5));
