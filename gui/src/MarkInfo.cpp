@@ -873,7 +873,7 @@ void MarkInfoDlg::RecalculateSize(void) {
   //  Do nothing
 #else
   wxSize dsize = GetParent()->GetClientSize();
-  SetSize(wxMin(500, dsize.x / 3), wxMin(600, dsize.y / 1.5));
+  SetSize(wxMin(GetSize().x, dsize.x / 3), wxMax(GetSize().y, dsize.y / 1.5));
 #endif
 }
 
