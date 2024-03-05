@@ -61,6 +61,18 @@
 #include <X11/Xlib.h>
 #endif
 
+#if (defined(__clang_major__) && (__clang_major__ < 15))
+// MacOS 1.13
+#include <ghc/filesystem.hpp>
+namespace fs = ghc::filesystem;
+#else
+#include <filesystem>
+#include <utility>
+namespace fs = std::filesystem;
+#endif
+
+using namespace std::literals::chrono_literals;
+
 #include <wx/apptrait.h>
 #include <wx/arrimpl.cpp>
 #include <wx/artprov.h>
@@ -182,9 +194,7 @@ void RedirectIOToConsole();
 #include "serial/serial.h"
 #endif
 
-using namespace std::literals::chrono_literals;
 
-extern int ShowNavWarning();
 
 const char* const kUsage =
 R"""(Usage:
@@ -193,6 +203,8 @@ R"""(Usage:
   opencpn --remote [-R] | -q] | -e] |-o <str>]
 
 Options for starting opencpn
+
+  -c, --configdir=<dirpath>     Use alternative configuration directory.
   -p, --portable               	Run in portable mode.
   -f, --fullscreen             	Switch to full screen mode on start.
   -G, --no_opengl              	Disable OpenGL video acceleration. This setting will
@@ -647,6 +659,7 @@ ChartCanvas *g_focusCanvas;
 ChartCanvas *g_overlayCanvas;
 
 bool b_inCloseWindow;
+extern int ShowNavWarning();
 
 #ifdef LINUX_CRASHRPT
 wxCrashPrint g_crashprint;
@@ -800,6 +813,8 @@ void MyApp::OnInitCmdLine(wxCmdLineParser &parser) {
   // is hardcoded in kUsage;
   parser.AddSwitch("h", "help", "", wxCMD_LINE_OPTION_HELP);
   parser.AddSwitch("p", "portable");
+  parser.AddOption("c", "configdir",  "", wxCMD_LINE_VAL_STRING,
+                   wxCMD_LINE_PARAM_OPTIONAL);
   parser.AddSwitch("f", "fullscreen");
   parser.AddSwitch("G", "no_opengl");
   parser.AddSwitch("g", "rebuild_gl_raster_cache");
@@ -868,6 +883,15 @@ bool MyApp::OnCmdLineParsed(wxCmdLineParser &parser) {
   }
   safe_mode::set_mode(parser.Found("safe_mode"));
   ParseLoglevel(parser);
+  wxString wxstr;
+  if (parser.Found("configdir", &wxstr)) {
+    g_configdir = wxstr.ToStdString();
+    fs::path path(g_configdir);
+    if (!fs::exists(path) || !fs::is_directory(path)) {
+      std::cerr << g_configdir << " is not an existing directory.\n";
+      return false;
+    }
+  }
 
   bool has_start_options = false;
   static const std::vector<std::string> kStartOptions = {

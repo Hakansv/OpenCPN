@@ -29,6 +29,9 @@ Set amount of logged information. Level is any of \fItrace\fR,
 defaulting to \fIinfo\fR if not set in environment; see ENVIRONMENT.
 
 .TP
+.B  \-c, \-\-configdir=<directory>
+Use alternative configuration directory instead  of \fI~/.openpcn\fR on
+Linux or MacOS.
 .B  \-f, \-\-fullscreen
 Switch to full screen mode on start.
 .TP
@@ -68,7 +71,7 @@ arguments and there already is a running instance.
 
 .TP
 .B \-e, \-\-get_rest_endpoint
-Print the url for connecting to the local opencpn REST server e. g. 
+Print the url for connecting to the local opencpn REST server e. g.
 http://localhost:8000. Requires \-\-remote.
 
 .TP
