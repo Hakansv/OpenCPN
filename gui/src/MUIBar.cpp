@@ -622,7 +622,7 @@ bool MUITextButton::Create(wxWindow* parent, wxWindowID id, float scale_factor,
   m_font = GetFont();     // Inherited from parent (canvas)
   wxSize font_pix = m_font.GetPixelSize();
   double r = m_styleToolSize.y / font_pix.y;
-  m_font.Scale(r * .6 * m_scaleFactor).MakeBold();
+  m_font.Scale(r * 1.0 * m_scaleFactor).MakeBold();
   SetFont(m_font);
 
   wxCoord descent, exlead, gw, gh;
