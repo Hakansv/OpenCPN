@@ -46,6 +46,7 @@
 #include "model/idents.h"
 #include "color_handler.h"
 #include "navutil.h"
+#include "pluginmanager.h"
 
 #ifdef ocpnUSE_GL
 #include "glChartCanvas.h"
@@ -618,17 +619,19 @@ bool MUITextButton::Create(wxWindow* parent, wxWindowID id, float scale_factor,
   m_styleToolSize = wxSize(m_styleToolSize.x * 1.25, m_styleToolSize.y * 1.25);
 
 
-  m_font = wxFont(12, wxFONTFAMILY_SWISS, wxFONTSTYLE_NORMAL,
-                  wxFONTWEIGHT_NORMAL, false, wxT("Tahoma"));
+  m_font = GetFont();     // Inherited from parent (canvas)
+  wxSize font_pix = m_font.GetPixelSize();
+  double r = m_styleToolSize.y / font_pix.y;
+  m_font.Scale(r * .6 * m_scaleFactor).MakeBold();
   SetFont(m_font);
 
-  wxScreenDC sdc;
   wxCoord descent, exlead, gw, gh;
-  sdc.SetFont(m_font);
-  sdc.GetTextExtent(m_text, &gw, &gh, &descent, &exlead);
+  GetTextExtent(m_text, &gw, &gh, &descent, &exlead, &m_font);
 
-  SetMinSize(wxSize(gw * 1.2 * m_scaleFactor,
-                    (m_styleToolSize.y * m_scaleFactor) - 1));
+  int min_width = gw * 1.2;
+  min_width *= OCPN_GetWinDIPScaleFactor();
+
+  SetMinSize(wxSize(min_width, (m_styleToolSize.y * m_scaleFactor) - 1));
 
   CreateControls();
   return true;
@@ -642,11 +645,8 @@ void MUITextButton::Init() {
 }
 
 void MUITextButton::CreateControls() {
-  this->SetForegroundColour(wxColour(255, 255, 255));
-
   wxColour backColor = GetGlobalColor(_T("GREY3"));
   SetBackgroundColour(backColor);
-
 }
 
 void MUITextButton::SetText( const wxString &text){
@@ -660,8 +660,10 @@ void MUITextButton::SetColorScheme(ColorScheme cs) {
   if (m_cs != cs) {
     wxColour backColor = GetGlobalColor(_T("GREY3"));
     SetBackgroundColour(backColor);
+
     m_cs = cs;
   }
+  BuildBitmap();
 }
 
 
@@ -765,8 +767,6 @@ MUIBar::~MUIBar() {
     m_canvasOptions->Destroy();
     m_canvasOptions = 0;
   }
-  if (m_scaleTextBox)
-    m_scaleTextBox->Unbind(wxEVT_LEFT_DOWN, &MUIBar::OnScaleSelected, this);
 }
 
 void MUIBar::Init() {
@@ -780,7 +780,6 @@ void MUIBar::Init() {
   m_canvasOptionsAnimationTimer.SetOwner(this,
                                          CANVAS_OPTIONS_ANIMATION_TIMER_1);
   m_backcolorString = _T("GREY3");
-  m_scaleTextBox = NULL;
   m_capture_size_y = 0;
 
   m_COTopOffset = 60;  //  TODO should be below GPS/Compass
@@ -805,10 +804,8 @@ void MUIBar::SetColorScheme(ColorScheme cs) {
     if (m_followButton) m_followButton->SetColorScheme(cs);
     if (m_menuButton) m_menuButton->SetColorScheme(cs);
 
-    if (m_scaleTextBox) {
-      wxColour textbackColor = GetGlobalColor(_T("GREY1"));
-      m_scaleTextBox->SetForegroundColour(textbackColor);
-    }
+    if (m_scaleButton) m_scaleButton->SetColorScheme(cs);
+
     Refresh();
     m_cs = cs;
   }
@@ -881,20 +878,12 @@ void MUIBar::CreateControls() {
 
 #ifndef __OCPN__ANDROID__
     //  Scale
-#if 0
-    m_scaleTextBox = new wxStaticText(this, wxID_ANY, _T("1:400000"));
-    wxColour textbackColor = GetGlobalColor(_T("GREY1"));
-    m_scaleTextBox->SetForegroundColour(textbackColor);
-    barSizer->Add(m_scaleTextBox, 0, wxALIGN_CENTER_VERTICAL);
-    m_scaleTextBox->Bind(wxEVT_LEFT_DOWN, &MUIBar::OnScaleSelected, this);
-#endif
 
     m_scaleButton = new MUITextButton(this, wxID_ANY, m_scaleFactor,
                                       "1:400000");
     barSizer->Add(m_scaleButton);//, 1);
     m_scaleButton->Bind(wxEVT_LEFT_DOWN, &MUIBar::OnScaleSelected, this);
 
-    //barSizer->AddSpacer(5);
 
     m_followButton = new MUIButton(this, ID_FOLLOW, m_scaleFactor,
                                    iconDir + _T("MUI_follow.svg"),
@@ -903,6 +892,7 @@ void MUIBar::CreateControls() {
     barSizer->Add(m_followButton, 0, wxSHAPED);
     barSizer->AddSpacer(2);
 #endif
+
     m_menuButton = new MUIButton(this, ID_MUI_MENU, m_scaleFactor,
                                  iconDir + _T("MUI_menu.svg"));
     barSizer->Add(m_menuButton, 0, wxSHAPED);
@@ -947,61 +937,27 @@ void MUIBar::CreateControls() {
 }
 
 void MUIBar::SetBestPosition(void) {
-#if 0  // for wxWindow
-    int x = (m_parent->GetClientSize().x - GetSize().x) / 2;
-    if(x > 0){
-        int bottomOffset = 0;
-
-        ChartCanvas *pcc = wxDynamicCast(m_parent, ChartCanvas);
-        bottomOffset += pcc->GetPianoHeight();
-
-        int y = m_parent->GetClientSize().y - GetSize().y - bottomOffset;
-        SetSize(x, y, -1, -1, wxSIZE_USE_EXISTING);
-    }
-
-#else  // for wxDialog
-  int x = (m_parent->GetClientSize().x - (GetSize().x + (2 * m_end_margin) * 1.00));
+  int x = (m_parent->GetClientSize().x - (GetSize().x + (m_end_margin) * 2.00));
 
 #ifndef __WXGTK__  // Adjust for wxNO_BORDER canvas window style
-  x -= 2;
+//  x -= 2;
 #endif
 
-  // if(x > 0)
-  {
-    int bottomOffset = 2;
+  int bottomOffset = 4;
 
-    ChartCanvas* pcc = wxDynamicCast(m_parent, ChartCanvas);
-    //         bottomOffset += pcc->GetPianoHeight();
+  ChartCanvas* pcc = wxDynamicCast(m_parent, ChartCanvas);
 
-    int y = m_parent->GetClientSize().y - GetSize().y - bottomOffset;
+  int y = m_parent->GetClientSize().y - GetSize().y - bottomOffset;
 
-    wxPoint m_position = wxPoint(x, y);
-#if 0
-    wxPoint screenPos = pcc->ClientToScreen(m_position);
+  wxPoint m_position = wxPoint(x, y);
+  wxPoint screenPos = m_position;
+  Move(screenPos);
 
-    //  GTK sometimes has trouble with ClientToScreen() if executed in the
-    //  context of an event handler The position of the window is calculated
-    //  incorrectly if a deferred Move() has not been processed yet. So work
-    //  around this here...
-
-#ifdef __WXGTK__
-    wxPoint pp = m_parent->GetPosition();
-    wxPoint ppg = m_parent->GetParent()->GetScreenPosition();
-    wxPoint screen_pos_fix = ppg + pp + m_position;
-    screenPos.x = screen_pos_fix.x;
-#endif
-#else
-    wxPoint screenPos = m_position;
-    Move(screenPos);
-
-    if (m_canvasOptions) {
-      m_canvasOptions->Destroy();
-      m_canvasOptions = 0;
-    }
-    Show();
+  if (m_canvasOptions) {
+    m_canvasOptions->Destroy();
+    m_canvasOptions = 0;
   }
-#endif
-#endif
+  Show();
 }
 
 void MUIBar::OnSize(wxSizeEvent& event) {
@@ -1227,25 +1183,27 @@ void MUIBar::DrawGL(ocpnDC &gldc, double displayScale) {
 
   gldc.SetBrush(wxBrush(backColor));
   gldc.SetPen(wxPen(backColor));
+  //gldc.SetBrush(wxBrush(*wxGREEN));   //testing layout
+  //gldc.SetPen(wxPen(*wxGREEN));
 
   wxRect r = GetRect();
 #if 1
   if (m_orientation == wxHORIZONTAL)
-    gldc.DrawRoundedRectangle((r.x - 0)*displayScale,
-                                    (r.y-1)*displayScale,
-                                    (r.width + 0)*displayScale,
-                                    (r.height+2)*displayScale,
-                                    (m_end_margin)*displayScale);
+    gldc.DrawRoundedRectangle((r.x - m_end_margin/2)*displayScale,
+                                    (r.y-2)*displayScale,
+                                    (r.width + m_end_margin)*displayScale,
+                                    (r.height+4)*displayScale,
+                                    (m_end_margin * 1.5)*displayScale);
   else
     gldc.DrawRoundedRectangle((r.x-1)*displayScale,
-                              (r.y- m_end_margin)*displayScale,
+                              (r.y- m_end_margin/2)*displayScale,
                               (r.width + 2)*displayScale,
                               (r.height + 2 * m_end_margin)*displayScale,
-                              (m_end_margin));
+                              (m_end_margin * 1.5)*displayScale);
 #endif
 
 #if defined(__WXMSW__)
-    return;
+  return;
 #endif
 
   int width, height;
