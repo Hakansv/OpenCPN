@@ -56,6 +56,7 @@ endif ()
 
 if (APPLE)
   set(PACKAGE_NAME OpenCPN)
+  string(REPLACE ";" "," CMAKE_OSX_ARCHITECTURES_COMMA_SEP "${CMAKE_OSX_ARCHITECTURES}")
 elseif (QT_ANDROID)
   set(PACKAGE_NAME gorp)
 else ()
@@ -2617,6 +2618,10 @@ if (APPLE)
     ${PROJECT_SOURCE_DIR}/COPYING.gplv2 ${CMAKE_CURRENT_BINARY_DIR}/GPLv2.txt
     COPYONLY
   )
+  configure_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/buildosx/distro.plist.in
+    ${CMAKE_CURRENT_BINARY_DIR}/distro.plist
+  )
 
   set(OSX_PKG_FILE
       ${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}_${PACKAGE_VERSION}.pkg
@@ -2681,7 +2686,7 @@ if (APPLE)
   add_custom_target(
     build-macos-pkg
     COMMAND
-      productbuild --distribution ../buildosx/distro.plist --version
+      productbuild --distribution distro.plist --version
       ${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH} --identifier
       org.opencpn ${MACOS_PKG}
   )
