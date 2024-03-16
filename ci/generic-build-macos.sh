@@ -29,6 +29,7 @@ brew install xz
 brew install zstd
 brew install libarchive
 brew install wxwidgets
+brew install create-dmg
 
 ln -s /usr/local/opt/libarchive/include/archive.h /usr/local/include/archive.h
 ln -s /usr/local/opt/libarchive/include/archive_entry.h /usr/local/include/archive_entry.h
@@ -38,15 +39,6 @@ for pkg in openssl cmake ; do
     brew list --versions $pkg || brew install $pkg || brew install $pkg || :
     brew link --overwrite $pkg || :
 done
-
-if brew list --cask --versions packages; then
-    version=$(pkg_version packages '--cask')
-    sudo installer \
-        -pkg /usr/local/Caskroom/packages/$version/packages/Packages.pkg \
-        -target /
-else
-    brew install --cask packages
-fi
 
 # Build, install and make package
 mkdir -p build

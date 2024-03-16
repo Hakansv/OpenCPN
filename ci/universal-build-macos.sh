@@ -48,20 +48,12 @@ brew list --versions python3 || {
 # Install the build dependencies for OpenCPN
 brew install cmake
 brew install gettext
+brew install create-dmg
 
 for pkg in python3  cmake ; do
     brew list --versions $pkg || brew install $pkg || brew install $pkg || :
     brew link --overwrite $pkg || :
 done
-
-if brew list --cask --versions packages; then
-    version=$(pkg_version packages '--cask')
-    sudo installer \
-        -pkg /usr/local/Caskroom/packages/$version/packages/Packages.pkg \
-        -target /
-else
-    brew install --cask packages
-fi
 
 # OpenCPN can be built against any wxWidgets version newer than 3.2.0
 # but the resulting binary will (almost certainly) not be ABI compatible with 3rd party plugins

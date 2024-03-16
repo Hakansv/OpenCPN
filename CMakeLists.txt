@@ -1371,10 +1371,8 @@ if (OCPN_USE_SVG)
     message(STATUS "wxWidgets 3.1.6+ detected, using wxBitmapBundle for SVG")
     add_definitions(-DocpnUSE_SVG) # Goes into config.h, leave as global
     add_definitions(-DocpnUSE_wxBitmapBundle)
-    set(PKGPROJ_TEMPLATE OpenCPN.FrameDir.pkgproj.in)
   else ()
     message(STATUS "wxWidgets older than 3.1.6 detected, using wxSVG")
-    set(PKGPROJ_TEMPLATE OpenCPN.FrameDir.pkgproj.in)
     if (NOT QT_ANDROID)
       include(OcpnFindCairo)
       include(OcpnFindExpat)
@@ -2606,14 +2604,6 @@ if (APPLE)
     COMPONENT Runtime
   )
 
-  # Build standard MacOS installer package Copy a few generic files so the
-  # Packages installer builder can find them relative to
-  # ${CMAKE_CURRENT_BINARY_DIR} This avoids absolute paths in the XXX.pkgproj
-  # file
-  configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/buildosx/${PKGPROJ_TEMPLATE}
-    ${CMAKE_CURRENT_BINARY_DIR}/OpenCPN.pkgproj
-  )
   configure_file(
     ${PROJECT_SOURCE_DIR}/COPYING.gplv2 ${CMAKE_CURRENT_BINARY_DIR}/GPLv2.txt
     COPYONLY
@@ -2623,26 +2613,14 @@ if (APPLE)
     ${CMAKE_CURRENT_BINARY_DIR}/distro.plist
   )
 
-  set(OSX_PKG_FILE
-      ${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}_${PACKAGE_VERSION}.pkg
-  )
-  add_custom_command(
-    OUTPUT ${OSX_PKG_FILE}
-    COMMAND /usr/local/bin/packagesbuild -F ${CMAKE_CURRENT_BINARY_DIR}
-            ${CMAKE_CURRENT_BINARY_DIR}/OpenCPN.pkgproj
-    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-    DEPENDS ${OSX_PKG_FILE}
-    COMMENT "create-pkg [${PACKAGE_NAME}]: Generating pkg: ${OSX_PKG_FILE}"
-  )
-
   # Build standard MacOS .dmg
   add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}_${PACKAGE_VERSION}.dmg
     COMMAND
-      ${CMAKE_SOURCE_DIR}/buildosx/create-dmg --volname "OpenCPN Installer"
+      create-dmg --volname "OpenCPN Installer"
       --background ${CMAKE_SOURCE_DIR}/buildosx/background.png --window-pos 200
       120 --window-size 500 300 --icon-size 80 --icon OpenCPN.app 120 150
-      --hide-extension OpenCPN.app --app-drop-link 390 145
+      --hide-extension OpenCPN.app --app-drop-link 390 145 --no-internet-enable
       ${CMAKE_CURRENT_BINARY_DIR}/${PACKAGE_NAME}_${PACKAGE_VERSION}.dmg
       ${CMAKE_INSTALL_PREFIX}/bin/
     DEPENDS ${CMAKE_INSTALL_PREFIX}/bin/OpenCPN.app
@@ -2678,7 +2656,7 @@ if (APPLE)
     component-pkg
     COMMAND
       pkgbuild --root /tmp/opencpn/bin/OpenCPN.app --identifier org.opencpn
-      --install-location /Applications/OpenCPN.app --min-os-version 10.13
+      --install-location /Applications/OpenCPN.app
       --scripts "${CMAKE_SOURCE_DIR}/buildosx/scripts" OpenCPN.app.pkg
   )
   add_dependencies(component-pkg show-bundled-libs pkg-tmp)
@@ -2699,9 +2677,7 @@ if (APPLE)
   add_dependencies(macos-pkg remove-tmp-pkg)
 
   # Select what to do for the "create-pkg" target
-  if ("${APKG_MOD}" EQUAL 10)
-    add_custom_target(create-pkg DEPENDS ${OSX_PKG_FILE})
-  elseif ("${APKG_MOD}" EQUAL 11)
+  if ("${APKG_MOD}" EQUAL 11)
     add_custom_target(create-pkg)
     add_dependencies(create-pkg macos-pkg)
   else ()
