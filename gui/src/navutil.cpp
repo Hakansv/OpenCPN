@@ -742,7 +742,6 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   if (wxIsEmpty(g_CmdSoundString))
     g_CmdSoundString = wxString(OCPN_SOUND_CMD);
   Read(_T ( "NavMessageShown" ), &n_NavMessageShown);
-  Read(_T ( "DisableOpenGL" ), &g_bdisable_opengl);
 
   Read(_T ( "AndroidVersionCode" ), &g_AndroidVersionCode);
 
@@ -2412,8 +2411,9 @@ void MyConfig::UpdateSettings() {
   Write(_T ( "ShowCM93DetailSlider" ), g_bShowDetailSlider);
 
   Write(_T ( "SkewToNorthUp" ), g_bskew_comp);
-  Write(_T ( "OpenGL" ), g_bopengl);
-  Write(_T ( "DisableOpenGL" ), g_bdisable_opengl);
+  if (!g_bdisable_opengl) { // Only modify the saved value if OpenGL is not force-disabled from the command line
+    Write(_T ( "OpenGL" ), g_bopengl);
+  }
   Write(_T ( "SoftwareGL" ), g_bSoftwareGL);
   Write(_T ( "ShowFPS" ), g_bShowFPS);
 
