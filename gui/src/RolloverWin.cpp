@@ -183,13 +183,10 @@ void RolloverWin::SetBitmap(int rollover) {
 
     } else
       glBindTexture(g_texture_rectangle_format, m_texture);
-    static unsigned int prevTexture;
-    if (prevTexture != m_texture) {
-      wxString msg;
-      msg.Printf(_T("Render texture  %d"), m_texture);
-      prevTexture = m_texture;
-      wxLogMessage(msg);
-    }
+
+    wxString msg;
+    msg.Printf(_T("Render texture  %d"), m_texture);
+    wxLogMessage(msg);
 
     // make texture data
     wxImage image = m_pbm->ConvertToImage();
