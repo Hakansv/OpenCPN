@@ -1324,6 +1324,7 @@ void MyFrame::UpdateAllToolbars(ColorScheme cs) {
 }
 
 void MyFrame::SetAllToolbarScale() {
+  g_toolbar_scalefactor = g_Platform->GetToolbarScaleFactor(g_GUIScaleFactor);
 }
 
 void MyFrame::SetGPSCompassScale() {
@@ -3327,8 +3328,6 @@ void MyFrame::SetToolbarItemBitmaps(int tool_id, wxBitmap *bmp,
                                     wxBitmap *bmpRollover) {
   if (g_MainToolbar && g_MainToolbar->GetToolbar()) {
     g_MainToolbar->GetToolbar()->SetToolBitmaps(tool_id, bmp, bmpRollover);
-    wxRect rect = g_MainToolbar->GetToolbar()->GetToolRect(tool_id);
-    //g_MainToolbar->GetToolbar()->RefreshRect(rect);
   }
 }
 
@@ -3338,8 +3337,6 @@ void MyFrame::SetToolbarItemSVG(int tool_id, wxString normalSVGfile,
   if (g_MainToolbar && g_MainToolbar->GetToolbar()) {
     g_MainToolbar->GetToolbar()->SetToolBitmapsSVG(
         tool_id, normalSVGfile, rolloverSVGfile, toggledSVGfile);
-    wxRect rect = g_MainToolbar->GetToolbar()->GetToolRect(tool_id);
-    //g_MainToolbar->GetToolbar()->RefreshRect(rect);
   }
 }
 

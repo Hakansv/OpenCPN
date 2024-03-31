@@ -2250,13 +2250,36 @@ void ocpnToolBarSimple::SetToolBitmaps(int id, wxBitmap *bmp,
   ocpnToolBarTool *tool = (ocpnToolBarTool *)FindById(id);
   if (tool) {
     if (tool->isPluginTool) {
-      tool->pluginNormalIcon = *bmp;
-      tool->pluginRolloverIcon = *bmpRollover;
+      if (bmp->GetWidth() != tool->GetWidth()) {
+        if (bmp->IsOk()) {
+          wxImage ibmp = bmp->ConvertToImage();
+          ibmp.Rescale(tool->GetWidth(), tool->GetHeight(),
+                       wxIMAGE_QUALITY_HIGH);
+          wxBitmap sbmp = wxBitmap(ibmp);
+          tool->pluginNormalIcon = sbmp;
+        }
+      } else {
+        tool->pluginNormalIcon = *bmp;
+      }
+
+      if (bmpRollover->GetWidth() != tool->GetWidth()) {
+        if (bmpRollover->IsOk()) {
+          wxImage ibmp = bmpRollover->ConvertToImage();
+          ibmp.Rescale(tool->GetWidth(), tool->GetHeight(),
+                       wxIMAGE_QUALITY_HIGH);
+          wxBitmap sbmp = wxBitmap(ibmp);
+          tool->pluginRolloverIcon = sbmp;
+        }
+      } else {
+        tool->pluginRolloverIcon = *bmpRollover;
+      }
       tool->bitmapOK = false;
+
     } else {
       tool->SetNormalBitmap(*bmp);
       tool->bitmapOK = true;
     }
+    InvalidateBitmaps();
   }
 }
 
@@ -2269,6 +2292,7 @@ void ocpnToolBarSimple::SetToolBitmapsSVG(int id, wxString fileSVGNormal,
     tool->pluginRolloverIconSVG = fileSVGRollover;
     tool->pluginToggledIconSVG = fileSVGToggled;
     tool->bitmapOK = false;
+    InvalidateBitmaps();
   }
 }
 
