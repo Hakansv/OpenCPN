@@ -555,9 +555,8 @@ void wmm_pi::SetPositionFix(PlugIn_Position_Fix &pfix) {
   SendBoatVariation();
 
   wxString NewVal = wxString::Format(_T("%.1f"), GeoMagneticElements.Decl);
-  double scale =
-      GetOCPNGUIToolScaleFactor_PlugIn();
-  scale = wxRound(scale * 8.0) / 4.0;
+  double scale = GetOCPNGUIToolScaleFactor_PlugIn();
+  scale = wxRound(scale * 4.0) / 4.0;
   scale *= OCPN_GetWinDIPScaleFactor();
 
   //scale =
@@ -598,12 +597,12 @@ void wmm_pi::SetPositionFix(PlugIn_Position_Fix &pfix) {
         pFontSmall->SetPointSize(point_size);
 
         //  Validate and adjust the font size...
-        //   No smaller than 10 pt.
+        //   No smaller than 8 pt.
         int w;
         wxScreenDC sdc;
         sdc.GetTextExtent(NewVal, &w, NULL, NULL, NULL, pFontSmall);
 
-        while ((w > (icon.GetWidth() * 20 / 10)) && (point_size >= 10)) {
+        while ((w > (icon.GetWidth() * 8 / 10)) && (point_size >= 8)) {
           point_size--;
           pFontSmall->SetPointSize(point_size);
           sdc.GetTextExtent(NewVal, &w, NULL, NULL, NULL, pFontSmall);
