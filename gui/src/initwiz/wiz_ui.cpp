@@ -207,6 +207,7 @@ void FirstUseWizImpl::EnumerateUSB() {
         ConnectionParams params;
         params.Type = ConnectionType::SERIAL;
         params.NetProtocol = NetworkProtocol::PROTO_UNDEFINED;
+        params.Protocol = device.protocol;
         params.LastDataProtocol = device.protocol;
         params.Port = port.port;
         params.UserComment = port.description;
@@ -229,6 +230,7 @@ void FirstUseWizImpl::EnumerateUSB() {
               ConnectionParams params;
               params.Type = ConnectionType::SERIAL;
               params.NetProtocol = NetworkProtocol::PROTO_UNDEFINED;
+              params.Protocol = DataProtocol::PROTO_NMEA0183;
               params.LastDataProtocol = DataProtocol::PROTO_NMEA0183;
               if (flavor == NMEA0183Flavor::CRC) {
                 params.ChecksumCheck = true;
@@ -241,18 +243,19 @@ void FirstUseWizImpl::EnumerateUSB() {
               params.Baudrate = sp;
               m_detected_connections.push_back(params);
               break;
+            } else if (SeemsN2000(data)) {
+              ConnectionParams params;
+              params.Type = ConnectionType::SERIAL;
+              params.NetProtocol = NetworkProtocol::PROTO_UNDEFINED;
+              params.Protocol = DataProtocol::PROTO_NMEA2000;
+              params.LastDataProtocol = DataProtocol::PROTO_NMEA2000;
+              params.Port = port.port;
+              params.UserComment = wxString::Format("NMEA2000: %s (%s)",
+                                                    port.description, port.port);
+              params.Baudrate = sp;
+              m_detected_connections.push_back(params);
+              break;
             }
-          } else if (SeemsN2000(data)) {
-            ConnectionParams params;
-            params.Type = ConnectionType::SERIAL;
-            params.NetProtocol = NetworkProtocol::PROTO_UNDEFINED;
-            params.LastDataProtocol = DataProtocol::PROTO_NMEA2000;
-            params.Port = port.port;
-            params.UserComment = wxString::Format("NMEA2000: %s (%s)",
-                                                  port.description, port.port);
-            params.Baudrate = sp;
-            m_detected_connections.push_back(params);
-            break;
           }
           serial.close();
         } catch (std::invalid_argument& e) {
@@ -302,6 +305,7 @@ void FirstUseWizImpl::EnumerateUDP() {
       ConnectionParams params;
       params.Type = ConnectionType::NETWORK;
       params.NetProtocol = NetworkProtocol::UDP;
+      params.Protocol = DataProtocol::PROTO_NMEA0183;
       params.LastDataProtocol = DataProtocol::PROTO_NMEA0183;
       if (flavor == NMEA0183Flavor::CRC) {
         params.ChecksumCheck = true;
@@ -317,6 +321,7 @@ void FirstUseWizImpl::EnumerateUDP() {
       ConnectionParams params;
       params.Type = ConnectionType::NETWORK;
       params.NetProtocol = NetworkProtocol::UDP;
+      params.Protocol = DataProtocol::PROTO_NMEA2000;
       params.LastDataProtocol = DataProtocol::PROTO_NMEA2000;
       params.NetworkAddress = "0.0.0.0";
       params.NetworkPort = port;
@@ -342,6 +347,19 @@ static int print_route(const struct route_entry* entry, void* arg) {
   }
   return (0);
 }
+
+static int
+print_arp(const struct arp_entry *entry, void *arg)
+{
+  DEBUG_LOG << "ARP entry: " << addr_ntoa(&entry->arp_pa) << " "
+            << addr_ntoa(&entry->arp_ha);
+	auto ips = (std::vector<std::string>*)arg;
+  if (std::find(ips->begin(), ips->end(), addr_ntoa(&entry->arp_pa)) ==
+      ips->end()) {
+    ips->push_back(addr_ntoa(&entry->arp_pa));
+  }
+	return (0);
+}
 #endif
 
 void FirstUseWizImpl::EnumerateTCP() {
@@ -349,13 +367,21 @@ void FirstUseWizImpl::EnumerateTCP() {
   route_t* r;
   std::vector<std::string> ips;
   ips.emplace_back("127.0.0.1");
-  ips.emplace_back("192.168.0.13");  // TODO: Remove, used just for local
-                                     // testing
+
   if ((r = route_open()) == nullptr) {
     DEBUG_LOG << "route_open failed";
   } else {
     if (route_loop(r, print_route, &ips) < 0) {
       DEBUG_LOG << "route_loop failed";
+    }
+  }
+
+	arp_t *arp;
+  if ((arp = arp_open()) == nullptr) {
+    DEBUG_LOG << "arp_open failed";
+  } else {
+    if (arp_loop(arp, print_arp, &ips) < 0) {
+			DEBUG_LOG << "arp_loop failed";
     }
   }
 
@@ -379,6 +405,7 @@ void FirstUseWizImpl::EnumerateTCP() {
           ConnectionParams params;
           params.Type = ConnectionType::NETWORK;
           params.NetProtocol = NetworkProtocol::TCP;
+          params.Protocol = DataProtocol::PROTO_NMEA0183;
           params.LastDataProtocol = DataProtocol::PROTO_NMEA0183;
           if (flavor == NMEA0183Flavor::CRC) {
             params.ChecksumCheck = true;
@@ -395,6 +422,7 @@ void FirstUseWizImpl::EnumerateTCP() {
           ConnectionParams params;
           params.Type = ConnectionType::NETWORK;
           params.NetProtocol = NetworkProtocol::TCP;
+          params.Protocol = DataProtocol::PROTO_NMEA2000;
           params.LastDataProtocol = DataProtocol::PROTO_NMEA2000;
           params.NetworkAddress = ip;
           params.NetworkPort = port;
@@ -409,6 +437,7 @@ void FirstUseWizImpl::EnumerateTCP() {
     }
   }
   route_close(r);
+  arp_close(arp);
 #endif
 }
 
@@ -418,14 +447,13 @@ void FirstUseWizImpl::EnumerateSignalK() {
   std::string serviceIdent =
       std::string("_signalk-ws._tcp.local.");  // Works for node.js server
 
-  g_Platform->ShowBusySpinner();
-
   if (CommDriverSignalKNet::DiscoverSKServer(serviceIdent, ip, port,
                                           1))  // 1 second scan
   {
     ConnectionParams params;
     params.Type = ConnectionType::NETWORK;
     params.NetProtocol = NetworkProtocol::SIGNALK;
+    params.Protocol = DataProtocol::PROTO_SIGNALK;
     params.LastDataProtocol = DataProtocol::PROTO_SIGNALK;
     params.NetworkAddress = ip;
     params.NetworkPort = port;
@@ -451,6 +479,7 @@ void FirstUseWizImpl::EnumerateGPSD() {
     ConnectionParams params;
     params.Type = ConnectionType::NETWORK;
     params.NetProtocol = NetworkProtocol::GPSD;
+    params.Protocol = DataProtocol::PROTO_NMEA0183;
     params.LastDataProtocol = DataProtocol::PROTO_NMEA0183;
     params.NetworkAddress = "127.0.0.1";
     params.NetworkPort = 2947;
