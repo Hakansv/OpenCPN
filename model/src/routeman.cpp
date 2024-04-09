@@ -535,6 +535,8 @@ bool Routeman::UpdateAutopilot() {
       m_NMEA0183.Rmb.IsArrivalCircleEntered = NFalse;
 
     m_NMEA0183.Rmb.FAAModeIndicator = "A";
+    if (!bGPSValid)
+      m_NMEA0183.Rmb.FAAModeIndicator = "N";
 
     m_NMEA0183.Rmb.Write(snt);
 
@@ -589,6 +591,9 @@ bool Routeman::UpdateAutopilot() {
     }
 
     m_NMEA0183.Rmc.FAAModeIndicator = "A";
+    if (!bGPSValid)
+      m_NMEA0183.Rmc.FAAModeIndicator = "N";
+
     m_NMEA0183.Rmc.Write(snt);
 
     BroadcastNMEA0183Message(snt.Sentence, m_nmea_log, on_message_sent);
@@ -605,6 +610,8 @@ bool Routeman::UpdateAutopilot() {
       m_NMEA0183.Apb.IsLoranBlinkOK = NFalse;
 
     m_NMEA0183.Apb.IsLoranCCycleLockOK = NTrue;
+    if (!bGPSValid)
+      m_NMEA0183.Apb.IsLoranCCycleLockOK = NFalse;
 
     m_NMEA0183.Apb.CrossTrackErrorMagnitude = CurrentXTEToActivePoint;
 
@@ -669,8 +676,13 @@ bool Routeman::UpdateAutopilot() {
 
     SENTENCE snt;
 
-    m_NMEA0183.Xte.IsLoranBlinkOK = NTrue;
+    m_NMEA0183.Xte.IsLoranBlinkOK = NTrue;  // considered as "generic invalid fix" flag
+    if (!bGPSValid)
+      m_NMEA0183.Xte.IsLoranBlinkOK = NFalse;
+
     m_NMEA0183.Xte.IsLoranCCycleLockOK = NTrue;
+    if (!bGPSValid)
+      m_NMEA0183.Xte.IsLoranCCycleLockOK = NFalse;
 
     m_NMEA0183.Xte.CrossTrackErrorDistance = CurrentXTEToActivePoint;
 
