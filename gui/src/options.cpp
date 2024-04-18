@@ -3424,7 +3424,7 @@ void options::CreatePanel_VectorCharts(size_t parent, int border_size,
     optionsColumn->Add(new wxStaticText(ps57Ctl, wxID_ANY, ""),
                        labelFlags);
     pCheck_SuperSCAMIN = new wxCheckBox(ps57Ctl, ID_SUPERSCAMINCHECKBOX,
-                                   _("Additonal detail reduction at Small Scale"));
+                                   _("Additional detail reduction at Small Scale"));
     pCheck_SuperSCAMIN->SetValue(FALSE);
     optionsColumn->Add(pCheck_SuperSCAMIN, inputFlags);
 
@@ -3612,7 +3612,7 @@ void options::CreatePanel_VectorCharts(size_t parent, int border_size,
     optionsColumn->Add(new wxStaticText(ps57Ctl, wxID_ANY, ""),
                        labelFlags);
     pCheck_SuperSCAMIN = new wxCheckBox(ps57Ctl, ID_SUPERSCAMINCHECKBOX,
-                                   _("Additonal detail reduction at Small Scale"));
+                                   _("Additional detail reduction at Small Scale"));
     pCheck_SuperSCAMIN->SetValue(FALSE);
     optionsColumn->Add(pCheck_SuperSCAMIN, inputFlags);
 
