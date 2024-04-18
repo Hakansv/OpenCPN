@@ -4095,9 +4095,11 @@ void options::CreatePanel_Display(size_t parent, int border_size,
     // (for calculation, in case GPS speed is null)
     wxBoxSizer* defaultBoatSpeedSizer = new wxBoxSizer(wxHORIZONTAL);
     boxDispStatusBar->Add(defaultBoatSpeedSizer, wxALL, group_item_spacing);
-    defaultBoatSpeedSizer->Add(
-        new wxStaticText(pDisplayPanel, wxID_ANY, _("Default Boat Speed ")),
-        groupLabelFlagsHoriz);
+
+    m_Text_def_boat_speed = new wxStaticText( pDisplayPanel, wxID_ANY,
+        _("Default Boat Speed ") + "(" + getUsrSpeedUnit() + ")    ");
+
+    defaultBoatSpeedSizer->Add(m_Text_def_boat_speed, groupLabelFlagsHoriz);
     pSDefaultBoatSpeed =
         new wxTextCtrl(pDisplayPanel, ID_DEFAULT_BOAT_SPEED, _T(""),
                        wxDefaultPosition, wxSize(50, -1), wxTE_RIGHT);
@@ -7125,6 +7127,8 @@ void options::OnApplyClick(wxCommandEvent& event) {
   if (pSDefaultBoatSpeed)
     pSDefaultBoatSpeed->GetValue().ToDouble(&g_defaultBoatSpeedUserUnit);
   g_defaultBoatSpeed = fromUsrSpeed(g_defaultBoatSpeedUserUnit);
+  m_Text_def_boat_speed->SetLabel(_("Default Boat Speed ") + "(" +
+                                  getUsrSpeedUnit() + ")");
 
   g_bAdvanceRouteWaypointOnArrivalOnly =
       pAdvanceRouteWaypointOnArrivalOnly->GetValue();
