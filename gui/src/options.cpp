@@ -1727,6 +1727,8 @@ void options::Init(void) {
   };
   m_sound_done_listener.Init(m_on_sound_done, sound_action);
 
+  m_bfinal = false;
+
 }
 
 #if defined(__GNUC__) && __GNUC__ < 8
@@ -7013,7 +7015,7 @@ void options::OnApplyClick(wxCommandEvent& event) {
   g_config_display_size_manual = pRBSizeManual->GetValue();
 
   // Connections page.
-  comm_dialog->ApplySettings();
+  comm_dialog->ApplySettings(m_bfinal);
 
   if (pCDOOutlines) g_bShowOutlines = pCDOOutlines->GetValue();
   if (pSDisplayGrid) g_bDisplayGrid = pSDisplayGrid->GetValue();
@@ -7522,7 +7524,10 @@ void options::OnXidOkClick(wxCommandEvent& event) {
   // second is empty??
   if (event.GetEventObject() == NULL) return;
 
+  m_bfinal = true;
   OnApplyClick(event);
+  m_bfinal = false;
+
   if (event.GetInt() == wxID_STOP) return;
 
   Finish();
