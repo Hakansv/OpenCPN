@@ -463,7 +463,8 @@ bool Routeman::UpdateAutopilot() {
            CurrentXTEToActivePoint = 0.0;
            b_arrived = false;
        }
-       CurrentXTEToActivePoint *= g_dXTE_multiplier;
+       if ((CurrentXTEToActivePoint *= g_dXTE_multiplier) > 1.2)
+           CurrentXTEToActivePoint = 1.2;
        if (m_bArrival) b_arrived = true;
    }
    //Hakan
