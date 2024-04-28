@@ -1709,7 +1709,7 @@ void options::Init(void) {
   int width, height;
   dc.GetTextExtent(_T("H"), &width, &height, NULL, NULL, dialogFont);
 
-  m_colourPickerDefaultSize = wxSize(4 * height, height * 12/10);
+  m_colourPickerDefaultSize = wxSize(4 * height, height * 2);
 
   m_bcompact = false;
 
