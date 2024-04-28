@@ -1491,8 +1491,10 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
                 mWDN_Watchdog = no_nav_watchdog_timeout_ticks;
                 mMWVT_Watchdog = gps_watchdog_timeout_ticks;
               }
-            } else if (m_NMEA0183.Mwv.Reference ==
-                       _T("T"))  // Theoretical (aka True)
+              //  Use MWV true values only if not pref.:
+              //  true wind over gound is selected. Hakan for IS15
+            } else if (m_NMEA0183.Mwv.Reference == _T("T") &&
+                       !g_bDBtrueWindGround)  // Theoretical (aka True)
             {
               if (mPriTWA >= 5) {
                 mPriTWA = 5;
@@ -4526,7 +4528,7 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
 
   m_pUseTrueWinddata = new wxCheckBox(
       itemPanelNotebook02, wxID_ANY,
-      _("Use N2K & SignalK true wind data over ground.\n(Instead of through water)"));
+      _("Use N2K & SignalK & MWV true wind data over ground.\n(Instead of through water)"));
   m_pUseTrueWinddata->SetValue(g_bDBtrueWindGround);
   itemFlexGridSizer04->Add(m_pUseTrueWinddata, 1, wxALIGN_LEFT, border_size);
 
