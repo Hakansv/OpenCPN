@@ -26,6 +26,8 @@
  *
  */
 
+#include <set>
+
 #include <wx/wxprec.h>
 
 #ifndef WX_PRECOMP
@@ -54,6 +56,7 @@
 
 #include "model/comm_drv_factory.h"
 #include "model/config_vars.h"
+#include "model/ocpn_utils.h"
 #include "model/ser_ports.h"
 #include "model/sys_events.h"
 
@@ -147,11 +150,30 @@ static wxArrayString GetAvailableSocketCANInterfaces() {
 }
 
 static void LoadSerialPorts(wxComboBox* box) {
+
+  /** Sort all links to same device as equals. */
+  class PortSorter {
+  private:
+    std::string GetKey(const std::string& s) const {
+      if (s.find("->") == std::string::npos) return s;
+      return ocpn::trim(ocpn::split(s, "->")[1]) + " link";
+    }
+
+  public:
+    bool operator()(const std::string& lhs, const std::string& rhs) const {
+      return GetKey(lhs) < GetKey(rhs);
+    }
+  } port_sorter;
+
+  std::set<std::string, PortSorter> sorted_ports(port_sorter);
+  std::unique_ptr<wxArrayString> ports(EnumerateSerialPorts());
+  for (size_t i = 0; i < ports->GetCount(); i++)
+    sorted_ports.insert((*ports)[i].ToStdString());
+
   box->Clear();
-  wxArrayString* ports = EnumerateSerialPorts();
-  for (size_t i = 0; i < ports->GetCount(); i++) box->Append((*ports)[i]);
-  delete ports;
+  for (auto& p : sorted_ports) box->Append(p);
 }
+
 
 //------------------------------------------------------------------------------
 //          ConnectionEditDialog Implementation
@@ -548,6 +570,7 @@ void ConnectionEditDialog::Init() {
     gSizerNetProps->Add(m_tNetPort, 1, wxEXPAND | wxTOP, 5);
   gSizerNetProps->AddSpacer(1);
     gSizerNetProps->AddSpacer(1);
+
 
 
   gSizerCanProps = new wxGridSizer(0, 1, 0, 0);
