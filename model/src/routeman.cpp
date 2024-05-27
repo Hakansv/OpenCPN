@@ -544,17 +544,6 @@ bool Routeman::UpdateAutopilot() {
 
     m_NMEA0183.Rmb.Write(snt);
 
-      // RMB is close to NMEA size limit
-      // If necessary, truncate WP's name further for this O session
-    if (snt.Sentence.size() > 80 && g_maxWPNameLength > 1) {
-      g_maxWPNameLength -= 1;
-      wxString msg = "AP-$";
-      msg << m_NMEA0183.TalkerID;
-      msg << "RMB size is more than 80 char.: maxWPNameLength decreased to ";
-      msg << g_maxWPNameLength;
-      wxLogMessage(msg);
-    }
-
     BroadcastNMEA0183Message(snt.Sentence, m_nmea_log, on_message_sent);
   }
 
@@ -611,7 +600,6 @@ bool Routeman::UpdateAutopilot() {
 
     m_NMEA0183.Rmc.Write(snt);
 
-    wxString mesg = "RMC size";
     BroadcastNMEA0183Message(snt.Sentence, m_nmea_log, on_message_sent);
   }
 
