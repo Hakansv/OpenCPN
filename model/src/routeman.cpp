@@ -506,17 +506,17 @@ bool Routeman::UpdateAutopilot() {
 
     if (pActivePoint->m_lat < 0.)
       m_NMEA0183.Rmb.DestinationPosition.Latitude.Set(
-        pActivePoint->m_lat, _T("S"));
+        -pActivePoint->m_lat, "S");
     else
       m_NMEA0183.Rmb.DestinationPosition.Latitude.Set(
-        pActivePoint->m_lat, _T("N"));
+        pActivePoint->m_lat, "N");
 
-     if (pActivePoint->m_lon < 0.)
-       m_NMEA0183.Rmb.DestinationPosition.Longitude.Set(
-         pActivePoint->m_lon, _T("W"));
-     else
-       m_NMEA0183.Rmb.DestinationPosition.Longitude.Set(
-         pActivePoint->m_lon, _T("E"));
+    if (pActivePoint->m_lon < 0.)
+      m_NMEA0183.Rmb.DestinationPosition.Longitude.Set(
+         -pActivePoint->m_lon, "W");
+    else
+      m_NMEA0183.Rmb.DestinationPosition.Longitude.Set(
+         pActivePoint->m_lon, "E");
 
     m_NMEA0183.Rmb.DestinationClosingVelocityKnots =
         r_Sog * cos((r_Cog - CurrentBrgToActivePoint) * PI / 180.0);
