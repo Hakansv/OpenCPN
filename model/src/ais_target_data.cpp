@@ -595,7 +595,8 @@ wxString AisTargetData::BuildQueryResult(void) {
 
     //  Dimensions
 
-    if (NavStatus != ATON_VIRTUAL && Class != AIS_ARPA && Class != AIS_APRS) {
+    if (NavStatus != ATON_VIRTUAL && Class != AIS_ARPA && Class != AIS_APRS &&
+        Class != AIS_BUOY) {
       if ((Class == AIS_CLASS_B) || (Class == AIS_ATON)) {
         sizeString =
             wxString::Format(_T("%dm x %dm"), (DimA + DimB), (DimC + DimD));
@@ -745,7 +746,7 @@ wxString AisTargetData::BuildQueryResult(void) {
     }
 
     if (Class == AIS_CLASS_A || Class == AIS_CLASS_B || Class == AIS_ARPA ||
-        Class == AIS_APRS || Class == AIS_SART) {
+        Class == AIS_APRS || Class == AIS_SART || Class == AIS_BUOY) {
       int crs = wxRound(COG);
       if (crs < 360) {
         wxString magString, trueString;
@@ -1313,6 +1314,8 @@ wxString AisTargetData::Get_vessel_type_string(bool b_short) {
     i = 52;
   else if (Class == AIS_ARPA)
     i = 55;
+  else if (Class == AIS_BUOY)
+    i = 57;
   else if (Class == AIS_APRS)
     i = 56;
   else if (Class == AIS_DSC)
@@ -1345,6 +1348,8 @@ wxString AisTargetData::Get_class_string(bool b_short) {
       return b_short ? _("SART") : _("SART");
     case AIS_ARPA:
       return b_short ? _("ARPA") : _("ARPA");
+    case AIS_BUOY:
+      return b_short ? _("BUOY") : _("BUOY");
     case AIS_APRS:
       return b_short ? _("APRS") : _("APRS Position Report");
     case AIS_METEO:
@@ -1385,6 +1390,7 @@ bool AisTargetData::IsValidMID(int mid) {
 // Get country name and code according to ITU 2023-02
 // (http://www.itu.int/en/ITU-R/terrestrial/fmd/Pages/mid.aspx)
 wxString AisTargetData::GetCountryCode( bool b_CntryLongStr) {
+  if (Class == AIS_BUOY) return wxEmptyString;
   /***** Check for a valid MID *****/
   // Meteo adaption
   int tmpMmsi = met_data.original_mmsi ? met_data.original_mmsi : MMSI;
@@ -2023,7 +2029,8 @@ wxString ais_get_type(int index) {
       _("Position Report"),                           // xx        53
       _("Distress"),                                  // xx        54
       _("ARPA radar target"),                         // xx        55
-      _("APRS Position Report")                       // xx        56
+      _("APRS Position Report"),                      // xx        56
+      _("Buoy or similar")                            // xx        57
   };
 
   return ais_type[index];

@@ -2884,8 +2884,15 @@ bool AisDecoder::Parse_VDXBitstring(AisBitstring *bstr,
 
       ptd->m_utc_sec = bstr->GetInt(134, 6);
 
-      if (!ptd->b_isDSCtarget)
-        ptd->Class = AIS_CLASS_B;
+      if (!ptd->b_isDSCtarget) {
+        int m_st = ptd->MMSI / 1000000;
+        // IMO standard is not yet(?) implemented for (net)buoys
+        // This "hack", based on real-world outcomes, is now used instead
+        if (m_st == 109 || m_st == 941 || m_st == 951)
+          ptd->Class = AIS_BUOY;
+        else
+          ptd->Class = AIS_CLASS_B;
+      }
 
       parse_result = true;  // so far so good
       b_posn_report = true;
@@ -2934,8 +2941,16 @@ bool AisDecoder::Parse_VDXBitstring(AisBitstring *bstr,
       ptd->DimC = bstr->GetInt(290, 6);
       ptd->DimD = bstr->GetInt(296, 6);
 
-      if (!ptd->b_isDSCtarget)
-        ptd->Class = AIS_CLASS_B;
+      if (!ptd->b_isDSCtarget) {
+          // IMO standard is not yet(?) implemented for (net)buoys
+          // This "hack", based on real-world outcomes, is now used instead
+          // Although outdated, message 19 is used by many "ATON" for net buoys
+        int m_st = ptd->MMSI / 1000000;
+        if (m_st == 109 || m_st == 941 || m_st == 951)
+          ptd->Class = AIS_BUOY;
+        else
+          ptd->Class = AIS_CLASS_B;
+      }
       parse_result = true;  // so far so good
       b_posn_report = true;
 
