@@ -98,8 +98,8 @@ enum DASH_CAP {
   OCPN_DBP_STC_PITCH,  // Pitch
   OCPN_DBP_STC_HEEL,   // Heel
   OCPN_DBP_STC_ALTI,   // Altitude
-  OCPN_DBP_STC_WCC,    // Windlass count
   OCPN_DBP_STC_HUM,    // Humidity
+  OCPN_DBP_STC_WCC,    // Windlass count
                       // Insert new instrument capability flags here
   OCPN_DBP_STC_LAST   // This should always be the last enum in this list
 };

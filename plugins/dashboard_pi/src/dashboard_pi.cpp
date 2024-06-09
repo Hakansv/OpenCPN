@@ -232,9 +232,9 @@ enum {
   ID_DBP_I_SUNLCL,
   ID_DBP_I_ALTI,
   ID_DBP_D_ALTI,
-  ID_DBP_I_WCC,
   ID_DBP_I_VMGW,
   ID_DBP_I_HUM,
+  ID_DBP_I_WCC,
   ID_DBP_LAST_ENTRY  // this has a reference in one of the routines; defining a
                      // "LAST_ENTRY" and setting the reference to it, is one
                      // codeline less to change (and find) when adding new
@@ -351,10 +351,10 @@ wxString getInstrumentCaption(unsigned int id) {
       return _("Local CPU Clock");
     case ID_DBP_I_SUNLCL:
       return _("Local Sunrise/Sunset");
-    case ID_DBP_I_WCC:
-      return _("Windlass");
     case ID_DBP_I_HUM:
       return _("Humidity");
+    case ID_DBP_I_WCC:
+      return _("Windlass");
   }
   return _T("");
 }
@@ -396,6 +396,7 @@ void getListItemForInstrument(wxListItem &item, unsigned int id) {
     case ID_DBP_I_HEEL:
     case ID_DBP_I_ALTI:
     case ID_DBP_I_HUM:
+    case ID_DBP_I_WCC:
       item.SetImage(0);
       break;
     case ID_DBP_D_SOG:
@@ -416,7 +417,6 @@ void getListItemForInstrument(wxListItem &item, unsigned int id) {
     case ID_DBP_D_WDH:
     case ID_DBP_D_BPH:
     case ID_DBP_D_ALTI:
-    case ID_DBP_I_WCC:
       item.SetImage(1);
       break;
   }
