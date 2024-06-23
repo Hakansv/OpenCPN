@@ -51,6 +51,8 @@
 #include "dnet.h"
 #endif
 
+#define RECEIVE_BUFFER_LENGTH 256
+
 extern OCPNPlatform* g_Platform;
 extern std::vector<ocpn_DNS_record_t> g_sk_servers;
 
@@ -169,7 +171,8 @@ NMEA0183Flavor FirstUseWizImpl::SeemsN0183(std::string& data) {
     std::regex nmea_regex(".*[\\$!]([a-zA-Z]{5,6})(,.*)");
     std::regex nmea_crc_regex(".*[\\$!]([a-zA-Z]{5,6})(,.*)(\\*[0-9A-Z]{2})");
     while (std::getline(ss, to, '\n')) {
-      if (std::regex_search(to, nmea_regex)) {
+      if (std::regex_search(to, nmea_regex) &&
+          to.find("$PCDIN") == std::string::npos) { // It also must not be SeaSmart encoded NMEA2000
         DEBUG_LOG << "Looks like NMEA0183: " << to;
         if (std::regex_search(to, nmea_crc_regex)) {
           DEBUG_LOG << "Has CRC: " << to;
@@ -198,19 +201,21 @@ bool FirstUseWizImpl::SeemsN2000(std::string& data) {
         "A[0-9]{6}\\.[0-9]{3} [0-9A-F]{5} [0-9A-F]{5} [0-9A-F]+");  // Actisense
                                                                     // N2K ASCII
                                                                     // format
+    std::regex seasmart_regex("\\$PCDIN,[0-9A-F]{6},[0-9A-F]{8},[0-9A-F]{2},[0-9A-F]+\\*[0-9A-F]{2}");
     // TODO: Other formats of NMEA2000 data
 
-    if (to.length() > 4 &&
+    if (data.length() > 4 &&
         // Actisense/YD N2K mode - All the binary formats enclose
         // the payload between 0x10 0x02 and 0x10 0x03
-        to[0] == ESCAPE && to[1] == STARTOFTEXT &&
-        to[to.length() - 1] == ENDOFTEXT && to[to.length() - 2] == ESCAPE) {
+        data[0] == ESCAPE && data[1] == STARTOFTEXT &&
+        data[data.length() - 1] == ENDOFTEXT && data[data.length() - 2] == ESCAPE) {
       DEBUG_LOG << "Looks like NMEA2000: " << to;
       return true;
     }
     while (std::getline(ss, to, '\n')) {
       if (std::regex_search(to, actisenseyd_raw_ascii_regex) ||
-          std::regex_search(to, actisense_n2k_ascii_regex)) {
+          std::regex_search(to, actisense_n2k_ascii_regex) ||
+          std::regex_search(to, seasmart_regex)) {
         DEBUG_LOG << "Looks like NMEA2000: " << to;
         return true;
       } else {
@@ -459,11 +464,16 @@ void FirstUseWizImpl::EnumerateTCP() {
       client->SetTimeout(1);
       if (client->Connect(conn_addr, true)) {
         DEBUG_LOG << "Connected to " << ip << ":" << port;
-        char buffer[256];
-        memset(buffer, 0, 256);
+        size_t len = RECEIVE_BUFFER_LENGTH;
+        char buffer[RECEIVE_BUFFER_LENGTH];
+        memset(buffer, 0, len);
         client->WaitForRead(1, 0);
-        client->Read(&buffer, 256);
-        std::string data(buffer);
+        client->Read(&buffer, len);
+        // Binary protocols may contain 0x00 bytes, so we have to treat the buffer as such and avoid string conversion
+        while (buffer[len-1] == 0x00 && len > 0) {
+          len--;
+        }
+        std::string data(buffer, len);
         DEBUG_LOG << "Read: " << data;
         if (auto flavor = SeemsN0183(data); flavor != NMEA0183Flavor::INVALID) {
           ConnectionParams params;
