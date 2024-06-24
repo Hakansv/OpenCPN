@@ -156,7 +156,9 @@ protected:
   virtual void OnDownloadCharts(wxCommandEvent& event) { event.Skip(); }
   virtual void OnShowLocalDir(wxCommandEvent& event) { event.Skip(); }
   virtual void OnSize(wxSizeEvent& event);
+#ifdef HAVE_WX_GESTURE_EVENTS
   void OnLongPress(wxLongPressEvent &event);
+#endif
 
 #if defined(CHART_LIST)
   virtual void OnSelectChartItem(wxCommandEvent& event) { event.Skip(); }
@@ -242,8 +244,10 @@ public:
   wxCheckBox* GetCB() { return m_cb; }
   bool isNew() { return (m_stat == _("New")); }
   bool isUpdated() { return (m_stat == _("Out of date")); }
-  void OnLongPress(wxLongPressEvent &event);
   void OnLeftUp(wxMouseEvent &event);
+#ifdef HAVE_WX_GESTURE_EVENTS
+    void OnLongPress(wxLongPressEvent &event);
+#endif
 
 private:
   wxCheckBox* m_cb;

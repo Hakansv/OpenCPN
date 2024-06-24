@@ -534,10 +534,12 @@ ChartDldrPanel::ChartDldrPanel(wxWindow* parent, wxWindowID id,
   m_scrollWinChartList->SetScrollRate(5, 5);
   m_scrollWinChartList->SetMinSize(wxSize(-1, 12 * GetCharHeight()));
 
+#ifdef HAVE_WX_GESTURE_EVENTS
   if (!m_scrollWinChartList->EnableTouchEvents( wxTOUCH_PRESS_GESTURES)) {
     wxLogError("Failed to enable touch events on chart downloader");
   }
   Bind(wxEVT_LONG_PRESS, &ChartDldrPanel::OnLongPress, this);
+#endif
 
   m_boxSizerCharts = new wxBoxSizer(wxVERTICAL);
   m_scrollWinChartList->SetSizer(m_boxSizerCharts);
@@ -832,6 +834,8 @@ ChartPanel::ChartPanel(wxWindow* parent, wxWindowID id, const wxPoint& pos,
   //    divLine, 0, wxEXPAND | wxALL, 5 );
 
   m_dldrPanel = DldrPanel;
+
+#ifdef  HAVE_WX_GESTURE_EVENTS
   Connect(wxEVT_RIGHT_DOWN, wxMouseEventHandler(ChartPanel::OnContextMenu),
           NULL, this);
 
@@ -841,7 +845,7 @@ ChartPanel::ChartPanel(wxWindow* parent, wxWindowID id, const wxPoint& pos,
 
   Bind(wxEVT_LONG_PRESS, &ChartPanel::OnLongPress, this);
   Bind(wxEVT_LEFT_UP, &ChartPanel::OnLeftUp, this);
-
+#endif
   m_popupWanted = false;
 }
 
