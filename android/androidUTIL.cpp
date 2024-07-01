@@ -76,7 +76,7 @@
 #include "MUIBar.h"
 #include "navutil.h"
 #include "nmea0183.h"
-#include "nmea_ctx_factory.h"
+#include "model/nmea_ctx_factory.h"
 #include "OCPNPlatform.h"
 #include "ocpn_plugin.h"
 #include "options.h"
@@ -93,6 +93,8 @@
 #ifdef HAVE_DIRENT_H
 #include "dirent.h"
 #endif
+
+#include "android_jvm.h"
 
 const wxString AndroidSuppLicense = wxT(
     "<br><br>The software included in this product contains copyrighted "
@@ -236,7 +238,7 @@ extern int g_nAutoHideToolbar;
 extern int g_GUIScaleFactor;
 extern int g_ChartScaleFactor;
 
-extern double g_config_display_size_mm;
+extern std::vector<size_t> g_config_display_size_mm;
 extern bool g_config_display_size_manual;
 
 extern Multiplexer *g_pMUX;
@@ -261,7 +263,6 @@ extern bool g_bAutoAnchorMark;
 extern wxAuiManager *g_pauimgr;
 extern wxString g_AisTargetList_perspective;
 
-extern ocpnFloatingToolbarDialog *g_MainToolbar;
 
 WX_DEFINE_ARRAY_PTR(ChartCanvas *, arrayofCanvasPtr);
 extern arrayofCanvasPtr g_canvasArray;
@@ -271,8 +272,6 @@ wxString callActivityMethod_is(const char *method, int parm);
 
 //      Globals, accessible only to this module
 
-JavaVM *java_vm;
-JNIEnv *global_jenv;
 bool b_androidBusyShown;
 double g_androidDPmm;
 double g_androidDensity;
@@ -1072,17 +1071,6 @@ void resizeAndroidPersistents() {
   }
 }
 
-jint JNI_OnLoad(JavaVM *vm, void *reserved) {
-  java_vm = vm;
-
-  // Get JNI Env for all function calls
-  if (vm->GetEnv((void **)&global_jenv, JNI_VERSION_1_6) != JNI_OK) {
-    return -1;
-  }
-
-  return JNI_VERSION_1_6;
-}
-
 void sendNMEAMessageEvent(wxString &msg) {
 
   std::string string = msg.ToStdString();
@@ -1586,6 +1574,8 @@ JNIEXPORT jint JNICALL Java_org_opencpn_OCPNNativeLib_invokeCmdEventCmdString(
   wxString wx_sparm;
   JNIEnv *jenv;
 
+  if (!java_vm)  return 73;
+
   //  Need a Java environment to decode the string parameter
   if (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK) {
     // qDebug() << "GetEnv failed.";
@@ -1765,6 +1755,8 @@ JNIEXPORT jint JNICALL Java_org_opencpn_OCPNNativeLib_setDownloadStatus(
   wxString wx_sparm;
   JNIEnv *jenv;
 
+  if (!java_vm) return 74;
+
   //  Need a Java environment to decode the string parameter
   if (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK) {
     // qDebug() << "GetEnv failed.";
@@ -1822,6 +1814,8 @@ JNIEXPORT jint JNICALL Java_org_opencpn_OCPNNativeLib_sendPluginMessage(
   wxString Msg;
   JNIEnv *jenv;
 
+  if (!java_vm)  return 79;
+
   //  Need a Java environment to decode the string parameter
   if (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK) {
     // qDebug() << "GetEnv failed.";
@@ -1837,438 +1831,6 @@ JNIEXPORT jint JNICALL Java_org_opencpn_OCPNNativeLib_sendPluginMessage(
 
   return 74;
 }
-}
-
-void androidTerminate() { callActivityMethod_vs("terminateApp"); }
-
-bool CheckPendingJNIException() {
-  JNIEnv *jenv;
-
-  if (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK) return true;
-
-  if ((jenv)->ExceptionCheck() == JNI_TRUE) {
-    // Handle exception here.
-    (jenv)->ExceptionDescribe();  // writes to logcat
-    (jenv)->ExceptionClear();
-
-    return false;  // There was a pending exception, but cleared OK
-                   // interesting discussion:
-                   // http://blog.httrack.com/blog/2013/08/23/catching-posix-signals-on-android/
-  }
-
-  return false;
-}
-
-wxString callActivityMethod_vs(const char *method) {
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  JNIEnv *jenv;
-
-  wxString return_string;
-  QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
-      "org/qtproject/qt5/android/QtNative", "activity",
-      "()Landroid/app/Activity;");
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  if (!activity.isValid()) {
-    // qDebug() << "Activity is not valid";
-    return return_string;
-  }
-
-  //  Call the desired method
-  QAndroidJniObject data =
-      activity.callObjectMethod(method, "()Ljava/lang/String;");
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  jstring s = data.object<jstring>();
-  // qDebug() << s;
-
-  if (s) {
-    //  Need a Java environment to decode the resulting string
-    if (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK) {
-      // qDebug() << "GetEnv failed.";
-    } else {
-      const char *ret_string = (jenv)->GetStringUTFChars(s, NULL);
-      return_string = wxString(ret_string, wxConvUTF8);
-    }
-  }
-
-  return return_string;
-}
-
-wxString callActivityMethod_is(const char *method, int parm) {
-  if (CheckPendingJNIException()) return _T("NOK");
-  JNIEnv *jenv;
-
-  wxString return_string;
-  QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
-      "org/qtproject/qt5/android/QtNative", "activity",
-      "()Landroid/app/Activity;");
-
-  if (!activity.isValid()) {
-    // qDebug() << "Activity is not valid";
-    return return_string;
-  }
-
-  //  Call the desired method
-  QAndroidJniObject data =
-      activity.callObjectMethod(method, "(I)Ljava/lang/String;", parm);
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  jstring s = data.object<jstring>();
-
-  //  Need a Java environment to decode the resulting string
-  if (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK) {
-    // qDebug() << "GetEnv failed.";
-  } else {
-    const char *ret_string = (jenv)->GetStringUTFChars(s, NULL);
-    return_string = wxString(ret_string, wxConvUTF8);
-  }
-
-  return return_string;
-}
-
-wxString callActivityMethod_iis(const char *method, int parm1, int parm2) {
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  JNIEnv *jenv;
-
-  wxString return_string;
-  QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
-      "org/qtproject/qt5/android/QtNative", "activity",
-      "()Landroid/app/Activity;");
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  if (!activity.isValid()) {
-    // qDebug() << "Activity is not valid";
-    return return_string;
-  }
-
-  //  Call the desired method
-  QAndroidJniObject data =
-      activity.callObjectMethod(method, "(II)Ljava/lang/String;", parm1, parm2);
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  jstring s = data.object<jstring>();
-
-  //  Need a Java environment to decode the resulting string
-  if (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK) {
-    // qDebug() << "GetEnv failed.";
-  } else {
-    const char *ret_string = (jenv)->GetStringUTFChars(s, NULL);
-    return_string = wxString(ret_string, wxConvUTF8);
-  }
-
-  return return_string;
-}
-
-wxString callActivityMethod_ss(const char *method, wxString parm) {
-  if (CheckPendingJNIException()) return _T("NOK");
-  JNIEnv *jenv;
-
-  wxString return_string;
-  QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
-      "org/qtproject/qt5/android/QtNative", "activity",
-      "()Landroid/app/Activity;");
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  if (!activity.isValid()) {
-    // qDebug() << "Activity is not valid";
-    return return_string;
-  }
-
-  //  Need a Java environment to decode the resulting string
-  if (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK) {
-    // qDebug() << "GetEnv failed.";
-    return _T("jenv Error");
-  }
-
-  jstring p = (jenv)->NewStringUTF(parm.c_str());
-
-  //  Call the desired method
-  // qDebug() << "Calling method_ss";
-  // qDebug() << method;
-
-  QAndroidJniObject data = activity.callObjectMethod(
-      method, "(Ljava/lang/String;)Ljava/lang/String;", p);
-
-  (jenv)->DeleteLocalRef(p);
-
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  // qDebug() << "Back from method_ss";
-
-  jstring s = data.object<jstring>();
-
-  if ((jenv)->GetStringLength(s)) {
-    const char *ret_string = (jenv)->GetStringUTFChars(s, NULL);
-    return_string = wxString(ret_string, wxConvUTF8);
-  }
-
-  return return_string;
-}
-
-wxString callActivityMethod_s2s(const char *method, const wxString parm1,
-                                const wxString parm2) {
-  if (CheckPendingJNIException()) return _T("NOK");
-  JNIEnv *jenv;
-
-  wxString return_string;
-  QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
-      "org/qtproject/qt5/android/QtNative", "activity",
-      "()Landroid/app/Activity;");
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  if (!activity.isValid()) {
-    // qDebug() << "Activity is not valid";
-    return return_string;
-  }
-
-  //  Need a Java environment to decode the resulting string
-  if (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK) {
-    // qDebug() << "GetEnv failed.";
-    return _T("jenv Error");
-  }
-
-  wxCharBuffer p1b = parm1.ToUTF8();
-  jstring p1 = (jenv)->NewStringUTF(p1b.data());
-
-  wxCharBuffer p2b = parm2.ToUTF8();
-  jstring p2 = (jenv)->NewStringUTF(p2b.data());
-
-  //  Call the desired method
-  // qDebug() << "Calling method_s2s" << " (" << method << ")";
-
-  QAndroidJniObject data = activity.callObjectMethod(
-      method, "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;", p1,
-      p2);
-
-  (jenv)->DeleteLocalRef(p1);
-  (jenv)->DeleteLocalRef(p2);
-
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  // qDebug() << "Back from method_s2s";
-
-  jstring s = data.object<jstring>();
-
-  if ((jenv)->GetStringLength(s)) {
-    const char *ret_string = (jenv)->GetStringUTFChars(s, NULL);
-    return_string = wxString(ret_string, wxConvUTF8);
-  }
-
-  return return_string;
-}
-
-wxString callActivityMethod_s3s(const char *method, wxString parm1,
-                                wxString parm2, wxString parm3) {
-  if (CheckPendingJNIException()) return _T("NOK");
-  JNIEnv *jenv;
-
-  wxString return_string;
-  QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
-      "org/qtproject/qt5/android/QtNative", "activity",
-      "()Landroid/app/Activity;");
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  if (!activity.isValid()) {
-    return return_string;
-  }
-
-  //  Need a Java environment to decode the resulting string
-  if (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK) {
-    return _T("jenv Error");
-  }
-
-  wxCharBuffer p1b = parm1.ToUTF8();
-  jstring p1 = (jenv)->NewStringUTF(p1b.data());
-
-  wxCharBuffer p2b = parm2.ToUTF8();
-  jstring p2 = (jenv)->NewStringUTF(p2b.data());
-
-  wxCharBuffer p3b = parm3.ToUTF8();
-  jstring p3 = (jenv)->NewStringUTF(p3b.data());
-
-  //  Call the desired method
-  // qDebug() << "Calling method_s3s" << " (" << method << ")";
-
-  QAndroidJniObject data =
-      activity.callObjectMethod(method,
-                                "(Ljava/lang/String;Ljava/lang/String;Ljava/"
-                                "lang/String;)Ljava/lang/String;",
-                                p1, p2, p3);
-  (jenv)->DeleteLocalRef(p1);
-  (jenv)->DeleteLocalRef(p2);
-  (jenv)->DeleteLocalRef(p3);
-
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  // qDebug() << "Back from method_s3s";
-
-  jstring s = data.object<jstring>();
-
-  if ((jenv)->GetStringLength(s)) {
-    const char *ret_string = (jenv)->GetStringUTFChars(s, NULL);
-    return_string = wxString(ret_string, wxConvUTF8);
-  }
-
-  return return_string;
-}
-
-wxString callActivityMethod_s4s(const char *method, wxString parm1,
-                                wxString parm2, wxString parm3,
-                                wxString parm4) {
-  if (CheckPendingJNIException()) return _T("NOK");
-  JNIEnv *jenv;
-
-  wxString return_string;
-  QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
-      "org/qtproject/qt5/android/QtNative", "activity",
-      "()Landroid/app/Activity;");
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  if (!activity.isValid()) {
-    // qDebug() << "Activity is not valid";
-    return return_string;
-  }
-
-  //  Need a Java environment to decode the resulting string
-  if (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK) {
-    // qDebug() << "GetEnv failed.";
-    return _T("jenv Error");
-  }
-
-  wxCharBuffer p1b = parm1.ToUTF8();
-  jstring p1 = (jenv)->NewStringUTF(p1b.data());
-
-  wxCharBuffer p2b = parm2.ToUTF8();
-  jstring p2 = (jenv)->NewStringUTF(p2b.data());
-
-  wxCharBuffer p3b = parm3.ToUTF8();
-  jstring p3 = (jenv)->NewStringUTF(p3b.data());
-
-  wxCharBuffer p4b = parm4.ToUTF8();
-  jstring p4 = (jenv)->NewStringUTF(p4b.data());
-
-  // const char *ts = (jenv)->GetStringUTFChars(p2, NULL);
-  // qDebug() << "Test String p2" << ts;
-
-  //  Call the desired method
-  // qDebug() << "Calling method_s4s" << " (" << method << ")";
-
-  QAndroidJniObject data = activity.callObjectMethod(
-      method,
-      "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/"
-      "String;)Ljava/lang/String;",
-      p1, p2, p3, p4);
-  (jenv)->DeleteLocalRef(p1);
-  (jenv)->DeleteLocalRef(p2);
-  (jenv)->DeleteLocalRef(p3);
-  (jenv)->DeleteLocalRef(p4);
-
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  // qDebug() << "Back from method_s4s";
-
-  jstring s = data.object<jstring>();
-
-  if ((jenv)->GetStringLength(s)) {
-    const char *ret_string = (jenv)->GetStringUTFChars(s, NULL);
-    return_string = wxString(ret_string, wxConvUTF8);
-  }
-
-  return return_string;
-}
-
-wxString callActivityMethod_s2s2i(const char *method, wxString parm1,
-                                  wxString parm2, int parm3, int parm4) {
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  wxString return_string;
-  QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
-      "org/qtproject/qt5/android/QtNative", "activity",
-      "()Landroid/app/Activity;");
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  if (!activity.isValid()) {
-    return return_string;
-  }
-
-  //  Need a Java environment to decode the resulting string
-  JNIEnv *jenv;
-
-  if (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK) {
-    // qDebug() << "GetEnv failed.";
-    return _T("jenv Error");
-  }
-
-  wxCharBuffer p1b = parm1.ToUTF8();
-  jstring p1 = (jenv)->NewStringUTF(p1b.data());
-
-  wxCharBuffer p2b = parm2.ToUTF8();
-  jstring p2 = (jenv)->NewStringUTF(p2b.data());
-
-  // qDebug() << "Calling method_s2s2i" << " (" << method << ")";
-  // qDebug() << parm3 << parm4;
-
-  QAndroidJniObject data = activity.callObjectMethod(
-      method, "(Ljava/lang/String;Ljava/lang/String;II)Ljava/lang/String;", p1,
-      p2, parm3, parm4);
-
-  (jenv)->DeleteLocalRef(p1);
-  (jenv)->DeleteLocalRef(p2);
-
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  jstring s = data.object<jstring>();
-
-  if ((jenv)->GetStringLength(s)) {
-    const char *ret_string = (jenv)->GetStringUTFChars(s, NULL);
-    return_string = wxString(ret_string, wxConvUTF8);
-  }
-
-  return return_string;
-}
-
-wxString callActivityMethod_ssi(const char *method, wxString parm1, int parm2) {
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  wxString return_string;
-  QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
-      "org/qtproject/qt5/android/QtNative", "activity",
-      "()Landroid/app/Activity;");
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  if (!activity.isValid()) {
-    return return_string;
-  }
-
-  //  Need a Java environment to decode the resulting string
-  JNIEnv *jenv;
-
-  if (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK) {
-    // qDebug() << "GetEnv failed.";
-    return _T("jenv Error");
-  }
-
-  wxCharBuffer p1b = parm1.ToUTF8();
-  jstring p1 = (jenv)->NewStringUTF(p1b.data());
-
-  QAndroidJniObject data = activity.callObjectMethod(
-      method, "(Ljava/lang/String;I)Ljava/lang/String;", p1, parm2);
-
-  (jenv)->DeleteLocalRef(p1);
-
-  if (CheckPendingJNIException()) return _T("NOK");
-
-  jstring s = data.object<jstring>();
-
-  if ((jenv)->GetStringLength(s)) {
-    const char *ret_string = (jenv)->GetStringUTFChars(s, NULL);
-    return_string = wxString(ret_string, wxConvUTF8);
-  }
-
-  return return_string;
 }
 
 wxString androidGetAndroidSystemLocale() {
@@ -2347,6 +1909,8 @@ void androidEnableRotation(void) {
 void androidDisableRotation(void) { callActivityMethod_vs("DisableRotation"); }
 
 bool androidShowDisclaimer(wxString title, wxString msg) {
+  if (!java_vm) return true;
+
   if (CheckPendingJNIException()) return false;
 
   wxString return_string;
@@ -2389,6 +1953,8 @@ bool androidShowDisclaimer(wxString title, wxString msg) {
 }
 
 bool androidShowSimpleOKDialog(std::string title, std::string msg) {
+  if (!java_vm) return true;
+
   if (CheckPendingJNIException()) return false;
 
   wxString return_string;
@@ -2428,6 +1994,8 @@ bool androidShowSimpleOKDialog(std::string title, std::string msg) {
 }
 
 bool androidShowSimpleYesNoDialog(wxString title, wxString msg) {
+  if (!java_vm) return false;
+
   if (CheckPendingJNIException()) return false;
 
   wxString return_string;
@@ -2473,6 +2041,7 @@ bool androidInstallPlaystoreHelp() {
   qDebug() << "androidInstallPlaystoreHelp";
   //  return false;
 
+  if (!java_vm) return false;
   if (CheckPendingJNIException()) return false;
 
   wxString return_string;
@@ -2750,6 +2319,8 @@ bool androidGetMemoryStatus(int *mem_total, int *mem_used) {
 double GetAndroidDisplaySize() {
   double ret = 200.;  // sane default
 
+  if (!java_vm) return ret;
+
   //  Get a reference to the running native activity
   QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
       "org/qtproject/qt5/android/QtNative", "activity",
@@ -2877,9 +2448,9 @@ double getAndroidDPmm() {
   // qDebug() << "getAndroidDPmm" << g_androidDPmm;
 
   // User override?
-  if (g_config_display_size_manual && (g_config_display_size_mm > 0)) {
+  if (g_config_display_size_manual && (g_config_display_size_mm[0] > 0)) {
     double maxDim = wxMax(::wxGetDisplaySize().x, ::wxGetDisplaySize().y);
-    double size_mm = g_config_display_size_mm;
+    double size_mm = g_config_display_size_mm[0];
     size_mm = wxMax(size_mm, 50);
     size_mm = wxMin(size_mm, 400);
     double ret = maxDim / size_mm;
@@ -2909,8 +2480,10 @@ double getAndroidDisplayDensity() {
 }
 
 wxSize getAndroidDisplayDimensions(void) {
+
   wxSize sz_ret = ::wxGetDisplaySize();  // default, probably reasonable, but
                                          // maybe not accurate
+  if (!java_vm) return sz_ret;
 
   QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
       "org/qtproject/qt5/android/QtNative", "activity",
@@ -3010,6 +2583,7 @@ void androidForceFullRepaint(bool b_skipConfirm) {
 
 void androidShowBusyIcon() {
   if (b_androidBusyShown) return;
+  if (!java_vm) return;
 
   // qDebug() << "ShowBusy";
 
@@ -3031,6 +2605,7 @@ void androidShowBusyIcon() {
 
 void androidHideBusyIcon() {
   if (!b_androidBusyShown) return;
+  if (!java_vm) return;
 
   //  Get a reference to the running native activity
   QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
@@ -3050,6 +2625,8 @@ void androidHideBusyIcon() {
 }
 
 int androidGetVersionCode() {
+  if (!java_vm) return -1;
+
   //  Get a reference to the running native activity
   QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
       "org/qtproject/qt5/android/QtNative", "activity",
@@ -3083,6 +2660,8 @@ int androidGetVersionCode() {
 }
 
 wxString androidGetVersionName() {
+  if (!java_vm) return "";
+
   //  Get a reference to the running native activity
   QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
       "org/qtproject/qt5/android/QtNative", "activity",
@@ -3163,6 +2742,8 @@ bool androidStopGPS() {
 }
 
 wxString androidGPSService(int parm) {
+  if (!java_vm) return "NOK";
+
   QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
       "org/qtproject/qt5/android/QtNative", "activity",
       "()Landroid/app/Activity;");
@@ -3194,6 +2775,8 @@ wxString androidGPSService(int parm) {
 }
 
 bool androidDeviceHasBlueTooth() {
+  if (!java_vm) return false;
+
   QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
       "org/qtproject/qt5/android/QtNative", "activity",
       "()Landroid/app/Activity;");
@@ -3393,6 +2976,8 @@ int androidFileChooser(wxString *result, const wxString &initDir,
 }
 
 bool InvokeJNIPreferences(wxString &initial_settings) {
+  if (!java_vm) return false;
+
   bool ret = true;
   wxCharBuffer abuf = initial_settings.ToUTF8();
   if (!abuf.data()) return false;
@@ -4887,16 +4472,14 @@ int doAndroidPersistState() {
   }
 
   if (g_MainToolbar) {
-    wxPoint tbp = g_MainToolbar->GetPosition();
-    wxPoint tbp_incanvas = gFrame->GetPrimaryCanvas()->ScreenToClient(tbp);
+    wxPoint tbp_incanvas = g_MainToolbar->GetToolbarPosition();
     g_maintoolbar_x = tbp_incanvas.x;
     g_maintoolbar_y = tbp_incanvas.y;
     g_maintoolbar_orient = g_MainToolbar->GetOrient();
   }
 
   if (g_iENCToolbar) {
-    wxPoint locn = g_iENCToolbar->GetPosition();
-    wxPoint tbp_incanvas = gFrame->GetPrimaryCanvas()->ScreenToClient(locn);
+    wxPoint tbp_incanvas = g_iENCToolbar->GetToolbarPosition();
     g_iENCToolbarPosY = tbp_incanvas.y;
     g_iENCToolbarPosX = tbp_incanvas.x;
   }

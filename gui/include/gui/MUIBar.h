@@ -27,6 +27,7 @@
 #ifndef __muibar_H__
 #define __muibar_H__
 
+#include <cstdint>
 
 //----------------------------------------------------------------------------
 //   constants
@@ -48,12 +49,13 @@ enum {
 class MyFrame;
 class ChartCanvas;
 class MUIButton;
+class MUITextButton;
 class CanvasOptions;
 
 //----------------------------------------------------------------------------
 // MUIBar
 //----------------------------------------------------------------------------
-class MUIBar : public wxFrame {
+class MUIBar : public wxEvtHandler {
 public:
   MUIBar();
   MUIBar(ChartCanvas *parent, int orientation = wxHORIZONTAL,
@@ -64,10 +66,6 @@ public:
 
   ~MUIBar();
 
-  void OnSize(wxSizeEvent &event);
-  void OnPaint(wxPaintEvent &event);
-  void OnToolLeftClick(wxCommandEvent &event);
-  void OnEraseBackground(wxEraseEvent &event);
   void onCanvasOptionsAnimationTimerEvent(wxTimerEvent &event);
 
   void SetBestPosition(void);
@@ -79,12 +77,23 @@ public:
   void SetColorScheme(ColorScheme cs);
   void SetCanvasENCAvailable(bool avail);
   void OnScaleSelected(wxMouseEvent &event);
+  void DrawGL(ocpnDC &gldc, double displayScale);
+  void DrawDC(ocpnDC &dc, double displayScale);
+  wxRect GetRect(){ return wxRect(m_screenPos, m_size); }
+
+  bool MouseEvent(wxMouseEvent &event);
+  void PushCanvasOptions();
+
+  wxPoint m_screenPos;
+  wxSize m_size;
 
 private:
   void Init(void);
   void CreateControls();
   void PullCanvasOptions();
-  void PushCanvasOptions();
+  void HandleMenuClick();
+  wxBitmap &CreateBitmap(double displayScale);
+  void InvalidateBitmap();
 
   void CaptureCanvasOptionsBitmap();
   void CaptureCanvasOptionsBitmapChain(wxTimerEvent &event);
@@ -97,7 +106,7 @@ private:
   MUIButton *m_zoutButton;
   MUIButton *m_menuButton;
   MUIButton *m_followButton;
-  wxStaticText *m_scaleTextBox;
+  MUITextButton *m_scaleButton;
 
   CanvasOptions *m_canvasOptions;
   wxPoint m_targetCOPos;
@@ -127,7 +136,10 @@ private:
   bool m_CanvasENCAvail;
   bool m_bEffects;
 
-  DECLARE_EVENT_TABLE()
+  uint32_t m_texture;
+  int m_end_margin;
+  wxBitmap m_bitmap;
+  int m_scale;
 };
 
 #endif

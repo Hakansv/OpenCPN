@@ -39,31 +39,33 @@
 #include <vector>
 #include <algorithm>
 
-#include "styles.h"
-#include "dychart.h"
-#include "navutil.h"
-#include "MarkInfo.h"
-#include "RoutePropDlgImpl.h"
+#include "model/ais_decoder.h"
+#include "model/config_vars.h"
+#include "model/georef.h"
+#include "model/mDNS_query.h"
+#include "model/navutil_base.h"
+#include "model/own_ship.h"
+#include "model/route.h"
 #include "model/routeman.h"
+#include "model/select.h"
+#include "model/track.h"
+
+#include "chartbase.h"
+#include "chcanv.h"
+#include "dychart.h"
+#include "Layer.h"
+#include "MarkInfo.h"
+#include "navutil.h"
+#include "ocpn_frame.h"
+#include "OCPNPlatform.h"
 #include "routeman_gui.h"
 #include "route_point_gui.h"
-#include "model/georef.h"
-#include "chartbase.h"
-#include "Layer.h"
+#include "RoutePropDlgImpl.h"
 #include "SendToGpsDlg.h"
-#include "TrackPropDlg.h"
-#include "model/ais_decoder.h"
-#include "OCPNPlatform.h"
-#include "model/track.h"
-#include "model/route.h"
-#include "chcanv.h"
-#include "model/navutil_base.h"
-#include "svg_utils.h"
-#include "ocpn_frame.h"
-#include "model/own_ship.h"
-#include "model/config_vars.h"
-#include "model/mDNS_query.h"
 #include "SendToPeerDlg.h"
+#include "styles.h"
+#include "svg_utils.h"
+#include "TrackPropDlg.h"
 
 #ifdef __ANDROID__
 #include "androidUTIL.h"
@@ -72,7 +74,7 @@
 #define DIALOG_MARGIN 10
 
 enum { rmVISIBLE = 0, rmROUTENAME, rmROUTEDESC };  // RMColumns;
-enum { colTRKVISIBLE = 0, colTRKNAME, colTRKLENGTH };
+enum { colTRKVISIBLE = 0, colTRKNAME, colTRKLENGTH, colTRKDATE };
 enum { colLAYVISIBLE = 0, colLAYNAME, colLAYITEMS, colLAYPERSIST };
 enum { colWPTICON = 0, colWPTSCALE, colWPTNAME, colWPTDIST };
 
@@ -86,13 +88,10 @@ extern TrackPropDlg *pTrackPropDialog;
 extern Routeman *g_pRouteMan;
 extern MyConfig *pConfig;
 extern ActiveTrack *g_pActiveTrack;
-extern WayPointman *pWayPointMan;
 extern MarkInfoDlg *g_pMarkInfoDialog;
 extern MyFrame *gFrame;
-extern Select *pSelect;
 extern bool g_bShowLayers;
 extern wxString g_default_wp_icon;
-extern AisDecoder *g_pAIS;
 extern OCPNPlatform *g_Platform;
 extern std::vector<std::shared_ptr<ocpn_DNS_record_t>> g_DNS_cache;
 extern wxDateTime g_DNS_cache_time;
@@ -174,6 +173,19 @@ int wxCALLBACK SortTracksOnDistance(long item1, long item2, long list)
 {
   return SortDouble(sort_track_len_dir, ((Track *)item1)->Length(),
                     ((Track *)item2)->Length());
+}
+
+// sort callback. Sort by track start date.
+static int sort_track_date_dir;
+#if wxCHECK_VERSION(2, 9, 0)
+static int wxCALLBACK SortTracksOnDate(wxIntPtr item1, wxIntPtr item2,
+                                       wxIntPtr list)
+#else
+int wxCALLBACK SortTracksOnDate(long item1, long item2, long list)
+#endif
+{
+  return SortRouteTrack(sort_track_date_dir, ((Track *)item1)->GetDate(),
+                        ((Track *)item2)->GetDate());
 }
 
 static int sort_wp_key;
@@ -387,7 +399,7 @@ void RouteManagerDialog::Create() {
       new wxListCtrl(m_pPanelRte, -1, wxDefaultPosition, wxSize(-1, -1),
                      wxLC_REPORT | wxLC_SORT_ASCENDING | wxLC_HRULES |
                          wxBORDER_SUNKEN /*|wxLC_VRULES*/);
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   m_pRouteListCtrl->GetHandle()->setStyleSheet(getAdjustedDialogStyleSheet());
 #endif
 
@@ -566,7 +578,7 @@ void RouteManagerDialog::Create() {
                      wxLC_REPORT | wxLC_SORT_ASCENDING | wxLC_HRULES |
                          wxBORDER_SUNKEN /*|wxLC_VRULES*/);
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   m_pTrkListCtrl->GetHandle()->setStyleSheet(getAdjustedDialogStyleSheet());
 #endif
 
@@ -599,6 +611,8 @@ void RouteManagerDialog::Create() {
   m_pTrkListCtrl->InsertColumn(colTRKVISIBLE, _("Show"), wxLIST_FORMAT_LEFT,
                                4 * char_width);
   m_pTrkListCtrl->InsertColumn(colTRKNAME, _("Track Name"), wxLIST_FORMAT_LEFT,
+                               20 * char_width);
+  m_pTrkListCtrl->InsertColumn(colTRKDATE, _("Start Date"), wxLIST_FORMAT_LEFT,
                                20 * char_width);
   m_pTrkListCtrl->InsertColumn(colTRKLENGTH, _("Length"), wxLIST_FORMAT_LEFT,
                                5 * char_width);
@@ -666,12 +680,12 @@ void RouteManagerDialog::Create() {
       wxCommandEventHandler(RouteManagerDialog::OnTrkDeleteAllClick), NULL,
       this);
 
-  //  Create "Waypoints" panel
+  //  Create "Marks" panel
   m_pPanelWpt = new wxPanel(m_pNotebook, wxID_ANY, wxDefaultPosition,
                             wxDefaultSize, wxNO_BORDER | wxTAB_TRAVERSAL);
   wxBoxSizer *sbsWpts = new wxBoxSizer(wxHORIZONTAL);
   m_pPanelWpt->SetSizer(sbsWpts);
-  m_pNotebook->AddPage(m_pPanelWpt, _("Waypoints"));
+  m_pNotebook->AddPage(m_pPanelWpt, _("Marks"));
 
   wxBoxSizer *bSizerWptContents;
   bSizerWptContents = new wxBoxSizer(wxVERTICAL);
@@ -697,7 +711,7 @@ void RouteManagerDialog::Create() {
       wxCommandEventHandler(RouteManagerDialog::OnFilterChanged), NULL, this);
 
   m_cbShowAllWP =
-      new wxCheckBox(m_pPanelWpt, wxID_ANY, _("Show all waypoints"));
+      new wxCheckBox(m_pPanelWpt, wxID_ANY, _("Show all marks"));
   bSizerWptContents->Add(m_cbShowAllWP, 0, wxEXPAND | wxLEFT, 5);
   m_cbShowAllWP->Connect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
@@ -708,7 +722,7 @@ void RouteManagerDialog::Create() {
       new wxListCtrl(m_pPanelWpt, -1, wxDefaultPosition, wxDefaultSize,
                      wxLC_REPORT | wxLC_SORT_ASCENDING | wxLC_HRULES |
                          wxBORDER_SUNKEN /*|wxLC_VRULES*/);
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   m_pWptListCtrl->GetHandle()->setStyleSheet(getAdjustedDialogStyleSheet());
 #endif
 
@@ -735,7 +749,7 @@ void RouteManagerDialog::Create() {
                                4 * char_width);
   m_pWptListCtrl->InsertColumn(colWPTSCALE, _("Scale"), wxLIST_FORMAT_LEFT,
                                8 * char_width);
-  m_pWptListCtrl->InsertColumn(colWPTNAME, _("Waypoint Name"),
+  m_pWptListCtrl->InsertColumn(colWPTNAME, _("Mark Name"),
                                wxLIST_FORMAT_LEFT, 15 * char_width);
   m_pWptListCtrl->InsertColumn(colWPTDIST, _("Distance from own ship"),
                                wxLIST_FORMAT_LEFT, 14 * char_width);
@@ -901,7 +915,7 @@ void RouteManagerDialog::Create() {
       new wxListCtrl(m_pPanelLay, -1, wxDefaultPosition, wxDefaultSize,
                      wxLC_REPORT | wxLC_SINGLE_SEL | wxLC_SORT_ASCENDING |
                          wxLC_HRULES | wxBORDER_SUNKEN /*|wxLC_VRULES*/);
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   m_pLayListCtrl->GetHandle()->setStyleSheet(getAdjustedDialogStyleSheet());
 #endif
 
@@ -1023,7 +1037,7 @@ void RouteManagerDialog::Create() {
 
   m_pRouteListCtrl->AssignImageList(imglist, wxIMAGE_LIST_SMALL);
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   m_pRouteListCtrl->GetHandle()->setIconSize(QSize(imageRefSize, imageRefSize));
 #endif
 
@@ -2081,6 +2095,7 @@ void RouteManagerDialog::UpdateTrkListCtrl() {
     long idx = m_pTrkListCtrl->InsertItem(li);
 
     m_pTrkListCtrl->SetItem(idx, colTRKNAME, trk->GetName(true));
+    m_pTrkListCtrl->SetItem(idx, colTRKDATE, trk->GetDate(true));
 
     wxString len;
     len.Printf(wxT("%5.2f"), trk->Length());
@@ -2102,6 +2117,9 @@ void RouteManagerDialog::UpdateTrkListCtrl() {
   switch (sort_track_key) {
     case SORT_ON_DISTANCE:
       m_pTrkListCtrl->SortItems(SortTracksOnDistance, (wxIntPtr)NULL);
+      break;
+    case SORT_ON_DATE:
+      m_pTrkListCtrl->SortItems(SortTracksOnDate, (wxIntPtr)NULL);
       break;
     case SORT_ON_NAME:
     default:
@@ -2141,6 +2159,10 @@ void RouteManagerDialog::OnTrkColumnClicked(wxListEvent &event) {
     sort_track_key = SORT_ON_DISTANCE;
     sort_track_len_dir++;
     m_pTrkListCtrl->SortItems(SortTracksOnDistance, (wxIntPtr)NULL);
+  } else if (event.m_col == 3) {
+    sort_track_key = SORT_ON_DATE;
+    sort_track_date_dir++;
+    m_pTrkListCtrl->SortItems(SortTracksOnDate, (wxIntPtr)NULL);
   }
 }
 
@@ -2551,7 +2573,7 @@ void RouteManagerDialog::UpdateWptButtons() {
     }
   }
 
-  btnWptProperties->Enable(enable1);
+  btnWptProperties->Enable(enablemultiple);
   btnWptZoomto->Enable(enable1);
   btnWptDeleteAll->Enable(m_pWptListCtrl->GetItemCount() > 0);
   btnWptDelete->Enable(b_delete_enable && enablemultiple);
@@ -2629,43 +2651,54 @@ void RouteManagerDialog::OnWptNewClick(wxCommandEvent &event) {
                            // Dialog
     g_pMarkInfoDialog = new MarkInfoDlg(GetParent());
 
-  g_pMarkInfoDialog->SetRoutePoint(pWP);
-  g_pMarkInfoDialog->UpdateProperties();
-
-  WptShowPropertiesDialog(pWP, GetParent());
+  WptShowPropertiesDialog(std::vector<RoutePoint*> {pWP}, GetParent());
 }
 
 void RouteManagerDialog::OnWptPropertiesClick(wxCommandEvent &event) {
-  long item = -1;
-  item =
-      m_pWptListCtrl->GetNextItem(item, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-  if (item == -1) return;
+  std::vector<RoutePoint *> wptlist;
+  long item = wxNOT_FOUND;
+  item = m_pWptListCtrl->GetNextItem(item, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
+  while (item != wxNOT_FOUND)
+  {
+    auto wp = (RoutePoint *)m_pWptListCtrl->GetItemData(item);
+    if (wp) {
+      wptlist.push_back(wp);
+    }
+    item = m_pWptListCtrl->GetNextItem(item, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
+  }
+      
+  if (wptlist.size() == 0) return;
 
-  RoutePoint *wp = (RoutePoint *)m_pWptListCtrl->GetItemData(item);
-
-  if (!wp) return;
-
-  WptShowPropertiesDialog(wp, GetParent());
+  WptShowPropertiesDialog(wptlist, GetParent());
 
   UpdateWptListCtrl();
   m_bNeedConfigFlush = true;
 }
 
-void RouteManagerDialog::WptShowPropertiesDialog(RoutePoint *wp,
+void RouteManagerDialog::WptShowPropertiesDialog(std::vector<RoutePoint *> wptlist,
                                                  wxWindow *parent) {
   if (!g_pMarkInfoDialog)  // There is one global instance of the MarkProp
                            // Dialog
     g_pMarkInfoDialog = new MarkInfoDlg(parent);
 
-  g_pMarkInfoDialog->SetRoutePoint(wp);
+  g_pMarkInfoDialog->SetRoutePoints(wptlist);
   g_pMarkInfoDialog->UpdateProperties();
-  if (wp->m_bIsInLayer) {
+
+  wxString base_title = _("Mark Properties");
+  if (wptlist[0]->m_bIsInRoute)
+    base_title = _("Waypoint Properties");
+
+  if (wptlist[0]->m_bIsInLayer) {
     wxString caption(wxString::Format(_T("%s, %s: %s"),
-                                      _("Waypoint Properties"), _("Layer"),
-                                      GetLayerName(wp->m_LayerID)));
+                                      base_title, _("Layer"),
+                                      GetLayerName(wptlist[0]->m_LayerID)));
     g_pMarkInfoDialog->SetDialogTitle(caption);
-  } else
-    g_pMarkInfoDialog->SetDialogTitle(_("Waypoint Properties"));
+  } else {
+    if (wptlist.size() > 1)
+      g_pMarkInfoDialog->SetDialogTitle(base_title + wxString::Format(_(" (%lu points)"), wptlist.size()));
+    else
+      g_pMarkInfoDialog->SetDialogTitle(base_title);
+  }
 
   if (!g_pMarkInfoDialog->IsShown()) g_pMarkInfoDialog->Show();
   g_pMarkInfoDialog->Raise();
@@ -2742,8 +2775,7 @@ void RouteManagerDialog::OnWptDeleteClick(wxCommandEvent &event) {
     UpdateWptListCtrl(wp_next, true);
 
     if (g_pMarkInfoDialog) {
-      g_pMarkInfoDialog->SetRoutePoint(NULL);
-      g_pMarkInfoDialog->UpdateProperties();
+      g_pMarkInfoDialog->ClearData();
     }
 
     gFrame->InvalidateAllCanvasUndo();
@@ -2864,8 +2896,7 @@ void RouteManagerDialog::OnWptDeleteAllClick(wxCommandEvent &event) {
     pWayPointMan->DeleteAllWaypoints(false);  // only delete unused waypoints
 
   if (g_pMarkInfoDialog) {
-    g_pMarkInfoDialog->SetRoutePoint(NULL);
-    g_pMarkInfoDialog->UpdateProperties();
+    g_pMarkInfoDialog->ClearData();
   }
 
   m_lastWptItem = -1;
@@ -3077,8 +3108,7 @@ void RouteManagerDialog::OnLayDeleteClick(wxCommandEvent &event) {
   }
 
   if (g_pMarkInfoDialog) {
-    g_pMarkInfoDialog->SetRoutePoint(NULL);
-    g_pMarkInfoDialog->UpdateProperties();
+    g_pMarkInfoDialog->ClearData();
   }
 
   pLayerList->DeleteObject(layer);
@@ -3114,7 +3144,6 @@ void RouteManagerDialog::ToggleLayerContentsOnChart(Layer *layer) {
     Route *pRoute = node1->GetData();
     if (pRoute->m_bIsInLayer && (pRoute->m_LayerID == layer->m_LayerID)) {
       pRoute->SetVisible(layer->IsVisibleOnChart());
-      pConfig->UpdateRoute(pRoute);
     }
     node1 = node1->GetNext();
   }

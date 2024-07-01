@@ -28,10 +28,12 @@
 #include <wx/dcmemory.h>
 #include <wx/dcscreen.h>
 
+#ifdef ocpnUSE_GL
 #if defined(__OCPN__ANDROID__)
 #include <GLES2/gl2.h>
 #elif defined(__WXQT__) || defined(__WXGTK__)
 #include <GL/glew.h>
+#endif
 #endif
 
 #include "ocpndc.h"
@@ -79,7 +81,10 @@ EVT_PAINT(RolloverWin::OnPaint) EVT_TIMER(ROLLOVER_TIMER, RolloverWin::OnTimer)
 
 RolloverWin::~RolloverWin() {
   delete m_pbm;
-  glDeleteTextures(1, &m_texture);
+#ifdef ocpnUSE_GL
+  if (g_bopengl)
+    glDeleteTextures(1, &m_texture);
+#endif
 }
 void RolloverWin::OnTimer(wxTimerEvent &event) {
   if (IsActive()) {
@@ -179,10 +184,6 @@ void RolloverWin::SetBitmap(int rollover) {
 
     } else
       glBindTexture(g_texture_rectangle_format, m_texture);
-
-    wxString msg;
-    msg.Printf(_T("Render texture  %d"), m_texture);
-    wxLogMessage(msg);
 
     // make texture data
     wxImage image = m_pbm->ConvertToImage();
@@ -312,7 +313,7 @@ void RolloverWin::SetBestPosition(int x, int y, int off_x, int off_y,
       break;
   }
 
-  int font_size = wxMax(8, dFont->GetPointSize());
+  int font_size = wxMax(8 * g_current_monitor_dip_px_ratio, dFont->GetPointSize());
   font_size /= OCPN_GetWinDIPScaleFactor();
 
   m_plabelFont = FontMgr::Get().FindOrCreateFont(

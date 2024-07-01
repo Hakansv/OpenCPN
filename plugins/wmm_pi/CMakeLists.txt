@@ -78,15 +78,20 @@ set(SRC_JSON
 
 add_library(${PACKAGE_NAME} SHARED ${SRC_WMM} ${SRC_JSON})
 
+target_link_libraries(${PACKAGE_NAME} PUBLIC ocpn::opencpn)
+
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang|AppleClang")
   target_compile_options(
     ${PACKAGE_NAME} PRIVATE -Wno-unknown-pragmas -Wno-overloaded-virtual
   )
+elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+  target_compile_options( ${PACKAGE_NAME} PRIVATE -Wno-unknown-pragmas)
 endif ()
 
 if (NOT QT_ANDROID)
   target_link_libraries(
-    ${PACKAGE_NAME} PRIVATE ${wxWidgets_LIBRARIES} ocpn::wxjson ocpn::opencpn
+    ${PACKAGE_NAME}
+      PRIVATE ${wxWidgets_LIBRARIES} ocpn::wxjson  ocpn::gl-headers
   )
 else (NOT QT_ANDROID)
   target_link_libraries(
@@ -100,7 +105,6 @@ else (NOT QT_ANDROID)
             ${Qt_Base}/${Qt_Build}/lib/libQt5AndroidExtras.so
             ${CMAKE_CURRENT_BINARY_DIR}/../../libgorp.so
   )
-
   set(CMAKE_SHARED_LINKER_FLAGS "-Wl,-soname,lib${PACKAGE_NAME}.so ")
   set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,-s")
 endif (NOT QT_ANDROID)

@@ -43,13 +43,16 @@
 #include <time.h>
 
 #include "pi_gl.h"
-
 #include "grib_pi.h"
 #include "GribTable.h"
 #include "email.h"
 #include "folder.xpm"
 #include "GribUIDialog.h"
 #include <wx/arrimpl.cpp>
+
+#ifdef __ANDROID__
+#include "android_jvm.h"
+#endif
 
 // general variables
 double m_cursor_lat, m_cursor_lon;
@@ -166,7 +169,8 @@ GRIBUICtrlBar::GRIBUICtrlBar(wxWindow *parent, wxWindowID id,
     : GRIBUICtrlBarBase(parent, id, title, pos, size, style) {
   pParent = parent;
   pPlugIn = ppi;
-  m_vp = 0;
+  // Preinitialize the vierwport with an existing value, see https://github.com/OpenCPN/OpenCPN/pull/4002/files
+  m_vp = new PlugIn_ViewPort(pPlugIn->GetCurrentViewPort());
   pReq_Dialog = NULL;
   m_bGRIBActiveFile = NULL;
   m_pTimelineSet = NULL;
@@ -230,6 +234,25 @@ GRIBUICtrlBar::GRIBUICtrlBar(wxWindow *parent, wxWindowID id,
 
     pConf->SetPath(_T( "/PlugIns/GRIB" ));
     pConf->Read(_T( "ManualRequestZoneSizing" ), &m_SavedZoneSelMode, 0);
+
+    // Read XyGrib related configuration
+    pConf->SetPath(_T ( "/Settings/GRIB/XyGrib" ));
+    pConf->Read(_T( "AtmModelIndex" ), &xyGribConfig.atmModelIndex , 0);
+    pConf->Read(_T( "WaveModelIndex" ), &xyGribConfig.waveModelIndex , 0);
+    pConf->Read(_T( "ResolutionIndex" ), &xyGribConfig.resolutionIndex , 0);
+    pConf->Read(_T( "DurationIndex" ), &xyGribConfig.durationIndex , 0);
+    pConf->Read(_T( "RunIndex" ), &xyGribConfig.runIndex , 0);
+    pConf->Read(_T( "IntervalIndex" ), &xyGribConfig.intervalIndex , 0);
+    pConf->Read(_T( "Wind" ), &xyGribConfig.wind , true);
+    pConf->Read(_T( "Gust" ), &xyGribConfig.gust , true);
+    pConf->Read(_T( "Pressure" ), &xyGribConfig.pressure , false);
+    pConf->Read(_T( "Temperature" ), &xyGribConfig.temperature , true);
+    pConf->Read(_T( "Cape" ), &xyGribConfig.cape , false);
+    pConf->Read(_T( "Reflectivity" ), &xyGribConfig.reflectivity , false);
+    pConf->Read(_T( "CloudCover" ), &xyGribConfig.cloudCover , true);
+    pConf->Read(_T( "Precipitation" ), &xyGribConfig.precipitation , true);
+    pConf->Read(_T( "WaveHeight" ), &xyGribConfig.waveHeight , true);
+    pConf->Read(_T( "WindWaves" ), &xyGribConfig.windWaves , true);
   }
   // init zone selection parameters
   m_ZoneSelMode = m_SavedZoneSelMode;
@@ -247,6 +270,12 @@ GRIBUICtrlBar::GRIBUICtrlBar(wxWindow *parent, wxWindowID id,
 
   Fit();
   SetMinSize(GetBestSize());
+  m_ProjectBoatPanel->SetSpeed(pPlugIn->m_boat_sog);
+  m_ProjectBoatPanel->SetCourse(pPlugIn->m_boat_cog);
+  m_highlight_latmax = 0;
+  m_highlight_lonmax = 0;
+  m_highlight_latmin = 0;
+  m_highlight_lonmin = 0;
 }
 
 GRIBUICtrlBar::~GRIBUICtrlBar() {
@@ -296,6 +325,26 @@ GRIBUICtrlBar::~GRIBUICtrlBar() {
 
     pConf->SetPath(_T ( "/Directories" ));
     pConf->Write(_T ( "GRIBDirectory" ), m_grib_dir);
+
+    // Write current XyGrib panel configuration to configuration file
+    pConf->SetPath(_T ( "/Settings/GRIB/XyGrib" ));
+    pConf->Write(_T( "AtmModelIndex" ), xyGribConfig.atmModelIndex);
+    pConf->Write(_T( "WaveModelIndex" ), xyGribConfig.waveModelIndex);
+    pConf->Write(_T( "ResolutionIndex" ), xyGribConfig.resolutionIndex);
+    pConf->Write(_T( "DurationIndex" ), xyGribConfig.durationIndex);
+    pConf->Write(_T( "RunIndex" ), xyGribConfig.runIndex);
+    pConf->Write(_T( "IntervalIndex" ), xyGribConfig.intervalIndex);
+    pConf->Write(_T( "Wind" ), xyGribConfig.wind);
+    pConf->Write(_T( "Gust" ), xyGribConfig.gust);
+    pConf->Write(_T( "Pressure" ), xyGribConfig.pressure);
+    pConf->Write(_T( "Temperature" ), xyGribConfig.temperature);
+    pConf->Write(_T( "Cape" ), xyGribConfig.cape);
+    pConf->Write(_T( "Reflectivity" ), xyGribConfig.reflectivity);
+    pConf->Write(_T( "CloudCover" ), xyGribConfig.cloudCover);
+    pConf->Write(_T( "Precipitation" ), xyGribConfig.precipitation);
+    pConf->Write(_T( "WaveHeight" ), xyGribConfig.waveHeight);
+    pConf->Write(_T( "WindWaves" ), xyGribConfig.windWaves);
+
   }
   delete m_vp;
   delete m_pTimelineSet;
@@ -426,7 +475,6 @@ void GRIBUICtrlBar::OpenFile(bool newestFile) {
 
   ArrayOfGribRecordSets *rsa = m_bGRIBActiveFile->GetRecordSetArrayPtr();
   wxString title;
-
   if (m_bGRIBActiveFile->IsOK()) {
     wxFileName fn(m_bGRIBActiveFile->GetFileNames()[0]);
     title = (_("File: "));
@@ -1036,7 +1084,7 @@ void GRIBUICtrlBar::SetViewPort(PlugIn_ViewPort *vp) {
   m_vp = new PlugIn_ViewPort(*vp);
 
   if (pReq_Dialog)
-    if (pReq_Dialog->IsShown()) pReq_Dialog->OnVpChange(vp);
+    pReq_Dialog->OnVpChange(vp);
 }
 
 void GRIBUICtrlBar::OnClose(wxCloseEvent &event) {
@@ -1511,6 +1559,24 @@ GribTimelineRecordSet *GRIBUICtrlBar::GetTimeLineRecordSet(wxDateTime time) {
   set->m_Reference_Time = time.GetTicks();
   //(1-interp_const)*GRS1.m_Reference_Time + interp_const*GRS2.m_Reference_Time;
   return set;
+}
+
+void GRIBUICtrlBar::GetProjectedLatLon(int &x, int &y)
+{
+  wxPoint p(0,0);
+  auto now = TimelineTime();
+  auto sog = m_ProjectBoatPanel->GetSpeed();
+  auto cog = m_ProjectBoatPanel->GetCourse();
+  double dist = static_cast<double>(now.GetTicks() - pPlugIn->m_boat_time) * sog / 3600.0;
+  PositionBearingDistanceMercator_Plugin(pPlugIn->m_boat_lat, pPlugIn->m_boat_lon,
+                                         cog,
+                                         dist, &m_projected_lat,
+                                         &m_projected_lon);
+  if(m_vp) {
+    GetCanvasPixLL(m_vp, &p, m_projected_lat, m_projected_lon);
+  }
+  x = p.x;
+  y = p.y;
 }
 
 double GRIBUICtrlBar::getTimeInterpolatedValue(int idx, double lon, double lat,
@@ -2357,30 +2423,13 @@ void GRIBUICData::OnMove(wxMoveEvent &event) {
 
 #include <QtAndroidExtras/QAndroidJniObject>
 
-extern JavaVM *java_vm;  // found in androidUtil.cpp, accidentally exported....
-JNIEnv *jenv;
-
-#if 0  // need this for the solib?
-jint JNI_OnLoad(JavaVM *vm, void *reserved)
-{
-    //qDebug() << "JNI_OnLoad";
-    java_vm = vm;
-
-    // Get JNI Env for all function calls
-    if (vm->GetEnv( (void **) &jenv, JNI_VERSION_1_6) != JNI_OK) {
-        //qDebug() << "GetEnv failed.";
-        return -1;
-    }
-
-}
-#endif
-
 bool CheckPendingJNIException() {
   if (!java_vm) {
     // qDebug() << "java_vm is NULL.";
     return true;
   }
 
+  JNIEnv *jenv;
   if (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK) {
     // qDebug() << "GetEnv failed.";
     return true;
@@ -2395,6 +2444,11 @@ bool CheckPendingJNIException() {
 }
 
 wxString callActivityMethod_ss(const char *method, wxString parm) {
+  if (!java_vm) {
+    // qDebug() << "java_vm is NULL.";
+    return _T("NOK");
+  }
+
   if (CheckPendingJNIException()) return _T("NOK");
 
   wxString return_string;
@@ -2409,9 +2463,10 @@ wxString callActivityMethod_ss(const char *method, wxString parm) {
   }
 
   //  Need a Java environment to decode the resulting string
-  if (java_vm && (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK)) {
+  JNIEnv *jenv;
+  if (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK) {
     // qDebug() << "GetEnv failed.";
-    return _T("jenv Error");
+    return "jenv Error";
   }
 
   jstring p = (jenv)->NewStringUTF(parm.c_str());

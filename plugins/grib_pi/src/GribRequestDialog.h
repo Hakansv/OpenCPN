@@ -34,8 +34,15 @@
 #include "GribUIDialogBase.h"
 #include "GribUIDialog.h"
 #include "pi_ocpndc.h"
+#include "wx/jsonreader.h"
 
-#include "ocpn_plugin.h"
+enum GribDownloadType { WORLD, LOCAL, LOCAL_CATALOG, XYGRIB, NONE };
+
+const std::string CATALOG_URL =
+    "https://raw.githubusercontent.com/chartcatalogs/gribcatalog/main/"
+    "sources.json";
+
+#define XYGRIB_MAX_DOWNLOADABLE_GRIB_SIZE_MB 10
 
 //----------------------------------------------------------------------------------------------------------
 //    Request setting Specification
@@ -46,7 +53,7 @@ public:
 
   ~GribRequestSetting();
 
-  void OnClose(wxCloseEvent &event);
+  void OnClose(wxCloseEvent &event) override;
   void SetVpSize(PlugIn_ViewPort *vp);
   void OnVpChange(PlugIn_ViewPort *vp);
   bool MouseEventHook(wxMouseEvent &event);
@@ -70,6 +77,10 @@ public:
   double m_Lon;
 
 private:
+  void HighlightArea(double latmax, double lonmax, double latmin,
+                     double lonmin);
+  void ReadLocalCatalog();
+  void FillTreeCtrl(wxJSONValue &data);
   void ApplyRequestConfig(unsigned rs, unsigned it, unsigned tr);
   wxString WriteMail();
   int EstimateFileSize(double *size);
@@ -79,29 +90,63 @@ private:
     wxCloseEvent evt;
     OnClose(evt);
   }
-  void OnTopChange(wxCommandEvent &event);
-  void OnMovingClick(wxCommandEvent &event);
-  void OnAnyChange(wxCommandEvent &event);
-  void OnAnySpinChange(wxSpinEvent &event) {
+  void OnTopChange(wxCommandEvent &event) override;
+  void OnMovingClick(wxCommandEvent &event) override;
+  void OnAnyChange(wxCommandEvent &event) override;
+  void OnAnySpinChange(wxSpinEvent &event) override {
     wxCommandEvent evt;
     OnAnyChange(evt);
   }
-  void OnTimeRangeChange(wxCommandEvent &event);
-  void OnSendMaiL(wxCommandEvent &event);
-  void OnSaveMail(wxCommandEvent &event);
-  void OnZoneSelectionModeChange(wxCommandEvent &event);
-  void OnCancel(wxCommandEvent &event) {
+  void OnNotebookPageChanged(wxNotebookEvent &event) override {
+    HighlightArea(0, 0, 0, 0);
+  }
+  void OnTimeRangeChange(wxCommandEvent &event) override;
+  void OnSendMaiL(wxCommandEvent &event) override;
+  void OnSaveMail(wxCommandEvent &event) override;
+  void OnZoneSelectionModeChange(wxCommandEvent &event) override;
+  void OnCancel(wxCommandEvent &event) override {
     wxCloseEvent evt;
     OnClose(evt);
   }
-  void OnCoordinatesChange(wxSpinEvent &event);
+  void OnCoordinatesChange(wxSpinEvent &event) override;
   void OnMouseEventTimer(wxTimerEvent &event);
   void SetCoordinatesText();
+  void OnWorldLengthChoice(wxCommandEvent &event) override { event.Skip(); }
+  void OnWorldResolutionChoice(wxCommandEvent &event) override { event.Skip(); }
+  void OnWorldDownload(wxCommandEvent &event) override;
+  void OnLocalTreeItemExpanded(wxTreeEvent &event) override { event.Skip(); }
+  void OnLocalTreeSelChanged(wxTreeEvent &event) override;
+  void OnUpdateLocalCatalog(wxCommandEvent &event) override;
+  void OnDownloadLocal(wxCommandEvent &event) override;
+  void onDLEvent(OCPN_downloadEvent &ev);
+  void EnableDownloadButtons();
+
+  // Xygrib internal methods
+  void InitializeXygribDialog();
+  wxString BuildXyGribUrl();
+  wxString BuildGribFileName();
+  // XyGrib GUI callbacks
+  void OnXyGribDownloadButton(wxCommandEvent &event) override;
+  void OnXyGribAtmModelChoice(wxCommandEvent &event) override;
+  void OnXyGribWaveModelChoice(wxCommandEvent &event) override;
+  void OnXyGribConfigChange(wxCommandEvent &event) override;
+  // Manage XyGrib UI Configuration
+  void ApplyXyGribConfiguration();
+  void MemorizeXyGribConfiguration();
+  // Calculate estimated size of GRIB file
+  void UpdateGribSizeEstimate();
+
+  // Index of currently selected XyGrib atmospheric model
+  int m_selectedAtmModelIndex;
+  // Index of currently selected XyGrib wave model
+  int m_selectedWaveModelIndex;
+  // Last size estimation of the GRIB file
+  int m_gribSizeEstimate;
 
   GRIBUICtrlBar &m_parent;
 
   wxDC *m_pdc;
-  pi_ocpnDC *m_oDC;   // Used for selection overlay on GL
+  pi_ocpnDC *m_oDC;  // Used for selection overlay on GL
 
   wxTimer m_tMouseEventTimer;
   wxTimer m_tMouseClickTimer;
@@ -114,6 +159,13 @@ private:
   bool m_AllowSend;
   bool m_IsMaxLong;
   double m_displayScale;
+  bool m_connected;
+  bool m_downloading;
+  long m_download_handle;
+  bool m_bTransferSuccess;
+  bool m_canceled;
+  bool m_bLocal_source_selected;
+  GribDownloadType m_downloadType;
 };
 
 #endif

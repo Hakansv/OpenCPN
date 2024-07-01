@@ -47,7 +47,7 @@ int g_LayerIdx;
 wxRect g_blink_rect;
 
 std::function<void(unsigned, const unsigned*)> RoutePoint::delete_gl_textures
-    = [](unsigned, const unsigned*) { assert(false); };
+    = [](unsigned, const unsigned*) { assert(true); };
 
 RoutePoint::RoutePoint() {
   m_pbmIcon = NULL;
@@ -237,12 +237,8 @@ RoutePoint::RoutePoint(double lat, double lon, const wxString &icon_ident,
 
   if (bAddToList && NULL != pWayPointMan) pWayPointMan->AddRoutePoint(this);
 
-  // m_bIsInLayer = g_bIsNewLayer;
-  if (m_bIsInLayer) {
-    m_LayerID = g_LayerIdx;
-    m_bIsListed = false;
-  } else
-    m_LayerID = 0;
+  m_bIsInLayer = false;
+  m_LayerID = 0;
 
   SetWaypointArrivalRadius(g_n_arrival_circle_radius);
 

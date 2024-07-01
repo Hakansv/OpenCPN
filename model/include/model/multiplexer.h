@@ -33,7 +33,7 @@
 #include <wx/wx.h>
 #endif  // precompiled headers
 
-#include "comm_navmsg.h"
+#include "model/comm_navmsg.h"
 
 class Multiplexer;  // forward
 
@@ -62,6 +62,7 @@ public:
   void LogInputMessage(const wxString &msg, const wxString &stream_name,
                        bool b_filter, bool b_error = false);
 
+  bool IsLogActive() { return m_log_callbacks.log_is_active();}
 private:
   //  comm event listeners
   ObservableListener listener_N2K_All;

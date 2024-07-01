@@ -400,7 +400,11 @@ void RouteGui::DrawGLRouteLines(ViewPort &vp, ChartCanvas *canvas, ocpnDC &dc) {
 
   wxPenStyle style = wxPENSTYLE_SOLID;
   if (m_route.m_style != wxPENSTYLE_INVALID) style = m_route.m_style;
-  dc.SetPen(*wxThePenList->FindOrCreatePen(col, width, style));
+  wxPen p = *wxThePenList->FindOrCreatePen(col, width, style);
+  if(glChartCanvas::dash_map.find(style) != glChartCanvas::dash_map.end()) {
+    p.SetDashes(2, &glChartCanvas::dash_map[style][0]);
+  }
+  dc.SetPen(p);
   dc.SetBrush(*wxTheBrushList->FindOrCreateBrush(col, wxBRUSHSTYLE_SOLID));
 
   glLineWidth(wxMax(g_GLMinSymbolLineWidth, width));
@@ -483,16 +487,20 @@ void RouteGui::DrawGLLines(ViewPort &vp, ocpnDC *dc, ChartCanvas *canvas) {
         continue;
       }
 
-      bool lon1l, lon1r, lon2l, lon2r;
-      TestLongitude(prp1->m_lon, bbox.GetMinLon(), bbox.GetMaxLon(), lon1l,
-                    lon1r);
-      TestLongitude(prp2->m_lon, bbox.GetMinLon(), bbox.GetMaxLon(), lon2l,
-                    lon2r);
-      if ((lon1l && lon2l) || (lon1r && lon2r)) {
-        r1valid = false;
-        prp1->m_pos_on_screen = false;
-        continue;
+      // Possible optimization, not usable if vp crosses IDL (180 E)
+      if (!vp.ContainsIDL()) {
+        bool lon1l, lon1r, lon2l, lon2r;
+        TestLongitude(prp1->m_lon, bbox.GetMinLon(), bbox.GetMaxLon(), lon1l,
+                      lon1r);
+        TestLongitude(prp2->m_lon, bbox.GetMinLon(), bbox.GetMaxLon(), lon2l,
+                      lon2r);
+        if ((lon1l && lon2l) || (lon1r && lon2r)) {
+          r1valid = false;
+          prp1->m_pos_on_screen = false;
+          continue;
+        }
       }
+
 
       if (!r1valid) {
         canvas->GetDoubleCanvasPointPix(prp1->m_lat, prp1->m_lon, &r1);
@@ -596,8 +604,8 @@ int RouteGui::SendToGPS(const wxString& com_name, bool bsend_waypoints,
       msg = _("Error on Route Upload.  Garmin GPS not connected");
     else
       msg = _("Error on Route Upload.  Please check logfiles...");
-
-    OCPNMessageBox(NULL, msg, _("OpenCPN Info"), wxOK | wxICON_INFORMATION);
   }
+  OCPNMessageBox(NULL, msg, _("OpenCPN Info"), wxOK | wxICON_INFORMATION);
+
   return (result == 0);
 }

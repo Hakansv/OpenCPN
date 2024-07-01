@@ -1,11 +1,5 @@
-/***************************************************************************
- *
- * Project:  OpenCPN
- * Purpose:  navmsg -- Raw, undecoded messages definitions.
- * Author:   David Register, Alec Leamas
- *
- ***************************************************************************
- *   Copyright (C) 2022 by David Register, Alec Leamas                     *
+ /**************************************************************************
+ *   Copyright (C) 2022 - 2024 by David Register, Alec Leamas              *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -23,6 +17,8 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
  **************************************************************************/
 
+/** \file navmsg.h  Raw, undecoded messages definitions. */
+
 #ifndef _DRIVER_NAVMSG_H
 #define _DRIVER_NAVMSG_H
 
@@ -31,7 +27,9 @@
 #include <vector>
 #include <string>
 
-#ifndef _MSC_VER
+#ifdef _MSC_VER
+#include <winsock2.h>
+#else
 #include <netinet/in.h>
 #endif
 
@@ -53,9 +51,9 @@ struct N2kPGN {
  * N2k uses CAN which defines the basic properties of messages.
  * The NAME is an unique identifier for a node. CAN standardizes
  * an address claim protocol. The net effect is that upper layers
- * sees a stable NAME even if the address chnages.
+ * sees a stable NAME even if the address changes.
  *
- * The structure of the NAME is defined in the J/1939 standard, see
+ * The structure of NAME is defined in the J/1939 standard, see
  * https://www.kvaser.com/about-can/higher-layer-protocols/j1939-introduction/
  */
 struct N2kName {
@@ -134,7 +132,7 @@ struct N2kName {
 /** Where messages are sent to or received from. */
 class NavAddr {
 public:
-  enum class Bus { N0183, Signalk, N2000, Onenet, TestBus, Undef };
+  enum class Bus { N0183, Signalk, N2000, Onenet, Plugin, TestBus, Undef };
 
   NavAddr(Bus b, const std::string& i) : bus(b), iface(i){};
   NavAddr() : bus(Bus::Undef), iface(""){};
@@ -171,10 +169,19 @@ public:
   unsigned char address;
 };
 
-/** There is only support for a single signalK bus. */
+class NavAddrPlugin : public NavAddr {
+public:
+  const std::string id;
+  NavAddrPlugin(const std::string& _id)
+      : NavAddr(NavAddr::Bus::Plugin, "Plugin"), id(_id) {}
+};
+
+
 class NavAddrSignalK : public NavAddr {
 public:
-  NavAddrSignalK() : NavAddr(NavAddr::Bus::Signalk, "signalK"){};
+  NavAddrSignalK(std::string iface) : NavAddr(NavAddr::Bus::Signalk, iface){};
+
+  std::string to_string() const { return NavAddr::to_string(); }
 };
 
 class NavAddrTest : public NavAddr {
@@ -281,6 +288,33 @@ public:
   const std::string payload; /**< Complete NMEA0183 sentence, also prefix */
 };
 
+/** A plugin to plugin json message over the REST interface */
+class PluginMsg : public NavMsg {
+public:
+  PluginMsg()
+      : NavMsg(NavAddr::Bus::Undef, std::make_shared<const NavAddr>()) {}
+
+  PluginMsg(const std::string& _name, const std::string& _dest_host,
+            const std::string& msg)
+      : NavMsg(NavAddr::Bus::Plugin,
+               std::make_shared<const NavAddr>(NavAddr::Bus::Plugin, "")),
+        name(_name),
+        message(msg),
+        dest_host(_dest_host) {}
+
+  PluginMsg(const std::string& _name, const std::string& msg)
+      : PluginMsg(_name, "localhost", msg) {}
+
+  virtual ~PluginMsg() = default;
+
+  const std::string name;
+  const std::string message;
+  const std::string dest_host;   ///< hostname, ip address or 'localhost'
+
+  std::string key() const { return std::string("plug.json-") + name; };
+};
+
+
 /** A parsed SignalK message over ipv4 */
 class SignalkMsg : public NavMsg {
 public:
@@ -288,9 +322,9 @@ public:
       : NavMsg(NavAddr::Bus::Undef, std::make_shared<const NavAddr>()) {}
 
   SignalkMsg(std::string _context_self, std::string _context,
-             std::string _raw_message)
+             std::string _raw_message, std::string _iface)
       : NavMsg(NavAddr::Bus::Signalk,
-               std::make_shared<const NavAddr>(NavAddr::Bus::Signalk, "")),
+               std::make_shared<const NavAddr>(NavAddr::Bus::Signalk, _iface)),
         context_self(_context_self),
         context(_context),
         raw_message(_raw_message){};

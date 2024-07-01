@@ -57,7 +57,7 @@
 #include "gdal/cpl_csv.h"
 #include "setjmp.h"
 
-#include "model/ogr_s57.h"
+#include "ogr_s57.h"
 
 #include "pluginmanager.h"  // for S57 lights overlay
 
@@ -86,7 +86,9 @@
 #include <map>
 
 #include "ssl/sha1.h"
-#include "shaders.h"
+#ifdef ocpnUSE_GL
+    #include "shaders.h"
+#endif
 #include "chart_ctx_factory.h"
 
 #ifdef __MSVC__
@@ -493,7 +495,6 @@ void s57chart::FreeObjectsAndRules() {
             delete ctop->obj;
 
             if (ps52plib) ps52plib->DestroyLUP(ctop->LUP);
-            delete ctop->LUP;
 
             ObjRazRules *cnxx = ctop->next;
             delete ctop;
@@ -2985,6 +2986,7 @@ void s57chart::PopulateObjectsWithContext(){
   m_this_chart_context->pFloatingATONArray = pFloatingATONArray;
   m_this_chart_context->pRigidATONArray = pRigidATONArray;
   m_this_chart_context->safety_contour = m_next_safe_cnt;
+  m_this_chart_context->pt2GetAssociatedObjects = &s57chart::GetAssociatedObjects;
 
 
   //  Loop and populate all the objects
@@ -4743,6 +4745,8 @@ ListOfObjRazRules *s57chart::GetObjRuleListAtLatLon(float lat, float lon,
   ListOfObjRazRules *ret_ptr = new ListOfObjRazRules;
   std::vector<ObjRazRules *> selected_rules;
 
+  PrepareForRender(VPoint, ps52plib);
+
   //    Iterate thru the razRules array, by object/rule type
 
   ObjRazRules *top;
@@ -5677,12 +5681,12 @@ wxString s57chart::CreateObjDescriptions(ListOfObjRazRules *rule_list) {
 
       LUPstring = _T("    LUP ATTC: ");
       if (current->LUP->ATTArray.size())
-        LUPstring += wxString(current->LUP->ATTArray[0], wxConvUTF8);
+        LUPstring += wxString(current->LUP->ATTArray[0].c_str(), wxConvUTF8);
       LUPstring += _T("<br>");
       classAttributes << LUPstring;
 
       LUPstring = _T("    LUP INST: ");
-      if (current->LUP->INST) LUPstring += *(current->LUP->INST);
+      LUPstring += current->LUP->INST;
       LUPstring += _T("<br><br>");
       classAttributes << LUPstring;
     }
@@ -6414,6 +6418,7 @@ void s57_DrawExtendedLightSectors(ocpnDC &dc, ViewPort &viewport,
   }
 }
 
+#ifdef ocpnUSE_GL
 void s57_DrawExtendedLightSectorsGL(ocpnDC &dc, ViewPort &viewport,
                                   std::vector<s57Sector_t> &sectorlegs) {
   float rangeScale = 0.0;
@@ -6649,6 +6654,7 @@ void s57_DrawExtendedLightSectorsGL(ocpnDC &dc, ViewPort &viewport,
     }
   }
 }
+#endif
 
 bool s57_ProcessExtendedLightSectors(ChartCanvas *cc,
                                      ChartPlugInWrapper *target_plugin_chart,

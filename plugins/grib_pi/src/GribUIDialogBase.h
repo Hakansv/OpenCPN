@@ -37,8 +37,11 @@
 #include <wx/notebook.h>
 #include <wx/radiobox.h>
 #include <wx/statline.h>
-//#include <wx/grid.h>
+#include <wx/notebook.h>
+#include <wx/treectrl.h>
+#include <wx/html/htmlwin.h>
 #include "CustomGrid.h"
+#include "XyGribPanel.h"
 
 ///////////////////////////////////////////////////////////////////////////
 
@@ -103,6 +106,35 @@
 #define SAVEDZONE 1054
 
 ///////////////////////////////////////////////////////////////////////////////
+/// Class ProjectBoatPanel
+///////////////////////////////////////////////////////////////////////////////
+class ProjectBoatPanel : public wxPanel
+{
+	private:
+
+	protected:
+		wxCheckBox* m_cbProjectPosition;
+		wxStaticText* m_stCourse;
+		wxTextCtrl* m_tCourse;
+		wxStaticText* m_stSpeed;
+		wxTextCtrl* m_tSpeed;
+		wxStaticText* m_stSpeedUnit;
+
+	public:
+
+		ProjectBoatPanel( wxWindow* parent, wxWindowID id = wxID_ANY, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxSize( 580,40 ), long style = wxTAB_TRAVERSAL, const wxString& name = wxEmptyString );
+
+		~ProjectBoatPanel();
+
+    double GetCourse();
+    double GetSpeed();
+    bool ProjectionEnabled();
+    void SetCourse(const double course) { m_tCourse->SetValue(!wxIsNaN(course) ? wxString::FromDouble(course) : "0.0"); };
+    void SetSpeed(const double speed) { m_tSpeed->SetValue(!wxIsNaN(speed) ? wxString::FromDouble(speed) : "6.0"); };
+    void EnableProjection(bool enabled) { m_cbProjectPosition->SetValue(enabled); };
+};
+
+///////////////////////////////////////////////////////////////////////////////
 /// Class GRIBUICtrlBarBase
 ///////////////////////////////////////////////////////////////////////////////
 class GRIBUICtrlBarBase : public wxDialog {
@@ -121,6 +153,7 @@ protected:
   wxBitmapButton* m_bpRequest;
   wxFlexGridSizer* m_fgCDataSizer;
   wxFlexGridSizer* m_fgCtrlGrabberSize;
+  ProjectBoatPanel* m_ProjectBoatPanel;
 
   // Virtual event handlers, overide them in your derived class
   virtual void OnClose(wxCloseEvent& event) { event.Skip(); }
@@ -360,6 +393,22 @@ public:
 class GribRequestSettingBase : public wxDialog {
 private:
 protected:
+  wxNotebook* m_notebookGetGrib;
+  wxPanel* m_panelWorld;
+  wxHtmlWindow* m_htmlWinWorld;
+  wxStaticText* m_staticTextInfo;
+  wxStaticText* m_stForecastLength;
+  wxChoice* m_chForecastLength;
+  wxStaticText* m_stECMWFResolution;
+	wxChoice* m_chECMWFResolution;
+  wxButton* m_btnDownloadWorld;
+  wxPanel* m_panelLocalModels;
+  wxTreeCtrl* m_SourcesTreeCtrl1;
+  wxStaticText* m_stLocalDownloadInfo;
+  wxHtmlWindow* m_htmlInfoWin;
+  wxButton* m_buttonUpdateCatalog;
+  wxButton* m_btnDownloadLocal;
+  wxPanel* m_panelEmail;
   wxFlexGridSizer* m_fgScrollSizer;
   wxFlexGridSizer* m_pSenderSizer;
   wxTextCtrl* m_pSenderAddress;
@@ -416,9 +465,18 @@ protected:
   wxButton* m_rButtonYes;
   wxButton* m_rButtonApply;
   wxButton* m_rButtonCancel;
+  XyGribPanel* m_xygribPanel;
 
   // Virtual event handlers, overide them in your derived class
   virtual void OnClose(wxCloseEvent& event) { event.Skip(); }
+  virtual void OnNotebookPageChanged( wxNotebookEvent& event ) { event.Skip(); }
+  virtual void OnWorldLengthChoice(wxCommandEvent& event) { event.Skip(); }
+  virtual void OnWorldResolutionChoice( wxCommandEvent& event ) { event.Skip(); }
+  virtual void OnWorldDownload(wxCommandEvent& event) { event.Skip(); }
+  virtual void OnLocalTreeItemExpanded(wxTreeEvent& event) { event.Skip(); }
+  virtual void OnLocalTreeSelChanged(wxTreeEvent& event) { event.Skip(); }
+  virtual void OnUpdateLocalCatalog(wxCommandEvent& event) { event.Skip(); }
+  virtual void OnDownloadLocal(wxCommandEvent& event) { event.Skip(); }
   virtual void OnTopChange(wxCommandEvent& event) { event.Skip(); }
   virtual void OnMovingClick(wxCommandEvent& event) { event.Skip(); }
   virtual void OnAnySpinChange(wxSpinEvent& event) { event.Skip(); }
@@ -431,13 +489,17 @@ protected:
   virtual void OnSaveMail(wxCommandEvent& event) { event.Skip(); }
   virtual void OnCancel(wxCommandEvent& event) { event.Skip(); }
   virtual void OnSendMaiL(wxCommandEvent& event) { event.Skip(); }
-
+  virtual void OnXyGribDownloadButton(wxCommandEvent& event) { event.Skip(); }
+  virtual void OnXyGribAtmModelChoice(wxCommandEvent& event) { event.Skip(); }
+  virtual void OnXyGribWaveModelChoice(wxCommandEvent& event) { event.Skip(); }
+  virtual void OnXyGribConfigChange(wxCommandEvent& event) { event.Skip(); }
+  
 public:
   wxScrolledWindow* m_sScrolledDialog;
 
   GribRequestSettingBase(
       wxWindow* parent, wxWindowID id = wxID_ANY,
-      const wxString& title = _("Write and send eMail request"),
+      const wxString& title = _("Get forecast..."),
       const wxPoint& pos = wxDefaultPosition,
       const wxSize& size = wxSize(-1, -1), long style = wxDEFAULT_DIALOG_STYLE);
   ~GribRequestSettingBase();

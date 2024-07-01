@@ -27,6 +27,7 @@
 #ifndef _CHARTSYMBOLS_H_
 #define _CHARTSYMBOLS_H_
 
+#ifdef ocpnUSE_GL
 #ifdef __OCPN_USE_GLEW__
  #ifndef __OCPN__ANDROID__
   #if defined(_WIN32)
@@ -36,7 +37,7 @@
   #endif
  #endif
 #endif
-
+#endif
 
 #if defined(__OCPN__ANDROID__)
  //#include <GLES2/gl2.h>
@@ -77,7 +78,7 @@ public:
   DisPrio displayPrio;                     // Display Priority
   RadPrio radarPrio;                       // 'O' or 'S', Radar Priority
   LUPname tableName;                       // FTYP:  areas, points, lines
-  std::vector<char *> attributeCodeArray;  // ArrayString of LUP Attributes
+  std::vector<std::string> attributeCodeArray;  // ArrayString of LUP Attributes
   wxString instruction;                    // Instruction Field (rules)
   DisCat displayCat;  // Display Categorie: D/S/O, DisplayBase, Standard, Other
   int comment;        // Look-Up Comment (PLib3.x put 'groupes' here,

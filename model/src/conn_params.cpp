@@ -42,9 +42,7 @@
 
 #include "model/conn_params.h"
 
-#include "ocpn_frame.h"
 #include "ocpn_plugin.h"
-#include "options.h"
 
 #if !wxUSE_XLOCALE && wxCHECK_VERSION(3, 0, 0)
 #define wxAtoi(arg) atoi(arg)
@@ -111,6 +109,9 @@ void ConnectionParams::Deserialize(const wxString &configStr) {
   if (prms.Count() >= 23) {
     DisableEcho = wxAtoi(prms[22]);
   }
+  if (prms.Count() >= 24) {
+    AuthToken = prms[22];
+  }
 }
 
 wxString ConnectionParams::Serialize() const {
@@ -125,12 +126,12 @@ wxString ConnectionParams::Serialize() const {
     ostcs.Append(OutputSentenceList[i]);
   }
   wxString ret = wxString::Format(
-      _T("%d;%d;%s;%d;%d;%s;%d;%d;%d;%d;%s;%d;%s;%d;%d;%d;%d;%d;%s;%d;%s;%d;%d"), Type,
+      _T("%d;%d;%s;%d;%d;%s;%d;%d;%d;%d;%s;%d;%s;%d;%d;%d;%d;%d;%s;%d;%s;%d;%d;%s"), Type,
       NetProtocol, NetworkAddress.c_str(), NetworkPort, Protocol, Port.c_str(),
       Baudrate, ChecksumCheck, IOSelect, InputSentenceListType, istcs.c_str(),
       OutputSentenceListType, ostcs.c_str(), Priority, Garmin, GarminUpload,
       FurunoGP3X, bEnabled, UserComment.c_str(), AutoSKDiscover, socketCAN_port.c_str(),
-      NoDataReconnect, DisableEcho);
+      NoDataReconnect, DisableEcho, AuthToken.c_str());
 
   return ret;
 }
@@ -157,6 +158,7 @@ ConnectionParams::ConnectionParams() {
   AutoSKDiscover = false;
   NoDataReconnect = false;
   DisableEcho = false;
+  AuthToken = wxEmptyString;
 }
 
 ConnectionParams::~ConnectionParams() {
@@ -384,10 +386,6 @@ NavAddr::Bus ConnectionParams::GetCommProtocol(){
   if (Type == NETWORK){
     if (NetProtocol == SIGNALK)
       return NavAddr::Bus::Signalk;
-    else if (NetProtocol == UDP)
-      return NavAddr::Bus::N0183;
-    else if (NetProtocol == TCP)
-      return NavAddr::Bus::N0183;
     else if (NetProtocol == GPSD)
       return NavAddr::Bus::N0183;
   }
@@ -406,10 +404,6 @@ NavAddr::Bus ConnectionParams::GetLastCommProtocol(){
    if (Type == NETWORK){
     if (LastNetProtocol == SIGNALK)
       return NavAddr::Bus::Signalk;
-    else if (LastNetProtocol == UDP)
-      return NavAddr::Bus::N0183;
-    else if (LastNetProtocol == TCP)
-      return NavAddr::Bus::N0183;
     else if (LastNetProtocol == GPSD)
       return NavAddr::Bus::N0183;
   }

@@ -4,7 +4,7 @@ Priority: extra
 Maintainer: Pavel Kalian <pavel@kalian.cz>
 Build-Depends: debhelper (>= 9),
  cmake3 | cmake (>> 3.5.0),
- lsb-core,
+ base-files (>=12) | lsb-core,
  lsb-release,
  libarchive-dev,
  libbz2-dev,
@@ -32,6 +32,8 @@ Build-Depends: debhelper (>= 9),
  base-files (<< 12) | libwxgtk-webview3.2-dev,
  portaudio19-dev,
  rapidjson-dev,
+ libxrandr-dev,
+ libgtk-3-dev,
  base-files (<< 11) | libglew-dev,
  base-files (>=11) | libglew2.1-static,
  git

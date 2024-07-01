@@ -25,6 +25,7 @@
 #ifndef __QUIT_H__
 #define __QUIT_H__
 
+#include <vector>
 #include "LLRegion.h"
 #include "OCPNRegion.h"
 #include "chcanv.h"
@@ -56,7 +57,6 @@ public:
   QuiltCandidate() {
     b_include = false;
     b_eclipsed = false;
-    b_locked = false;
     last_factor = -1;
   }
 
@@ -71,7 +71,6 @@ public:
   int rounding;
   bool b_include;
   bool b_eclipsed;
-  bool b_locked;
 
 private:
   double last_factor;
@@ -110,6 +109,7 @@ public:
   bool HasOverlays(void) { return m_bquilt_has_overlays; }
 
   int GetExtendedStackCount(void) { return m_extended_stack_array.size(); }
+  int GetFullScreenIndexCount(void) { return m_fullscreen_index_array.size(); }
 
   int GetnCharts() { return m_PatchList.GetCount(); }
   double GetBestStartScale(int dbi_ref_hint, const ViewPort &vp_in);
@@ -149,6 +149,10 @@ public:
   int AdjustRefSelection(const ViewPort &vp_in);
 
   void SetHiliteIndex(int index) { m_nHiLiteIndex = index; }
+  void SetHiliteIndexArray(const std::vector<int> &index_array) {
+    m_HiLiteIndexArray = index_array; }
+  void ClearHiliteIndexArray() { m_HiLiteIndexArray.clear(); }
+
   void SetReferenceChart(int dbIndex) {
     m_refchart_dbIndex = dbIndex;
     if (dbIndex >= 0) {
@@ -173,11 +177,14 @@ public:
 
   std::vector<int> GetCandidatedbIndexArray(bool from_ref_chart,
                                             bool exclude_user_hidden);
-  std::vector<int> GetExtendedStackIndexArray() {
+  std::vector<int> &GetExtendedStackIndexArray() {
     return m_extended_stack_array;
   }
   std::vector<int> GetEclipsedStackIndexArray() {
     return m_eclipsed_stack_array;
+  }
+  std::vector<int> &GetFullscreenIndexArray() {
+    return m_fullscreen_index_array;
   }
 
   unsigned long GetXStackHash() { return m_xa_hash; }
@@ -191,6 +198,8 @@ public:
   bool DoesQuiltContainPlugins(void);
 
   LLRegion GetHiliteRegion();
+  std::vector<int> &GetHiLiteIndexArray(){ return m_HiLiteIndexArray; }
+
   static LLRegion GetChartQuiltRegion(const ChartTableEntry &cte, ViewPort &vp);
 
   int GetNomScaleMin(int scale, ChartTypeEnum type, ChartFamilyEnum family);
@@ -231,11 +240,13 @@ private:
   std::vector<int> m_index_array;
   std::vector<int> m_extended_stack_array;
   std::vector<int> m_eclipsed_stack_array;
+  std::vector<int> m_fullscreen_index_array;
 
   ViewPort m_vp_quilt;
   ViewPort m_vp_rendered;  // last VP rendered
 
   int m_nHiLiteIndex;
+  std::vector<int> m_HiLiteIndexArray;
   int m_refchart_dbIndex;
   int m_reference_scale;
   int m_reference_type;

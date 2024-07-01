@@ -2089,6 +2089,7 @@ void cm93chart::SetVPParms(const ViewPort &vpt) {
 
       m_this_chart_context->safety_contour = m_next_safe_cnt;
       m_this_chart_context->vertex_buffer = GetLineVertexBuffer();
+      m_this_chart_context->pt2GetAssociatedObjects = &s57chart::GetAssociatedObjects;
 
       //  Loop and populate all the objects
       for (int i = 0; i < PI_PRIO_NUM; ++i) {
@@ -5695,9 +5696,12 @@ void cm93compchart::SetSpecialCellIndexOffset(int cell_index, int object_id,
 bool cm93compchart::RenderNextSmallerCellOutlines(ocpnDC &dc, ViewPort &vp,
                                                   ChartCanvas *cc) {
   if (m_cmscale >= 7) return false;
+#ifdef ocpnUSE_GL
   glChartCanvas *glcc = cc->GetglCanvas();
   if (!glcc) return false;
-
+#else
+  return false;
+#endif
 
   int nss_max;
 

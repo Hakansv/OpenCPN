@@ -49,6 +49,7 @@ bool g_bShowScaled;
 bool g_bSyncCogPredictors;
 bool g_bTCPA_Max;
 bool g_bTrackCarryOver;
+bool g_AisFirstTimeUse;
 
 double g_AckTimeout_Mins;
 double g_AIS_RealtPred_Kts;
@@ -61,6 +62,7 @@ double g_RemoveLost_Mins;
 double g_ShowCOG_Mins;
 double g_ShowMoored_Kts;
 double g_TCPA_Max;
+double g_SOGminCOG_kts;
 
 int g_ais_alert_dialog_sx, g_ais_alert_dialog_sy;
 int g_ais_alert_dialog_x, g_ais_alert_dialog_y;

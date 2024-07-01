@@ -43,6 +43,7 @@
 #include "thumbwin.h"
 #include "mbtiles.h"
 #include "CanvasConfig.h"
+#include "ConfigMgr.h"
 #include "ocpn_frame.h"  //FIXME (dave) LoadS57
 #ifdef __OCPN__ANDROID__
  #include "androidUTIL.h"
@@ -72,7 +73,6 @@ extern int g_memCacheLimit;
 extern s52plib *ps52plib;
 extern ChartDB *ChartData;
 extern unsigned int g_canvasConfig;
-extern arrayofCanvasConfigPtr g_canvasConfigArray;
 
 bool G_FloatPtInPolygon(MyFlPoint *rgpts, int wnumpts, float x, float y);
 bool GetMemoryStatus(int *mem_total, int *mem_used);
@@ -1240,21 +1240,19 @@ ChartBase *ChartDB::OpenChartUsingCache(int dbindex, ChartInitFlag init_flag) {
       //    Search the array of chart class descriptors to find a match
       //    bewteen the search mask and the the chart file extension
 
-      for (unsigned int i = 0; i < m_ChartClassDescriptorArray.GetCount();
-           i++) {
-        if (m_ChartClassDescriptorArray[i].m_descriptor_type ==
+      for (auto &cd : m_ChartClassDescriptorArray) {
+        if (cd.m_descriptor_type ==
             PLUGIN_DESCRIPTOR) {
-          if (m_ChartClassDescriptorArray[i].m_search_mask == ext_upper) {
-            chart_class_name = m_ChartClassDescriptorArray[i].m_class_name;
+          if (cd.m_search_mask == ext_upper) {
+            chart_class_name = cd.m_class_name;
             break;
           }
-          if (m_ChartClassDescriptorArray[i].m_search_mask == ext_lower) {
-            chart_class_name = m_ChartClassDescriptorArray[i].m_class_name;
+          if (cd.m_search_mask == ext_lower) {
+            chart_class_name = cd.m_class_name;
             break;
           }
-          if (ChartFullPath.Matches(
-                  m_ChartClassDescriptorArray.Item(i).m_search_mask)) {
-            chart_class_name = m_ChartClassDescriptorArray.Item(i).m_class_name;
+          if (ChartFullPath.Matches(cd.m_search_mask)) {
+            chart_class_name = cd.m_class_name;
             break;
           }
         }
@@ -1331,6 +1329,8 @@ ChartBase *ChartDB::OpenChartUsingCache(int dbindex, ChartInitFlag init_flag) {
           // Size test for 5 GByte
           wxULongLong tileSizeMB = tileFile.GetSize() >> 20;
 
+          auto &config_array = ConfigMgr::Get().GetCanvasConfigArray();
+
           if (!CheckAnyCanvasExclusiveTileGroup() ||
               (tileSizeMB.GetLo() > 5000)) {
             // Check to see if the tile has been "clicked" in either canvas.
@@ -1338,15 +1338,16 @@ ChartBase *ChartDB::OpenChartUsingCache(int dbindex, ChartInitFlag init_flag) {
             bool b_clicked = false;
             canvasConfig *cc;
             ChartCanvas *canvas = NULL;
+
             switch (g_canvasConfig) {
               case 1:
-                cc = g_canvasConfigArray.Item(0);
+                cc = config_array.Item(0);
                 if (cc) {
                   ChartCanvas *canvas = cc->canvas;
                   if (canvas)
                     b_clicked |= canvas->IsTileOverlayIndexInYesShow(dbindex);
                 }
-                cc = g_canvasConfigArray.Item(1);
+                cc = config_array.Item(1);
                 if (cc) {
                   ChartCanvas *canvas = cc->canvas;
                   if (canvas)
@@ -1354,7 +1355,7 @@ ChartBase *ChartDB::OpenChartUsingCache(int dbindex, ChartInitFlag init_flag) {
                 }
                 break;
               default:
-                cc = g_canvasConfigArray.Item(0);
+                cc = config_array.Item(0);
                 if (cc) {
                   ChartCanvas *canvas = cc->canvas;
                   if (canvas)
@@ -1367,19 +1368,19 @@ ChartBase *ChartDB::OpenChartUsingCache(int dbindex, ChartInitFlag init_flag) {
             if (!b_clicked) {
               switch (g_canvasConfig) {
                 case 1:
-                  cc = g_canvasConfigArray.Item(0);
+                  cc = config_array.Item(0);
                   if (cc) {
                     ChartCanvas *canvas = cc->canvas;
                     if (canvas) canvas->AddTileOverlayIndexToNoShow(dbindex);
                   }
-                  cc = g_canvasConfigArray.Item(1);
+                  cc = config_array.Item(1);
                   if (cc) {
                     ChartCanvas *canvas = cc->canvas;
                     if (canvas) canvas->AddTileOverlayIndexToNoShow(dbindex);
                   }
                   break;
                 default:
-                  cc = g_canvasConfigArray.Item(0);
+                  cc = config_array.Item(0);
                   if (cc) {
                     ChartCanvas *canvas = cc->canvas;
                     if (canvas) canvas->AddTileOverlayIndexToNoShow(dbindex);
@@ -1767,19 +1768,21 @@ bool ChartDB::CheckExclusiveTileGroup(int canvasIndex) {
   // Get the chart canvas indexed by canvasIndex
   canvasConfig *cc;
   ChartCanvas *canvas = NULL;
+  auto &config_array = ConfigMgr::Get().GetCanvasConfigArray();
+
   switch (g_canvasConfig) {
     case 1:
       if (canvasIndex == 0) {
-        cc = g_canvasConfigArray.Item(0);
+        cc = config_array.Item(0);
         if (cc) canvas = cc->canvas;
       } else {
-        cc = g_canvasConfigArray.Item(1);
+        cc = config_array.Item(1);
         if (cc) canvas = cc->canvas;
       }
       break;
 
     default:
-      cc = g_canvasConfigArray.Item(0);
+      cc = config_array.Item(0);
       if (cc) canvas = cc->canvas;
   }
 
@@ -1806,9 +1809,11 @@ bool ChartDB::CheckAnyCanvasExclusiveTileGroup() {
 
   canvasConfig *cc;
   ChartCanvas *canvas = NULL;
+  auto &config_array = ConfigMgr::Get().GetCanvasConfigArray();
+
   switch (g_canvasConfig) {
     case 1:
-      cc = g_canvasConfigArray.Item(0);
+      cc = config_array.Item(0);
       if (cc) {
         ChartCanvas *canvas = cc->canvas;
         if (canvas) {
@@ -1817,7 +1822,7 @@ bool ChartDB::CheckAnyCanvasExclusiveTileGroup() {
         }
       }
 
-      cc = g_canvasConfigArray.Item(1);
+      cc = config_array.Item(1);
       if (cc) {
         ChartCanvas *canvas = cc->canvas;
         if (canvas) {
@@ -1828,7 +1833,7 @@ bool ChartDB::CheckAnyCanvasExclusiveTileGroup() {
       break;
 
     default:
-      cc = g_canvasConfigArray.Item(0);
+      cc = config_array.Item(0);
       if (cc) {
         ChartCanvas *canvas = cc->canvas;
         if (canvas) {

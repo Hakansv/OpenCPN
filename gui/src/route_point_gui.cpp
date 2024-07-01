@@ -1,34 +1,57 @@
+#if defined(__ANDROID__)
+#include <qopengl.h>
+#include <GL/gl_private.h>  // this is a cut-down version of gl.h
+#include <GLES2/gl2.h>
+
+#elif defined(ocpnUSE_GL)
+
+#if defined(__MSVC__)
+#include "glew.h"
+#include <GL/glu.h>
+
+#elif defined(__WXOSX__)
+#include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
+typedef void (*  _GLUfuncptr)();
+#define GL_COMPRESSED_RGB_FXT1_3DFX       0x86B0
+
+#elif defined(__WXQT__) || defined(__WXGTK__)
+#include <GL/glew.h>
+#include <GL/glu.h>
+#endif  // ocpnUSE_GL
+#endif
+
 
 #include <wx/colour.h>
 #include <wx/gdicmn.h>
 #include <wx/pen.h>
 #include <wx/brush.h>
 
-#include "color_handler.h"
 #include "model/comm_n0183_output.h"
-#include "navutil.h"
-#include "model/routeman.h"
 #include "model/georef.h"
-#include "route_point_gui.h"
-#include "ocpn_frame.h"
 #include "model/multiplexer.h"
-#include "n0183_ctx_factory.h"
-#include "FontMgr.h"
-#include "glChartCanvas.h"
-#include "viewport.h"
-#include "OCPNPlatform.h"
 #include "model/own_ship.h"
 #include "model/route.h"
-#include "waypointman_gui.h"
-#include "svg_utils.h"
-#include "styles.h"
+#include "model/routeman.h"
+
+#include "color_handler.h"
+#include "FontMgr.h"
+#include "glChartCanvas.h"
+#include "n0183_ctx_factory.h"
+#include "navutil.h"
+#include "ocpn_frame.h"
+#include "OCPNPlatform.h"
 #include "ocpn_plugin.h"
+#include "route_point_gui.h"
+#include "styles.h"
+#include "svg_utils.h"
+#include "viewport.h"
+#include "waypointman_gui.h"
 
 
 extern Multiplexer* g_pMUX;
 extern ocpnGLOptions g_GLOptions;
 extern float g_MarkScaleFactorExp;
-extern WayPointman* pWayPointMan;
 extern MyFrame* gFrame;
 extern OCPNPlatform* g_Platform;
 extern ocpnStyle::StyleManager* g_StyleManager;
@@ -377,6 +400,9 @@ void RoutePointGui::DrawGL(ViewPort &vp, ChartCanvas *canvas, ocpnDC &dc,
     if (!m_point.m_bPreScaled) {
       scale = g_MarkScaleFactorExp;
     }
+
+    // Scale for MacOS Retina and GTK screen scaling
+    scale *= GetOCPNCanvasWindow()->GetContentScaleFactor();
 
     float ws = r1.width * scale;
     float hs = r1.height * scale;
@@ -845,9 +871,10 @@ void RoutePointGui::ReLoadIcon(void) {
         ocpnStyle::Style *style = g_StyleManager->GetCurrentStyle();
         if (style) {
           wxBitmap bmp = style->GetIcon(_T("circle"));
-          if (bmp.IsOk())
-            WayPointmanGui(*pWayPointMan).ProcessIcon(bmp, "tempsub",
-                                                      "tempsub");
+          if (bmp.IsOk()) {
+            wxImage image = bmp.ConvertToImage();
+            WayPointmanGui(*pWayPointMan).ProcessIcon(image, "tempsub", "tempsub");
+          }
         }
       }
       iconUse = _T("tempsub");
@@ -871,7 +898,9 @@ void RoutePointGui::ReLoadIcon(void) {
 bool RoutePointGui::SendToGPS(const wxString &com_name, SendToGpsDlg *dialog) {
 
   N0183DlgCtx dlg_ctx = GetDialogCtx(dialog);
+  ::wxBeginBusyCursor();
   int result = SendWaypointToGPS_N0183(&m_point, com_name, *g_pMUX, dlg_ctx);
+  ::wxEndBusyCursor();
 
   wxString msg;
   if (0 == result)

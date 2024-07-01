@@ -77,6 +77,8 @@ static const char PATH_SEP = ';';
 static const char PATH_SEP = ':';
 #endif
 
+bool AbstractPlatform::m_isBusy = false;
+
 static const char* const DEFAULT_XDG_DATA_DIRS =
     "~/.local/share:/usr/local/share:/usr/share";
 
@@ -292,6 +294,19 @@ wxString GetPluginDataDir(const char* plugin_name) {
 }
 
 wxString& AbstractPlatform::GetPrivateDataDir() {
+  if (!m_PrivateDataDir.IsEmpty() && g_configdir.empty())
+    return m_PrivateDataDir;
+  if (!g_configdir.empty()) {
+    wxString path  = g_configdir;
+    if (path.Last() == wxFileName::GetPathSeparator()) path.RemoveLast();
+    m_default_private_datadir = path;
+    return m_default_private_datadir;  // FIXME (leamas) normalize and trust
+                                       // g_configdir
+  }
+  return DefaultPrivateDataDir();
+}
+
+wxString& AbstractPlatform::DefaultPrivateDataDir() {
   if (m_PrivateDataDir.IsEmpty()) {
     //      Establish the prefix of the location of user specific data files
     wxStandardPaths& std_path = GetStdPaths();
@@ -318,11 +333,9 @@ wxString& AbstractPlatform::GetPrivateDataDir() {
     m_PrivateDataDir = std_path.GetUserDataDir();    // should be ~/.opencpn
 #endif
 
-    if (g_bportable) {
-      m_PrivateDataDir = GetHomeDir();
-      if (m_PrivateDataDir.Last() == wxFileName::GetPathSeparator())
-        m_PrivateDataDir.RemoveLast();
-    }
+    if (g_bportable) m_PrivateDataDir = GetHomeDir();
+    if (m_PrivateDataDir.Last() == wxFileName::GetPathSeparator())
+      m_PrivateDataDir.RemoveLast();
 
 #ifdef __ANDROID__
     m_PrivateDataDir = androidGetPrivateDir();
@@ -603,6 +616,10 @@ wxString& AbstractPlatform::GetConfigFileName() {
     appendOSDirSlash(&m_config_file_name);
     m_config_file_name += "opencpn.conf";
 #endif
+    if (!g_configdir.empty()) {
+      m_config_file_name = g_configdir;
+      m_config_file_name.Append("/opencpn.conf");
+    }
   }
   return m_config_file_name;
 }
@@ -729,17 +746,36 @@ wxString AbstractPlatform::GetPluginDataPath() {
   return m_pluginDataPath;
 }
 
-
 #ifdef __ANDROID__
-void AbstractPlatform::ShowBusySpinner() { androidShowBusyIcon(); }
+void AbstractPlatform::ShowBusySpinner() {
+  if (!m_isBusy) {
+    androidShowBusyIcon();
+    m_isBusy = true;
+  }
+}
 #else
-void AbstractPlatform::ShowBusySpinner() { ::wxBeginBusyCursor(); }
+void AbstractPlatform::ShowBusySpinner() {
+  if (!m_isBusy) {
+    ::wxBeginBusyCursor();
+    m_isBusy = true;
+  }
+}
 #endif
 
 #ifdef __ANDROID__
-void AbstractPlatform::HideBusySpinner() { androidHideBusyIcon(); }
+void AbstractPlatform::HideBusySpinner() {
+  if (m_isBusy) {
+    androidHideBusyIcon();
+    m_isBusy = false;
+  }
+}
 #else
-void AbstractPlatform::HideBusySpinner() { ::wxEndBusyCursor(); }
+void AbstractPlatform::HideBusySpinner() {
+  if (m_isBusy) {
+    ::wxEndBusyCursor();
+    m_isBusy = false;
+  }
+}
 #endif
 
 // getDisplaySize
@@ -751,36 +787,16 @@ wxSize BasePlatform::getDisplaySize() { return getAndroidDisplayDimensions(); }
 
 #else
 wxSize BasePlatform::getDisplaySize() {
-  if (m_displaySize.x < 10)
-    m_displaySize = ::wxGetDisplaySize();  // default, for most platforms
-  return m_displaySize;
+  return wxSize(0, 0);
 }
 #endif
 
 // GetDisplaySizeMM
 double BasePlatform::GetDisplaySizeMM() {
-
-  if (m_displaySizeMMOverride > 0) return m_displaySizeMMOverride;
-
-  if (m_displaySizeMM.x < 1) m_displaySizeMM = wxGetDisplaySizeMM();
-
-  double ret = m_displaySizeMM.GetWidth();
-
-#ifdef __WXMSW__
-  int w, h;
-
-  if (!m_bdisableWindowsDisplayEnum) {
-    if (GetWindowsMonitorSize(&w, &h) && (w > 100)) {  // sanity check
-      m_displaySizeMM == wxSize(w, h);
-      ret = w;
-    } else
-      m_bdisableWindowsDisplayEnum = true;  // disable permanently
+  if(m_displaySizeMMOverride.size() > 0 && m_displaySizeMMOverride[0] > 0) {
+    return m_displaySizeMMOverride[0];
   }
-#endif
-
-#ifdef __WXOSX__
-  ret = GetMacMonitorSize();
-#endif
+  double ret = 0;
 
 #ifdef __ANDROID__
   ret = GetAndroidDisplaySize();

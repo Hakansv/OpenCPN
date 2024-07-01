@@ -19,8 +19,8 @@
 #include <gtest/gtest.h>
 
 #include "model/ais_decoder.h"
-#include "model/ais_state_vars.h"
 #include "model/ais_defs.h"
+#include "model/ais_state_vars.h"
 #include "model/cli_platform.h"
 #include "model/comm_ais.h"
 #include "model/comm_appmsg_bus.h"
@@ -32,21 +32,22 @@
 #include "model/ipc_api.h"
 #include "model/logger.h"
 #include "model/multiplexer.h"
-#include "observable_confvar.h"
-#include "ocpn_plugin.h"
+#include "model/navutil_base.h"
 #include "model/ocpn_types.h"
 #include "model/ocpn_utils.h"
 #include "model/own_ship.h"
-#include "model/S57ClassRegistrar.h"
 #include "model/routeman.h"
 #include "model/select.h"
 #include "model/std_instance_chk.h"
-#include "wx_instance_chk.h"
+#include "model/wait_continue.h"
+#include "model/wx_instance_chk.h"
+#include "observable_confvar.h"
+#include "ocpn_plugin.h"
 
 // Macos up to 10.13
-#if defined(__clang_major__) && (__clang_major__ < 15)
-#include <boost/filesystem.hpp>
-namespace fs = boost::filesystem;
+#if (defined(OCPN_GHC_FILESYSTEM) || (defined(__clang_major__) && (__clang_major__ < 15)))
+#include <ghc/filesystem.hpp>
+namespace fs = ghc::filesystem;
 
 // Ubuntu Bionic:
 #elif !defined(__clang_major__) && defined(__GNUC__) && (__GNUC__ < 8)
@@ -532,6 +533,8 @@ public:
   }
 };
 
+// GetSignalkPayload() introduced in 1.19
+#if API_VERSION_MINOR > 18
 class SignalKApp : public BasicTest {
 public:
   SignalKApp() : BasicTest() {}
@@ -562,6 +565,7 @@ public:
     EXPECT_EQ(1, msg.ItemAt("Data").ItemAt("list").ItemAt(0).AsInt());
   }
 };
+#endif
 
 class AisDecodeApp : public BasicTest {
 public:
@@ -894,7 +898,9 @@ TEST(AIS, AISVDO) { AisVdoApp app; }
 
 TEST(AIS, AISVDM) { AisVdmApp app; }
 
+#if API_VERSION_MINOR > 18
 TEST(PluginApi, SignalK) { SignalKApp app; }
+#endif
 
 #ifdef HAVE_UNISTD_H
 TEST(Instance, StdInstanceChk) { StdInstanceTest check; }
@@ -902,10 +908,49 @@ TEST(Instance, StdInstanceChk) { StdInstanceTest check; }
 
 TEST(Instance, WxInstanceChk) { WxInstanceCheck check; }
 
-#if !defined(FLATPAK) && defined(__unix__)
+#if !defined(FLATPAK) && defined(__unix__) && !defined(OCPN_DISTRO_BUILD)
 TEST(IpcClient, IpcGetEndpoint) { IpcGetEndpoint run_test; }
 
 TEST(IpcClient, Raise) { CliRaise run_test; }
 
 TEST(IpcClient, Open) { IpcOpen run_test; }
+
+TEST(WaitContinue, Basic) {
+  using namespace std::chrono;
+  WaitContinue waiter;
+  auto t1 = high_resolution_clock::now();
+  std::thread t([&waiter]{ waiter.Wait(50ms); });
+  t.join();
+  auto t2 = high_resolution_clock::now();
+  auto raw_elapsed = t2 - t1 - 50ms;
+  auto elapsed = duration_cast<milliseconds>(t2 - t1 - 50ms);
+  EXPECT_NEAR(elapsed.count(), 0, 5);
+
+  t1 = high_resolution_clock::now();
+  t = std::thread([&waiter]{ waiter.Wait(50ms); });
+  std::this_thread::sleep_for(25ms);
+  waiter.Continue();
+  t.join();
+  t2 = high_resolution_clock::now();
+  elapsed = duration_cast<milliseconds>(t2 - t1 - 25ms);
+  EXPECT_NEAR(elapsed.count(), 0, 5);
+}
 #endif
+
+TEST(FormatTime, Basic) {
+  wxTimeSpan span(0, 0, 7200, 0);
+  auto s = formatTimeDelta(span).ToStdString();
+  EXPECT_EQ(s, " 2H  0M");
+  span =  wxTimeSpan(1, 60, 0, 0);
+  span += wxTimeSpan(0, 0, 0, 10);
+  s = formatTimeDelta(span).ToStdString();
+  EXPECT_EQ(s, " 2H  0M");
+  s = formatTimeDelta(wxLongLong(7184.1181798492389));
+  EXPECT_EQ(s, " 2H  0M");
+  s = formatTimeDelta(wxLongLong(123.0));
+  EXPECT_EQ(s, " 2M  3S");
+  s = formatTimeDelta(wxLongLong(120.0));
+  EXPECT_EQ(s, " 2M  0S");
+  s = formatTimeDelta(wxLongLong(110.0));
+  EXPECT_EQ(s, " 1M 50S");
+}

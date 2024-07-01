@@ -170,6 +170,8 @@ public:
   wxString m_sOrientation;
   wxArrayInt m_aInstrumentList;
   wxArrayOfInstrumentProperties m_aInstrumentPropertyList;
+  wxSize m_best_size;
+  wxSize m_conf_best_size;
 };
 
 class DashboardInstrumentContainer {
@@ -262,6 +264,7 @@ private:
   void HandleN2K_129540(ObservedEvt ev);
   void HandleN2K_130306(ObservedEvt ev);
   void HandleN2K_130310(ObservedEvt ev);
+  void HandleN2K_130313(ObservedEvt ev);
   std::shared_ptr<ObservableListener> listener_127245;
   std::shared_ptr<ObservableListener> listener_127257;
   std::shared_ptr<ObservableListener> listener_128259;
@@ -271,6 +274,7 @@ private:
   std::shared_ptr<ObservableListener> listener_129540;
   std::shared_ptr<ObservableListener> listener_130306;
   std::shared_ptr<ObservableListener> listener_130310;
+  std::shared_ptr<ObservableListener> listener_130313;
 
 
   std::string prio127245;
@@ -295,6 +299,7 @@ private:
   short mPriPosition, mPriCOGSOG, mPriHeadingM, mPriHeadingT;
   short mPriVar, mPriDateTime, mPriAWA, mPriTWA, mPriDepth;
   short mPriSTW, mPriWTP, mPriATMP, mPriWDN, mPriSatStatus;
+  short mPriMDA, mPriHUM;
   // Prio: Pos from O, SK gnss.satellites, GGA sats in use, SK gnss
   // satellitesinView, GSV sats in view
   short mPriSatUsed, mPriAlt, mPriRSA, mPriPitchRoll;
@@ -310,6 +315,7 @@ private:
   int mHDT_Watchdog;
   int mSatsUsed_Wdog;
   int mSatStatus_Wdog;
+  int m_PriN2kTalker;
   int mVar_Watchdog;
   int mMWVA_Watchdog;
   int mMWVT_Watchdog;
@@ -328,6 +334,7 @@ private:
   int mALT_Watchdog;
   int mLOG_Watchdog;
   int mTrLOG_Watchdog;
+  int mHUM_Watchdog;
 
   iirfilter mSOGFilter;
   iirfilter mCOGFilter;

@@ -53,7 +53,7 @@ jobs:
   build-flatpak:
     working_directory: ~/OpenCPN
     machine:
-      image: ubuntu-2004:202101-01
+      image: ubuntu-2204:current
     environment:
       - OCPN_TARGET: flatpak
     steps:
@@ -114,10 +114,10 @@ jobs:
       - checkout
       - restore_cache:
          keys:
-           - macos-cache-v2-{{checksum "ci/generic-build-macos.sh"}}
+           - macos-cache-v2-universal-{{checksum "ci/macos-universal-deps.sh"}}-{{checksum "ci/universal-build-macos.sh"}}
       - run: ci/universal-build-macos.sh
       - save_cache:
-         key: macos-cache-v2-{{checksum "ci/generic-build-macos.sh"}}
+         key: macos-cache-v2-universal-{{checksum "ci/macos-universal-deps.sh"}}-{{checksum "ci/universal-build-macos.sh"}}
          paths:
            - /usr/local/bin
            - /usr/local/include
@@ -128,10 +128,12 @@ jobs:
     macos:
       xcode: "13.4.1"
     environment:
-      - OCPN_TARGET:  macos
+      - OCPN_TARGET: macos
       - pkg_mod: 11
       - MACOSX_DEPLOYMENT_TARGET: 10.13
+      - OCPN_TARGET_TUPLE: darwin-wx32;10;x86_64
       - ARCHS: x86_64
+      - ARCH: x86_64
       - DEPS_BUNDLE_FILE: macos_deps_intel_legacy.tar.xz
       - DEPS_BUNDLE_DEST: /tmp/ocpn_deps
       - RELEASE: legacyintel
@@ -139,10 +141,10 @@ jobs:
       - checkout
       - restore_cache:
          keys:
-           - macos-cache-v2-{{checksum "ci/generic-build-macos.sh"}}
+           - macos-cache-v2-intel-{{checksum "ci/macos-universal-deps.sh"}}-{{checksum "ci/universal-build-macos.sh"}}
       - run: ci/universal-build-macos.sh
       - save_cache:
-         key: macos-cache-v2-{{checksum "ci/generic-build-macos.sh"}}
+         key: macos-cache-v2-intel-{{checksum "ci/macos-universal-deps.sh"}}-{{checksum "ci/universal-build-macos.sh"}}
          paths:
            - /usr/local/bin
            - /usr/local/include

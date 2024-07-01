@@ -33,10 +33,8 @@
 #include <vector>
 
 #include "bbox.h"
-#include "chcanv.h"
 #include "hyperlink.h"
 #include "route.h"
-#include "viewport.h"
 #include "vector2D.h"
 
 extern std::vector<Track*> g_TrackList;
@@ -125,6 +123,19 @@ public:
     }
   }
   void SetName(const wxString name) { m_TrackNameString = name; }
+
+  wxString GetDate(bool auto_if_empty = false) const {
+    wxString name;
+    TrackPoint *rp = NULL;
+    if ((int)TrackPoints.size() > 0) rp = TrackPoints[0];
+    if (rp && rp->GetCreateTime().IsValid())
+      name = rp->GetCreateTime().FormatISODate() + _T(" ") +
+             rp->GetCreateTime()
+                 .FormatISOTime();  // name = rp->m_CreateTime.Format();
+    else
+      name = _("(Unknown Date)");
+   return name;
+  }
 
   wxString m_GUID;
   bool m_bIsInLayer;

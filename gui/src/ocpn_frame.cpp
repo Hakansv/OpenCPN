@@ -54,6 +54,7 @@
 
 #include <wx/stdpaths.h>
 #include <wx/tokenzr.h>
+#include <wx/display.h>
 
 #include "model/ais_decoder.h"
 #include "model/ais_state_vars.h"
@@ -67,8 +68,10 @@
 #include "model/config_vars.h"
 #include "model/cutil.h"
 #include "model/georef.h"
+#include "model/gui.h"
 #include "model/idents.h"
 #include "model/local_api.h"
+#include "model/logger.h"
 #include "model/multiplexer.h"
 #include "model/nav_object_database.h"
 #include "model/navutil_base.h"
@@ -76,6 +79,7 @@
 #include "model/plugin_loader.h"
 #include "model/routeman.h"
 #include "model/select.h"
+#include "model/sys_events.h"
 #include "model/track.h"
 
 #include "AboutFrameImpl.h"
@@ -95,6 +99,7 @@
 #include "compass.h"
 #include "concanv.h"
 #include "ConfigMgr.h"
+#include "displays.h"
 #include "dychart.h"
 #include "FontMgr.h"
 #include "glChartCanvas.h"
@@ -128,6 +133,8 @@
 #include "toolbar.h"
 #include "TrackPropDlg.h"
 #include "waypointman_gui.h"
+#include "CanvasOptions.h"
+#include "udev_rule_mgr.h"
 
 #ifdef __ANDROID__
 #include "androidUTIL.h"
@@ -151,7 +158,6 @@ extern AISTargetQueryDialog *g_pais_query_dialog_active;
 extern ConsoleCanvas *console;
 extern RouteManagerDialog *pRouteManagerDialog;
 extern Routeman *g_pRouteMan;
-extern WayPointman *pWayPointMan;
 extern MarkInfoDlg *g_pMarkInfoDialog;
 extern RoutePropDlgImpl *pRoutePropDialog;
 extern TrackPropDlg *pTrackPropDialog;
@@ -204,13 +210,11 @@ extern int g_ChartScaleFactor;
 extern int g_last_ChartScaleFactor;
 extern int g_ShipScaleFactor;
 extern float g_ShipScaleFactorExp;
-extern int g_ENCSoundingScaleFactor;
 extern int g_ENCTextScaleFactor;
 
 extern bool g_bShowTide;
 extern bool g_bShowCurrent;
 extern bool g_bUIexpert;
-extern Select *pSelect;
 extern RouteList *pRouteList;
 extern wxString g_default_wp_icon;
 extern std::vector<std::string> TideCurrentDataSet;
@@ -251,17 +255,16 @@ extern int options_lastPage;
 extern int options_subpage;
 extern bool b_reloadForPlugins;
 extern ChartCanvas *g_focusCanvas;
-extern bool g_bNeedDBUpdate;
+extern int g_NeedDBUpdate;
 extern bool g_bFullscreen;
 extern wxString gWorldMapLocation, gDefaultWorldMapLocation;
 extern ChartGroupArray *g_pGroupArray;
 extern bool g_bEnableZoomToCursor;
 extern double g_display_size_mm;
-extern double g_config_display_size_mm;
+extern std::vector<size_t> g_config_display_size_mm;
 extern wxString ChartListFileName;
 extern bool g_bFullscreenToolbar;
 extern arrayofCanvasPtr g_canvasArray;
-extern arrayofCanvasConfigPtr g_canvasConfigArray;
 extern wxString g_lastAppliedTemplateGUID;
 extern wxPoint options_lastWindowPos;
 extern wxSize options_lastWindowSize;
@@ -269,7 +272,6 @@ extern unsigned int g_canvasConfig;
 extern bool g_bFullScreenQuilt;
 extern bool g_bQuiltEnable;
 extern wxString *pInit_Chart_Dir;
-extern bool g_bShowAIS;
 extern bool g_bShowOutlines;
 extern bool g_bTempShowMenuBar;
 extern bool g_bShowStatusBar;
@@ -287,7 +289,6 @@ extern bool g_bAutoAnchorMark;
 extern wxDateTime g_start_time;
 extern bool g_bcompression_wait;
 extern bool g_bquiting;
-extern wxString g_AisTargetList_perspective;
 extern bool b_inCloseWindow;
 extern bool b_inCompressAllCharts;
 extern long g_maintoolbar_orient;
@@ -311,7 +312,6 @@ extern bool g_bHasHwClock;
 extern bool s_bSetSystemTime;
 extern bool bVelocityValid;
 extern int gHDx_Watchdog;
-extern AisDecoder *g_pAIS;
 extern AisInfoGui *g_pAISGUI;
 
 extern bool g_bUseGLL;
@@ -320,7 +320,7 @@ extern Multiplexer *g_pMUX;
 extern int g_memUsed;
 extern int g_chart_zoom_modifier_vector;
 extern bool g_config_display_size_manual;
-
+extern bool g_PrintingInProgress;
 
 #ifdef __WXMSW__
 // System color control support
@@ -404,8 +404,8 @@ void BuildiENCToolbar(bool bnew) {
   if (g_bInlandEcdis) {
     if (bnew) {
       if (g_iENCToolbar) {
-        wxPoint locn = g_iENCToolbar->GetPosition();
-        wxPoint tbp_incanvas = gFrame->GetPrimaryCanvas()->ScreenToClient(locn);
+        wxPoint locn = g_iENCToolbar->GetToolbarPosition();
+        wxPoint tbp_incanvas = locn; //gFrame->GetPrimaryCanvas()->ScreenToClient(locn);
 
         g_iENCToolbarPosY = tbp_incanvas.y;
         g_iENCToolbarPosX = tbp_incanvas.x;
@@ -421,7 +421,7 @@ void BuildiENCToolbar(bool bnew) {
       // Overlapping main toolbar?
       if (g_MainToolbar) {
         if ((g_iENCToolbarPosY > g_maintoolbar_y) &&
-            (g_iENCToolbarPosY < g_maintoolbar_y + g_MainToolbar->GetSize().y))
+            (g_iENCToolbarPosY < g_maintoolbar_y + g_MainToolbar->GetToolSize().y))
           g_iENCToolbarPosY = -1;  // force a reposition
       }
 
@@ -430,7 +430,7 @@ void BuildiENCToolbar(bool bnew) {
         posn.y = 100;
 
         if (g_MainToolbar)
-          posn = wxPoint(g_maintoolbar_x + g_MainToolbar->GetSize().x + 4,
+          posn = wxPoint(g_maintoolbar_x + g_MainToolbar->GetToolbarSize().x + 4,
                          g_maintoolbar_y);
       }
 
@@ -463,7 +463,7 @@ Please click \"OK\" to agree and proceed, \"Cancel\" to quit.\n"));
 
   wxString vs = wxString::Format(wxT(" .. Version %s"), VERSION_FULL);
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   androidShowDisclaimer(_("OpenCPN for Android") + vs, msg0);
   return true;
 #else
@@ -631,8 +631,17 @@ static void onBellsFinishedCB(void *ptr) {
 // My frame constructor
 MyFrame::MyFrame(wxFrame *frame, const wxString &title, const wxPoint &pos,
                  const wxSize &size, long style)
-    : wxFrame(frame, -1, title, pos, size, style)
-      {
+    : wxFrame(frame, -1, title, pos, size, style, kTopLevelWindowName),
+      comm_overflow_dlg(this) {
+
+  g_current_monitor = wxDisplay::GetFromWindow(this);
+#ifdef __WXOSX__
+  // On retina displays there is a difference between the physical size of the OpenGL canvas and the DIP
+  // This is not observed anywhere else so far, so g_current_monitor_dip_px_ratio cna be kept 1.0 everywhere else
+  if (g_bopengl) {
+    g_current_monitor_dip_px_ratio = g_monitor_info[g_current_monitor].width_px / g_monitor_info[g_current_monitor].width;
+  }
+#endif
   m_last_track_rotation_ts = 0;
   m_ulLastNMEATicktime = 0;
 
@@ -663,7 +672,7 @@ MyFrame::MyFrame(wxFrame *frame, const wxString &title, const wxPoint &pos,
   //      Direct the Toolbar Animation timer to this frame
   ToolbarAnimateTimer.SetOwner(this, TOOLBAR_ANIMATE_TIMER);
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
 //    m_PrefTimer.SetOwner( this, ANDROID_PREF_TIMER );
 //    Connect( m_PrefTimer.GetId(), wxEVT_TIMER, wxTimerEventHandler(
 //    MyFrame::OnPreferencesResultTimer ), NULL, this );
@@ -694,11 +703,13 @@ MyFrame::MyFrame(wxFrame *frame, const wxString &title, const wxPoint &pos,
   m_fixtime = -1;
 
   m_ChartUpdatePeriod = 1;  // set the default (1 sec.) period
+  initIXNetSystem();
 
   //    Establish my children
   struct MuxLogCallbacks log_callbacks;
-  log_callbacks.log_is_active = []() { return NMEALogWindow::Get().Active(); };
-  log_callbacks.log_message = [](const std::string& s) { NMEALogWindow::Get().Add(s); };
+  log_callbacks.log_is_active = []() { return NMEALogWindow::GetInstance().Active(); };
+  log_callbacks.log_message = [](const std::string& s) {
+    NMEALogWindow::GetInstance().Add(s); };
   g_pMUX = new Multiplexer(log_callbacks, g_b_legacy_input_filter_behaviour);
 
   struct AisDecoderCallbacks  ais_callbacks;
@@ -785,6 +796,8 @@ MyFrame::MyFrame(wxFrame *frame, const wxString &title, const wxPoint &pos,
 
 MyFrame::~MyFrame() {
   FrameTimer1.Stop();
+  DestroyDeviceNotFoundDialogs();
+
   delete ChartData;
   // delete pCurrentStack;
 
@@ -847,15 +860,15 @@ void MyFrame::RebuildChartDatabase() {
   if (ChartDirArray.GetCount()) {
     //              Create and Save a new Chart Database based on the hints
     //              given in the config file
-
-    wxString msg1(
+    if(g_NeedDBUpdate == 1) {
+      wxString msg1(
         _("OpenCPN needs to update the chart database from config file "
           "entries...."));
 
-    OCPNMessageDialog mdlg(gFrame, msg1, wxString(_("OpenCPN Info")),
+      OCPNMessageDialog mdlg(gFrame, msg1, wxString(_("OpenCPN Info")),
                            wxICON_INFORMATION | wxOK);
-    int dlg_ret;
-    dlg_ret = mdlg.ShowModal();
+      mdlg.ShowModal();
+    }
 
     delete ChartData;
     ChartData = new ChartDB();
@@ -1082,11 +1095,11 @@ void MyFrame::SetAndApplyColorScheme(ColorScheme cs) {
       // CreateMasterToolbar();
 
       if (!btoolbarFull) {
-        g_MainToolbar->Hide();
+        //g_MainToolbar->Hide();
         RequestNewMasterToolbar();
         g_MainToolbar->SetColorScheme(cs);
         CollapseGlobalToolbar();
-        g_MainToolbar->Show();
+        //g_MainToolbar->Show();
       } else {
         RequestNewMasterToolbar();
         g_MainToolbar->SetColorScheme(cs);
@@ -1137,14 +1150,16 @@ void MyFrame::CreateCanvasLayout(bool b_useStoredSize) {
     ChartCanvas *cc = g_canvasArray.Item(i);
     if (cc) {
       // pthumbwin = NULL;  // TODO
-      cc->DestroyToolbar();
+      //cc->DestroyToolbar();
       cc->Destroy();
     }
   }
 
+  auto &config_array = ConfigMgr::Get().GetCanvasConfigArray();
+
   // Canvas pointers in config array are now invalid
-  for (unsigned int i = 1; i < g_canvasConfigArray.GetCount(); i++) {
-    g_canvasConfigArray.Item(i)->canvas = NULL;
+  for (unsigned int i = 1; i < config_array.GetCount(); i++) {
+    config_array.Item(i)->canvas = NULL;
   }
 
   //    g_canvasArray.Clear();
@@ -1158,24 +1173,25 @@ void MyFrame::CreateCanvasLayout(bool b_useStoredSize) {
   switch (g_canvasConfig) {
     default:
     case 0:  // a single canvas
-      if (!g_canvasArray.GetCount() || !g_canvasConfigArray.Item(0)) {
+      if (!g_canvasArray.GetCount() || !config_array.Item(0)) {
         cc = new ChartCanvas(this, 0);  // the chart display canvas
         g_canvasArray.Add(cc);
       } else {
         cc = g_canvasArray[0];
       }
 
+#ifdef ocpnUSE_GL
       // Verify that glCanvas is ready, if necessary
       if (g_bopengl) {
         if (!cc->GetglCanvas()) cc->SetupGlCanvas();
         cc->GetglCanvas()->Show();
       }
-
-      g_canvasConfigArray.Item(0)->canvas = cc;
+#endif
+      config_array.Item(0)->canvas = cc;
 
       cc->SetDisplaySizeMM(g_display_size_mm);
 
-      cc->ApplyCanvasConfig(g_canvasConfigArray.Item(0));
+      cc->ApplyCanvasConfig(config_array.Item(0));
 
       //            cc->SetToolbarPosition(wxPoint( g_maintoolbar_x,
       //            g_maintoolbar_y ));
@@ -1201,13 +1217,14 @@ void MyFrame::CreateCanvasLayout(bool b_useStoredSize) {
       }
 
       // Verify that glCanvas is ready, if not already built
+#ifdef ocpnUSE_GL
       if (g_bopengl) {
         if (!cc->GetglCanvas()) cc->SetupGlCanvas();
       }
+#endif
+      config_array.Item(0)->canvas = cc;
 
-      g_canvasConfigArray.Item(0)->canvas = cc;
-
-      cc->ApplyCanvasConfig(g_canvasConfigArray.Item(0));
+      cc->ApplyCanvasConfig(config_array.Item(0));
 
       cc->SetDisplaySizeMM(g_display_size_mm);
       cc->ConfigureChartBar();
@@ -1229,22 +1246,21 @@ void MyFrame::CreateCanvasLayout(bool b_useStoredSize) {
 
       //  There is not yet a config descriptor for canvas 2, so create one by
       //  copy ctor from canvas {0}.
-      if (g_canvasConfigArray.GetCount() < 2) {
-        canvasConfig *pcc = new canvasConfig(*g_canvasConfigArray.Item(0));
+      if (config_array.GetCount() < 2) {
+        canvasConfig *pcc = new canvasConfig(*config_array.Item(0));
         pcc->configIndex = 1;
 
         // Arbitrarily establish the initial size of the new canvas to be
         // half the screen width.
         pcc->canvasSize = wxSize(GetClientSize().x / 2, GetClientSize().y);
-        g_canvasConfigArray.Add(pcc);
+        config_array.Add(pcc);
       }
 
-      g_canvasConfigArray.Item(1)->canvas = cc;
+      config_array.Item(1)->canvas = cc;
 
-      cc->ApplyCanvasConfig(g_canvasConfigArray.Item(1));
+      cc->ApplyCanvasConfig(config_array.Item(1));
 
       cc->SetDisplaySizeMM(g_display_size_mm);
-      cc->SetToolbarOrientation(g_maintoolbar_orient);
       cc->ConfigureChartBar();
       cc->SetColorScheme(global_color_scheme);
       cc->SetShowGPS(true);
@@ -1258,18 +1274,17 @@ void MyFrame::CreateCanvasLayout(bool b_useStoredSize) {
       g_pauimgr->GetPane(cc).RightDockable(true);
       g_pauimgr->GetPane(cc).Right();
 
-#ifdef __OCPN__ANDROID__
-      g_canvasConfigArray.Item(1)->canvasSize =
+#ifdef __ANDROID__
+      config_array.Item(1)->canvasSize =
           wxSize(GetClientSize().x / 2, GetClientSize().y);
       g_pauimgr->GetPane(cc).BestSize(GetClientSize().x / 2, GetClientSize().y);
-//           cc->SetSize(GetClientSize().x / 2, GetClientSize().y);
 #endif
 
       // If switching fromsingle canvas to 2-canvas mode dynamically,
       //  try to use the latest persisted size for the new second canvas.
       if (b_useStoredSize) {
-        int ccw = g_canvasConfigArray.Item(1)->canvasSize.x;
-        int cch = g_canvasConfigArray.Item(1)->canvasSize.y;
+        int ccw = config_array.Item(1)->canvasSize.x;
+        int cch = config_array.Item(1)->canvasSize.y;
 
         // Check for undefined size, and set a nice default size if necessary.
         if (ccw < GetClientSize().x / 10) {
@@ -1300,7 +1315,7 @@ void MyFrame::RequestNewToolbars(bool bforcenew) {
   BuildiENCToolbar(bforcenew);
   PositionIENCToolbar();
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   DoChartUpdate();
 #endif
 }
@@ -1314,17 +1329,7 @@ void MyFrame::UpdateAllToolbars(ColorScheme cs) {
 }
 
 void MyFrame::SetAllToolbarScale() {
-  double scale_factor = g_Platform->GetToolbarScaleFactor(g_GUIScaleFactor);
   g_toolbar_scalefactor = g_Platform->GetToolbarScaleFactor(g_GUIScaleFactor);
-
-  //  Round to the nearest "quarter", to avoid rendering artifacts
-  scale_factor = wxRound(scale_factor * 4.0) / 4.0;
-
-  // ..For each canvas...
-  for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
-    ChartCanvas *cc = g_canvasArray.Item(i);
-    if (cc) cc->SetToolbarScaleFactor(scale_factor);
-  }
 }
 
 void MyFrame::SetGPSCompassScale() {
@@ -1337,14 +1342,14 @@ ChartCanvas *MyFrame::GetCanvasUnderMouse() {
 
   switch (g_canvasConfig) {
     case 1:
-      cc = g_canvasConfigArray.Item(0);
+      cc = ConfigMgr::Get().GetCanvasConfigArray().Item(0);
       if (cc) {
         ChartCanvas *canvas = cc->canvas;
         if (canvas->GetScreenRect().Contains(
                 /*canvas->ScreenToClient*/ (screenPoint)))
           return canvas;
       }
-      cc = g_canvasConfigArray.Item(1);
+      cc = ConfigMgr::Get().GetCanvasConfigArray().Item(1);
       if (cc) {
         ChartCanvas *canvas = cc->canvas;
         if (canvas->GetScreenRect().Contains(
@@ -1354,7 +1359,7 @@ ChartCanvas *MyFrame::GetCanvasUnderMouse() {
       break;
 
     default:
-      cc = g_canvasConfigArray.Item(0);
+      cc = ConfigMgr::Get().GetCanvasConfigArray().Item(0);
       if (cc) {
         ChartCanvas *canvas = cc->canvas;
         if (canvas->GetScreenRect().Contains(
@@ -1372,14 +1377,14 @@ int MyFrame::GetCanvasIndexUnderMouse() {
 
   switch (g_canvasConfig) {
     case 1:
-      cc = g_canvasConfigArray.Item(0);
+      cc = ConfigMgr::Get().GetCanvasConfigArray().Item(0);
       if (cc) {
         ChartCanvas *canvas = cc->canvas;
         if (canvas->GetScreenRect().Contains(
                 /*canvas->ScreenToClient*/ (screenPoint)))
           return 0;
       }
-      cc = g_canvasConfigArray.Item(1);
+      cc = ConfigMgr::Get().GetCanvasConfigArray().Item(1);
       if (cc) {
         ChartCanvas *canvas = cc->canvas;
         if (canvas->GetScreenRect().Contains(
@@ -1389,7 +1394,7 @@ int MyFrame::GetCanvasIndexUnderMouse() {
       break;
 
     default:
-      cc = g_canvasConfigArray.Item(0);
+      cc = ConfigMgr::Get().GetCanvasConfigArray().Item(0);
       if (cc) {
         ChartCanvas *canvas = cc->canvas;
         if (canvas->GetScreenRect().Contains(
@@ -1447,7 +1452,7 @@ void MyFrame::SwitchKBFocus(ChartCanvas *pCanvas) {
     //  So the logic needs a switch
     switch (g_canvasConfig) {
       case 1:
-        cc = g_canvasConfigArray.Item(0);
+        cc = ConfigMgr::Get().GetCanvasConfigArray().Item(0);
         if (cc) {
           ChartCanvas *canvas = cc->canvas;
           if (canvas && (canvas == test)) {
@@ -1455,7 +1460,7 @@ void MyFrame::SwitchKBFocus(ChartCanvas *pCanvas) {
             nTargetGTK = 0;
           }
         }
-        cc = g_canvasConfigArray.Item(1);
+        cc = ConfigMgr::Get().GetCanvasConfigArray().Item(1);
         if (cc) {
           ChartCanvas *canvas = cc->canvas;
           if (canvas && (canvas == test)) {
@@ -1470,7 +1475,7 @@ void MyFrame::SwitchKBFocus(ChartCanvas *pCanvas) {
 #ifdef __WXGTK__
           nfinalTarget = nTargetGTK;
 #endif
-          target = g_canvasConfigArray.Item(nfinalTarget)->canvas;
+          target = ConfigMgr::Get().GetCanvasConfigArray().Item(nfinalTarget)->canvas;
           if (target) {
             wxWindow *win = wxDynamicCast(target, wxWindow);
             win->SetFocus();
@@ -1508,7 +1513,7 @@ void MyFrame::OnCloseWindow(wxCloseEvent &event) {
   // The Options dialog, and other deferred init items, are not fully
   // initialized. Best to just cancel the close request. This is probably only
   // reachable on slow hardware, or on Android life-cycle events...
-#ifndef __OCPN__ANDROID__
+#ifndef __ANDROID__
   if (!g_bDeferredInitDone) return;
 #endif
 
@@ -1584,16 +1589,18 @@ void MyFrame::OnCloseWindow(wxCloseEvent &event) {
   RestoreScreenBrightness();
 
   // Persist the toolbar locations
-  if (g_MainToolbar) {
-    g_MainToolbar->GetFrameRelativePosition(&g_maintoolbar_x, &g_maintoolbar_y);
-  }
+ // if (g_MainToolbar) {
+ //   g_MainToolbar->GetFrameRelativePosition(&g_maintoolbar_x, &g_maintoolbar_y);
+ // }
 
+#if 0
   if (g_iENCToolbar) {
     wxPoint locn = g_iENCToolbar->GetPosition();
     wxPoint tbp_incanvas = GetPrimaryCanvas()->ScreenToClient(locn);
     g_iENCToolbarPosY = tbp_incanvas.y;
     g_iENCToolbarPosX = tbp_incanvas.x;
   }
+#endif
 
   g_bframemax = IsMaximized();
 
@@ -1676,7 +1683,6 @@ void MyFrame::OnCloseWindow(wxCloseEvent &event) {
 
   pConfig->UpdateNavObj();
 
-  //    pConfig->m_pNavObjectChangesSet->Clear();
   pConfig->m_pNavObjectChangesSet->reset();
 
   // Remove any leftover Routes and Waypoints from config file as they were
@@ -1699,23 +1705,16 @@ void MyFrame::OnCloseWindow(wxCloseEvent &event) {
     g_pCM93OffsetDialog = NULL;
   }
 
-#ifndef __OCPN__ANDROID__
-  // .. for each canvas...
-  // ..For each canvas...
-  for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
-    ChartCanvas *cc = g_canvasArray.Item(i);
-    if (cc) cc->DestroyToolbar();
-  }
-
-  if (g_MainToolbar) g_MainToolbar->Destroy();
-  g_MainToolbar = NULL;
+#ifndef __ANDROID__
+  //if (g_MainToolbar) g_MainToolbar->Destroy();
+  //g_MainToolbar = NULL;
 #endif
 
   if (g_iENCToolbar) {
-    wxPoint locn = g_iENCToolbar->GetPosition();
-    g_iENCToolbarPosY = locn.y;
-    g_iENCToolbarPosX = locn.x;
-    g_iENCToolbar->Destroy();
+    //wxPoint locn = g_iENCToolbar->GetPosition();
+    //g_iENCToolbarPosY = locn.y;
+    //g_iENCToolbarPosX = locn.x;
+    //g_iENCToolbar->Destroy();
   }
 
   if (g_pAISTargetList) {
@@ -1784,6 +1783,11 @@ void MyFrame::OnCloseWindow(wxCloseEvent &event) {
     g_pAIS = NULL;
   }
 
+  if (g_pAISGUI) {
+    delete g_pAISGUI;
+    g_pAISGUI = NULL;
+  }
+
   delete g_pMUX;
   g_pMUX = NULL;
 
@@ -1807,6 +1811,8 @@ void MyFrame::OnCloseWindow(wxCloseEvent &event) {
   }
 
   NMEALogWindow::Shutdown();
+
+  ReleaseApiListeners();
 
   g_MainToolbar = NULL;
   g_bTempShowMenuBar = false;
@@ -1847,13 +1853,13 @@ void MyFrame::OnCloseWindow(wxCloseEvent &event) {
   }
   delete g_glTextureManager;
 #endif
-
+  uninitIXNetSystem();
   this->Destroy();
   gFrame = NULL;
 
   wxLogMessage(_T("gFrame destroyed."));
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
 #ifndef USE_ANDROID_GLES2
   qDebug() << "Calling OnExit()";
   wxTheApp->OnExit();
@@ -1863,10 +1869,44 @@ void MyFrame::OnCloseWindow(wxCloseEvent &event) {
 }
 
 void MyFrame::OnMove(wxMoveEvent &event) {
+  auto idx = wxDisplay::GetFromWindow(this);
+  if (idx != wxNOT_FOUND && g_current_monitor != static_cast<size_t>(idx) && static_cast<size_t>(idx) < g_monitor_info.size()) {
+    g_current_monitor = idx;
+#ifdef __WXOSX__
+    // On retina displays there is a difference between the physical size of the OpenGL canvas and the DIP
+    // This is not observed anywhere else so far, so g_current_monitor_dip_px_ratio cna be kept 1.0 everywhere else
+    if (g_bopengl) {
+      g_current_monitor_dip_px_ratio = g_monitor_info[idx].width_px / g_monitor_info[idx].width;
+    }
+#endif
+    DEBUG_LOG << "Moved to " << idx
+#if wxCHECK_VERSION(3, 1, 6)
+    << " PPI: " << wxDisplay(idx).GetPPI().GetX() << "x" << wxDisplay(idx).GetPPI().GetY()
+    << " SF wxDisplay: " << wxDisplay(idx).GetScaleFactor()
+#endif
+    << " Size wxDisplay: " << wxDisplay(idx).GetGeometry().GetWidth() << "x" << wxDisplay(idx).GetGeometry().GetHeight()
+    << " MM wxDisplay: " << wxGetDisplaySizeMM().GetX() << "x" << wxGetDisplaySizeMM().GetY()
+    << " Name wxDisplay: " << wxDisplay(idx).GetName().c_str()
+    << " Real: " << g_monitor_info[idx].width_mm << "x" << g_monitor_info[idx].height_mm << "mm "
+    << g_monitor_info[idx].width_mm << "x" << g_monitor_info[idx].height_mm << "mm "
+    << g_monitor_info[idx].width << "x" << g_monitor_info[idx].height << "DIP "
+    << g_monitor_info[idx].width_px << "x" << g_monitor_info[idx].height_px << "px"
+    << g_monitor_info[idx].scale << "%";
+    if(g_config_display_size_manual) {
+      if(g_config_display_size_mm.size() > static_cast<size_t>(idx)) {
+        g_display_size_mm = g_config_display_size_mm[idx];
+      } // Do nothing if the user did not set any value for this monitor
+    } else {
+      g_display_size_mm = g_monitor_info[idx].width_mm;
+    }
+  }
   // ..For each canvas...
   for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
     ChartCanvas *cc = g_canvasArray.Item(i);
-    if (cc) cc->SetMUIBarPosition();
+    if (cc) {
+      cc->SetMUIBarPosition();
+      cc->SetDisplaySizeMM(g_display_size_mm);
+    }
   }
 
 #ifdef __WXOSX__
@@ -1878,10 +1918,10 @@ void MyFrame::OnMove(wxMoveEvent &event) {
   if (console && console->IsShown()) PositionConsole();
 
   //  If global toolbar is shown, reposition it...
-  if (g_MainToolbar) {
-    g_MainToolbar->RestoreRelativePosition(g_maintoolbar_x, g_maintoolbar_y);
-    g_MainToolbar->Realize();
-  }
+  //if (g_MainToolbar) {
+    //g_MainToolbar->RestoreRelativePosition(g_maintoolbar_x, g_maintoolbar_y);
+    //g_MainToolbar->Realize();
+  //}
 
   PositionIENCToolbar();
 
@@ -1900,7 +1940,7 @@ void MyFrame::ProcessCanvasResize(void) {
 
   PositionIENCToolbar();
 
-#ifndef __OCPN__ANDROID__
+#ifndef __ANDROID__
   TriggerRecaptureTimer();
 #endif
 }
@@ -1975,19 +2015,26 @@ void MyFrame::SetCanvasSizes(wxSize frameSize) {
 }
 
 void MyFrame::OnIconize(wxIconizeEvent &event) {
-#ifdef __WXOSX__
+#if 0
   if (g_MainToolbar) {
     g_MainToolbar->Show(!event.IsIconized());
   }
   if (g_iENCToolbar) {
     g_iENCToolbar->Show(!event.IsIconized());
   }
+
+  // .. for each canvas...
   for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
     ChartCanvas *cc = g_canvasArray.Item(i);
     if (cc && cc->GetMUIBar()) {
-      cc->GetMUIBar()->Show(!event.IsIconized());
+      if (cc->GetMUIBar()->GetCanvasOptions()) {
+        if (cc->GetMUIBar()->GetCanvasOptions()->IsShown()) {
+          cc->GetMUIBar()->PushCanvasOptions();  // hide it
+        }
+      }
     }
   }
+
 #endif
 }
 
@@ -2074,7 +2121,7 @@ void MyFrame::ODoSetSize(void) {
     font_size =
         wxMax(font_size, min_font_size);  // minimum to stop it being unreadable
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
     font_size = statusBarFont->GetPointSize();
 #endif
 
@@ -2090,7 +2137,7 @@ void MyFrame::ODoSetSize(void) {
     m_pStatusBar->SetFont(*pstat_font);
     m_pStatusBar->SetForegroundColour(
         FontMgr::Get().GetFontColor(_("StatusBar")));
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
     min_height = (pstat_font->GetPointSize() * getAndroidDisplayDensity()) + 10;
     min_height =
         (min_height >> 1) * 2;  // force even number, makes GLCanvas happier...
@@ -2115,28 +2162,15 @@ void MyFrame::ODoSetSize(void) {
     if (cc) cc->FormatPianoKeys();
   }
 
-  //  If global toolbar is shown, reposition it...
+  //  If global toolbar is shown, resize it...
   if (g_MainToolbar) {
-    bool bShow = g_MainToolbar->IsShown();
-    wxSize szBefore = g_MainToolbar->GetSize();
-
-    // For large vertical size changes on some platforms, it is necessary to
-    // hide the toolbar in order to correctly set its rounded-rectangle shape It
-    // will be shown again before exit of this method.
-    double deltay = g_nframewin_y - GetSize().y;
-    if ((fabs(deltay) > (g_Platform->getDisplaySize().y / 5)))
-      g_MainToolbar->Hide();
-
-    g_MainToolbar->RestoreRelativePosition(g_maintoolbar_x, g_maintoolbar_y);
+    wxSize szBefore = g_MainToolbar->GetToolbarSize();
     g_MainToolbar->SetGeometry(GetPrimaryCanvas()->GetCompass()->IsShown(),
                                GetPrimaryCanvas()->GetCompass()->GetRect());
+    g_MainToolbar->Realize();
 
-    if (fabs(deltay))
-      g_MainToolbar->Realize();
-
-    if (szBefore != g_MainToolbar->GetSize())
-      g_MainToolbar->Refresh(true);
-    g_MainToolbar->Show(bShow);
+    if (szBefore != g_MainToolbar->GetToolbarSize())
+      g_MainToolbar->RefreshToolbar();
   }
 
   //  Update the stored window size
@@ -2161,7 +2195,7 @@ void MyFrame::ODoSetSize(void) {
   options_lastWindowSize = wxSize(0, 0);
   options_lastWindowPos = wxPoint(0, 0);
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   // If the options dialog is displayed, this will have the effect of
   // raising the dialog above the main and canvas-GUI toolbars.
   // If the dialog is not shown, no harm done
@@ -2268,6 +2302,7 @@ void MyFrame::RefreshGroupIndices(void) {
 
 void MyFrame::OnToolLeftClick(wxCommandEvent &event) {
   if (g_MainToolbar) g_MainToolbar->HideTooltip();
+
 
   switch (event.GetId()) {
     case ID_MENU_SCALE_OUT:
@@ -2394,6 +2429,10 @@ void MyFrame::OnToolLeftClick(wxCommandEvent &event) {
     case ID_MENU_AIS_CPADIALOG: {
       g_bAIS_CPA_Alert = !g_bAIS_CPA_Alert;
       SetMenubarItemState(ID_MENU_AIS_CPADIALOG, g_bAIS_CPA_Alert);
+      m_pMenuBar->Enable(ID_MENU_AIS_CPASOUND, g_bAIS_CPA_Alert);
+      if (g_bAIS_CPA_Alert){
+        SetMenubarItemState(ID_MENU_AIS_CPASOUND, g_bAIS_CPA_Alert_Audio);
+      }
       break;
     }
 
@@ -2417,7 +2456,7 @@ void MyFrame::OnToolLeftClick(wxCommandEvent &event) {
     }
 
     case ID_MENU_SETTINGS_BASIC: {
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
       /// LoadS57();
       androidDisableFullScreen();
       g_MainToolbar->HideTooltip();
@@ -2578,7 +2617,7 @@ void MyFrame::OnToolLeftClick(wxCommandEvent &event) {
 
     case ID_CMD_APPLY_SETTINGS: {
       applySettingsString(event.GetString());
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
       androidRestoreFullScreen();
 #endif
 
@@ -2615,6 +2654,15 @@ void MyFrame::OnToolLeftClick(wxCommandEvent &event) {
         }
       }
 
+      break;
+    }
+
+    case ID_DENSITY:
+    case ID_RMINUS:
+    case ID_RPLUS: {
+      if (g_iENCToolbar ){
+        g_iENCToolbar->OnToolLeftClick(event);
+      }
       break;
     }
 
@@ -2702,28 +2750,38 @@ ChartCanvas *MyFrame::GetFocusCanvas() {
 
 void MyFrame::OnToolbarAnimateTimer(wxTimerEvent &event) {
   if (g_bmasterToolbarFull) {
+#ifndef OCPN_TOOLBAR_ANIMATE
+    m_nMasterToolCountShown = (int)g_MainToolbar->GetToolCount();
+#endif
+
     if (m_nMasterToolCountShown < (int)g_MainToolbar->GetToolCount()) {
       m_nMasterToolCountShown++;
       g_MainToolbar->SetToolShowCount(m_nMasterToolCountShown);
       g_MainToolbar->Realize();
+      g_MainToolbar->RefreshToolbar();
 
       ToolbarAnimateTimer.Start(20, wxTIMER_ONE_SHOT);
     } else {
-      //  One last "Realize()" to establish the final toolbar shape
+      g_MainToolbar->SetToolShowCount(m_nMasterToolCountShown);
       g_MainToolbar->GetToolbar()->InvalidateBitmaps();
       g_MainToolbar->Realize();
-      g_MainToolbar->Show();
+      g_MainToolbar->RefreshToolbar();
     }
   } else {
+#ifndef OCPN_TOOLBAR_ANIMATE
+    m_nMasterToolCountShown = 1;
+#endif
     if (m_nMasterToolCountShown > 1) {
       m_nMasterToolCountShown--;
       g_MainToolbar->SetToolShowCount(m_nMasterToolCountShown);
       g_MainToolbar->Realize();
+      g_MainToolbar->RefreshToolbar();
       ToolbarAnimateTimer.Start(10, wxTIMER_ONE_SHOT);
     } else {
+      g_MainToolbar->SetToolShowCount(m_nMasterToolCountShown);
       g_MainToolbar->GetToolbar()->InvalidateBitmaps();
       g_MainToolbar->Realize();
-      g_MainToolbar->Show();
+      g_MainToolbar->RefreshToolbar();
     }
   }
 }
@@ -2780,8 +2838,6 @@ void MyFrame::DoSettings() {
 
   //              Apply various system settings
   ApplyGlobalSettings(bnewtoolbar);
-
-  if (g_MainToolbar) g_MainToolbar->RefreshFadeTimer();
 
   // ..For each canvas...
   bool b_loadHarmonics = false;
@@ -2844,7 +2900,7 @@ void MyFrame::ToggleFullScreen() {
 #endif
 
   UpdateAllToolbars(global_color_scheme);
-  SurfaceAllCanvasToolbars();
+  //SurfaceAllCanvasToolbars();
   UpdateControlBar(GetPrimaryCanvas());
   Layout();
   TriggerRecaptureTimer();
@@ -2941,7 +2997,7 @@ void MyFrame::TrackOn(void) {
 
   SetMenubarItemState(ID_MENU_NAV_TRACK, g_bTrackActive);
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   androidSetTrackTool(true);
 #endif
 
@@ -3012,7 +3068,7 @@ Track *MyFrame::TrackOff(bool do_add_point) {
     g_MainToolbar->SetToolShortHelp(ID_TRACK, _("Enable Tracking"));
   SetMenubarItemState(ID_MENU_NAV_TRACK, g_bTrackActive);
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   androidSetTrackTool(false);
 #endif
 
@@ -3226,7 +3282,7 @@ void MyFrame::SetbFollow(ChartCanvas *cc) {
   JumpToPosition(cc, gLat, gLon, cc->GetVPScale());
   cc->m_bFollow = true;
 
-  cc->SetCanvasToolbarItemState(ID_FOLLOW, true);
+  //cc->SetCanvasToolbarItemState(ID_FOLLOW, true);
   SetMenubarItemState(ID_MENU_NAV_FOLLOW, true);
 
   DoChartUpdate();
@@ -3240,7 +3296,7 @@ void MyFrame::ClearbFollow(ChartCanvas *cc) {
   vLon = gLon;
 
   cc->m_bFollow = false;
-  cc->SetCanvasToolbarItemState(ID_FOLLOW, false);
+  //cc->SetCanvasToolbarItemState(ID_FOLLOW, false);
   SetMenubarItemState(ID_MENU_NAV_FOLLOW, false);
 
   DoChartUpdate();
@@ -3281,8 +3337,6 @@ void MyFrame::SetToolbarItemBitmaps(int tool_id, wxBitmap *bmp,
                                     wxBitmap *bmpRollover) {
   if (g_MainToolbar && g_MainToolbar->GetToolbar()) {
     g_MainToolbar->GetToolbar()->SetToolBitmaps(tool_id, bmp, bmpRollover);
-    wxRect rect = g_MainToolbar->GetToolbar()->GetToolRect(tool_id);
-    g_MainToolbar->GetToolbar()->RefreshRect(rect);
   }
 }
 
@@ -3292,8 +3346,6 @@ void MyFrame::SetToolbarItemSVG(int tool_id, wxString normalSVGfile,
   if (g_MainToolbar && g_MainToolbar->GetToolbar()) {
     g_MainToolbar->GetToolbar()->SetToolBitmapsSVG(
         tool_id, normalSVGfile, rolloverSVGfile, toggledSVGfile);
-    wxRect rect = g_MainToolbar->GetToolbar()->GetToolRect(tool_id);
-    g_MainToolbar->GetToolbar()->RefreshRect(rect);
   }
 }
 
@@ -3334,7 +3386,7 @@ void MyFrame::ApplyGlobalSettings(bool bnewtoolbar) {
 wxString _menuText(wxString name, wxString shortcut) {
   wxString menutext;
   menutext << name;
-#ifndef __OCPN__ANDROID__
+#ifndef __ANDROID__
   menutext << _T("\t") << shortcut;
 #endif
   return menutext;
@@ -3566,7 +3618,15 @@ void MyFrame::UpdateGlobalMenuItems() {
   m_pMenuBar->FindItem(ID_MENU_AIS_SCALED_TARGETS)->Enable(g_bAllowShowScaled);
   m_pMenuBar->FindItem(ID_MENU_AIS_TRACKS)->Check(g_bAISShowTracks);
   m_pMenuBar->FindItem(ID_MENU_AIS_CPADIALOG)->Check(g_bAIS_CPA_Alert);
-  m_pMenuBar->FindItem(ID_MENU_AIS_CPASOUND)->Check(g_bAIS_CPA_Alert_Audio);
+  if (g_bAIS_CPA_Alert) {
+    m_pMenuBar->FindItem(ID_MENU_AIS_CPASOUND)->Check(g_bAIS_CPA_Alert_Audio);
+    m_pMenuBar->Enable(ID_MENU_AIS_CPASOUND, true);
+  }
+  else {
+    m_pMenuBar->FindItem(ID_MENU_AIS_CPASOUND)->Check(false);
+    m_pMenuBar->Enable(ID_MENU_AIS_CPASOUND, false);
+  }
+
   m_pMenuBar->FindItem(ID_MENU_AIS_CPAWARNING)->Check(g_bCPAWarn);
   m_pMenuBar->FindItem(ID_MENU_SHOW_NAVOBJECTS)
       ->Check(GetPrimaryCanvas()->m_bShowNavobjects);
@@ -3675,7 +3735,7 @@ void MyFrame::InvalidateAllCanvasUndo() {
     if (cc) cc->undo->InvalidateUndo();
   }
 }
-
+#if 0
 void MyFrame::SubmergeAllCanvasToolbars(void) {
   // .. for each canvas...
   for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
@@ -3693,11 +3753,8 @@ void MyFrame::SurfaceAllCanvasToolbars(void) {
     }
   }
 
-#ifndef __WXQT__
-  //  removed to show MUIBars on MSVC
-  /// Raise();
-#endif
 }
+#endif
 
 void MyFrame::JumpToPosition(ChartCanvas *cc, double lat, double lon,
                              double scale) {
@@ -3715,8 +3772,8 @@ void MyFrame::JumpToPosition(ChartCanvas *cc, double lat, double lon,
 
 void MyFrame::UpdateCanvasConfigDescriptors() {
   // ..For each canvas...
-  for (unsigned int i = 0; i < g_canvasConfigArray.GetCount(); i++) {
-    canvasConfig *cc = g_canvasConfigArray.Item(i);
+  for (unsigned int i = 0; i < ConfigMgr::Get().GetCanvasConfigArray().GetCount(); i++) {
+    canvasConfig *cc = ConfigMgr::Get().GetCanvasConfigArray().Item(i);
     if (cc) {
       ChartCanvas *chart = cc->canvas;
       if (chart) {
@@ -3821,6 +3878,7 @@ int MyFrame::DoOptionsDialog() {
   prev_locale = g_locale;
 
   bool b_sub = false;
+#if 0
   if (g_MainToolbar && g_MainToolbar->IsShown()) {
     wxRect bx_rect = g_options->GetScreenRect();
     wxRect tb_rect = g_MainToolbar->GetScreenRect();
@@ -3828,6 +3886,7 @@ int MyFrame::DoOptionsDialog() {
 
     if (b_sub) g_MainToolbar->Submerge();
   }
+#endif
 
 #if defined(__WXOSX__) || defined(__WXQT__)
   bool b_restoreAIS = false;
@@ -3839,19 +3898,13 @@ int MyFrame::DoOptionsDialog() {
 #endif
 
 #ifdef __WXOSX__
-  // ..For each canvas...
-  for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
-    ChartCanvas *cc = g_canvasArray.Item(i);
-    if (cc && cc->GetMUIBar()) cc->GetMUIBar()->Hide();
-  }
-
-  SubmergeAllCanvasToolbars();
+  //SubmergeAllCanvasToolbars();
   g_MainToolbar->Submerge();
 #endif
 
   g_options->SetInitialPage(options_lastPage, options_subpage);
 
-#ifndef __OCPN__ANDROID__  //    if(!g_bresponsive){
+#ifndef __ANDROID__  //    if(!g_bresponsive){
   g_options->lastWindowPos = options_lastWindowPos;
   if (options_lastWindowPos != wxPoint(0, 0)) {
     g_options->Move(options_lastWindowPos);
@@ -3874,7 +3927,7 @@ int MyFrame::DoOptionsDialog() {
 
   if (g_MainToolbar) g_MainToolbar->DisableTooltips();
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   androidEnableBackButton(false);
   androidEnableOptionsMenu(false);
   androidDisableFullScreen();
@@ -3884,7 +3937,7 @@ int MyFrame::DoOptionsDialog() {
   unsigned int last_canvasConfig = g_canvasConfig;
   wxSize cc1SizeBefore;
   if (g_canvasConfig > 0) {
-    canvasConfig *cc = g_canvasConfigArray.Item(0);
+    canvasConfig *cc = ConfigMgr::Get().GetCanvasConfigArray().Item(0);
     if (cc) cc1SizeBefore = g_canvasArray.Item(0)->GetSize();
   }
 
@@ -3913,7 +3966,7 @@ int MyFrame::DoOptionsDialog() {
 
   int rr = g_options->ShowModal();
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   androidEnableBackButton(true);
   androidEnableOptionsMenu(true);
   androidRestoreFullScreen();
@@ -3923,7 +3976,7 @@ int MyFrame::DoOptionsDialog() {
   if (g_MainToolbar) g_MainToolbar->EnableTooltips();
 
   options_lastPage = g_options->lastPage;
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   //  This is necessary to force a manual change to charts page,
   //  in order to properly refresh the chart directory list.
   //  Root cause:  In Android, trouble with clearing the wxScrolledWindow
@@ -3936,12 +3989,12 @@ int MyFrame::DoOptionsDialog() {
   options_lastWindowSize = g_options->lastWindowSize;
 
   if (1 /*b_sub*/) {  // always surface toolbar, and restart the timer if needed
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
     g_MainToolbar->SetDockX(-1);
     g_MainToolbar->SetDockY(-1);
 #endif
-    g_MainToolbar->Surface();
-    SurfaceAllCanvasToolbars();
+    //g_MainToolbar->Surface();
+    //SurfaceAllCanvasToolbars();
     GetPrimaryCanvas()->SetFocus();
   }
 
@@ -3969,6 +4022,8 @@ int MyFrame::DoOptionsDialog() {
 #endif
 
   if ((g_canvasConfig != last_canvasConfig) || (rr & GL_CHANGED)) {
+    DestroyPersistentDialogs();
+
     UpdateCanvasConfigDescriptors();
 
     if ((g_canvasConfig > 0) && (last_canvasConfig == 0))
@@ -4015,8 +4070,8 @@ int MyFrame::DoOptionsDialog() {
   if (rr & CONFIG_CHANGED) {
     // Apply the changed canvas configs to each canvas
     // ..For each canvas...
-    for (unsigned int i = 0; i < g_canvasConfigArray.GetCount(); i++) {
-      canvasConfig *cc = g_canvasConfigArray.Item(i);
+    for (unsigned int i = 0; i < ConfigMgr::Get().GetCanvasConfigArray().GetCount(); i++) {
+      canvasConfig *cc = ConfigMgr::Get().GetCanvasConfigArray().Item(i);
       if (cc) {
         ChartCanvas *chartCanvas = cc->canvas;
         if (chartCanvas) {
@@ -4074,7 +4129,7 @@ int MyFrame::DoOptionsDialog() {
     RequestNewMasterToolbar(true);
 
   bool bMuiChange = false;
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   bMuiChange = true;  // to pick up possible "zoom" button visibility change
 #endif
 
@@ -4106,10 +4161,10 @@ int MyFrame::DoOptionsDialog() {
       dynamic_cast<AISTargetAlertDialog*>(g_pais_alert_dialog_active);
   if (alert_dlg_active) alert_dlg_active->Raise();
 
-  if (NMEALogWindow::Get().Active())
-    NMEALogWindow::Get().GetTTYWindow()->Raise();
+  if (NMEALogWindow::GetInstance().Active())
+    NMEALogWindow::GetInstance().GetTTYWindow()->Raise();
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   if (g_pi_manager) g_pi_manager->NotifyAuiPlugIns();
 #endif
 
@@ -4276,8 +4331,8 @@ bool MyFrame::ProcessOptionsDialog(int rr, ArrayOfCDI *pNewDirArray) {
   }
 #endif
 
-  if ((g_config_display_size_mm > 0)  && g_config_display_size_manual){
-    g_display_size_mm = g_config_display_size_mm;
+  if (g_config_display_size_manual && g_config_display_size_mm.size() > g_current_monitor && g_config_display_size_mm[g_current_monitor] > 0) {
+    g_display_size_mm = g_config_display_size_mm[g_current_monitor];
   } else {
     g_display_size_mm = wxMax(50, g_Platform->GetDisplaySizeMM());
   }
@@ -4581,12 +4636,14 @@ void MyFrame::DoStackDelta(ChartCanvas *cc, int direction) {
 }
 
 void MyFrame::PositionIENCToolbar() {
+#if 0
   if (g_iENCToolbar) {
     wxPoint posn;
     posn.x = (GetPrimaryCanvas()->GetSize().x - g_iENCToolbar->GetSize().x) / 2;
     posn.y = 4;
     g_iENCToolbar->Move(GetPrimaryCanvas()->ClientToScreen(posn));
   }
+#endif
 }
 
 // Defered initialization for anything that is not required to render the
@@ -4630,7 +4687,7 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
       g_Platform->SetFullscreen(g_bFullscreen);
 
       // Rebuild chart database, if necessary
-      if (g_bNeedDBUpdate) {
+      if (g_NeedDBUpdate > 0) {
         RebuildChartDatabase();
         for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
           ChartCanvas *cc = g_canvasArray.Item(i);
@@ -4657,7 +4714,7 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
           }
         }
 
-        g_bNeedDBUpdate = false;
+        g_NeedDBUpdate = 0;
       }
 
       // Load the waypoints. Both of these routines are very slow to execute
@@ -4845,9 +4902,6 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
       g_options =
           new options(optionsParent, -1, _("Options"), wxPoint(-1, -1), wxSize(sx, sy));
 
-      // needed to ensure that the chart window starts with keyboard focus
-      SurfaceAllCanvasToolbars();
-
       BuildiENCToolbar(true);
 
       break;
@@ -4894,7 +4948,7 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
       GetPrimaryCanvas()->SetFocus();
       g_focusCanvas = GetPrimaryCanvas();
 
-#ifndef __OCPN__ANDROID__
+#ifndef __ANDROID__
       gFrame->Raise();
 #endif
 
@@ -4913,7 +4967,7 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
         }
       }
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
       androidEnableBackButton(true);
       androidEnableRotation();
       androidEnableOptionItems(true);
@@ -4935,6 +4989,7 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
   wxLog::FlushActive();
 
   RefreshAllCanvas(true);
+  wxGetApp().m_usb_watcher.Start();
 }
 
 wxDEFINE_EVENT(EVT_BASIC_NAV_DATA, ObservedEvt);
@@ -4968,6 +5023,7 @@ void MyFrame::InitAppMsgBusListener() {
 /** Setup handling of events from the local ipc/dbus API. */
 #ifdef __ANDROID__
 void MyFrame::InitApiListeners() {}
+void MyFrame::ReleaseApiListeners() {}
 
 #else
 void MyFrame::InitApiListeners() {
@@ -4980,6 +5036,8 @@ void MyFrame::InitApiListeners() {
       [](const std::string& path) { return wxGetApp().OpenFile(path); };
 
 }
+
+void MyFrame::ReleaseApiListeners() { LocalServerApi::ReleaseInstance(); }
 #endif
 
 void MyFrame::HandleGPSWatchdogMsg(std::shared_ptr<const GPSWatchdogMsg> msg) {
@@ -5200,7 +5258,7 @@ void MyFrame::UpdateStatusBar() {
       if (g_bShowTrue)
         cogs << wxString::Format(wxString("COG %03d%c  "), (int)gCog, 0x00B0);
       if (g_bShowMag)
-        cogs << wxString::Format(wxString("COG %03d%c(M)  "), (int)GetMag(gCog),
+        cogs << wxString::Format(wxString("COG %03d%c(M)  "), (int)toMagnetic(gCog),
                                  0x00B0);
     } else
       cogs.Printf(("COG ---%c"), 0x00B0);
@@ -5716,7 +5774,7 @@ void MyFrame::OnFrameTimer1(wxTimerEvent &event) {
     }
   }
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
 
   // Update the navobj file on a fixed schedule (5 minutes)
   // This will do nothing if the navobj.changes file is empty and clean
@@ -5744,20 +5802,6 @@ void MyFrame::OnFrameTimer1(wxTimerEvent &event) {
     FrameTimer1.Start(TIMER_GFRAME_1, wxTIMER_CONTINUOUS);
 }
 
-double MyFrame::GetMag(double a) {
-  if (!std::isnan(gVar)) {
-    if ((a - gVar) > 360.)
-      return (a - gVar - 360.);
-    else
-      return ((a - gVar) >= 0.) ? (a - gVar) : (a - gVar + 360.);
-  } else {
-    if ((a - g_UserVar) > 360.)
-      return (a - g_UserVar - 360.);
-    else
-      return ((a - g_UserVar) >= 0.) ? (a - g_UserVar) : (a - g_UserVar + 360.);
-  }
-}
-
 double MyFrame::GetMag(double a, double lat, double lon) {
   double Variance = std::isnan(gVar) ? g_UserVar : gVar;
   auto loader = PluginLoader::getInstance();
@@ -5773,10 +5817,7 @@ double MyFrame::GetMag(double a, double lat, double lon) {
     if (fabs(gQueryVar) < 360.0)  // Don't use WMM variance if not updated yet
       Variance = gQueryVar;
   }
-  if ((a - Variance) > 360.)
-    return (a - Variance - 360.);
-  else
-    return ((a - Variance) >= 0.) ? (a - Variance) : (a - Variance + 360.);
+  return toMagnetic(a, Variance);
 }
 
 bool MyFrame::SendJSON_WMM_Var_Request(double lat, double lon,
@@ -6066,7 +6107,7 @@ int g_lastMemTick = -1;
 /* Return total system RAM and size of program */
 /* Values returned are in kilobytes            */
 bool GetMemoryStatus(int *mem_total, int *mem_used) {
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   return androidGetMemoryStatus(mem_total, mem_used);
 #endif
 
@@ -6213,6 +6254,16 @@ bool GetMemoryStatus(int *mem_total, int *mem_used) {
 }
 
 void MyFrame::DoPrint(void) {
+  //avoid toolbars being printed
+  g_PrintingInProgress = true;
+#ifdef ocpnUSE_GL
+  if(g_bopengl){
+    GetPrimaryCanvas()->GetglCanvas()->Render();
+    GetPrimaryCanvas()->GetglCanvas()->SwapBuffers();
+  }else
+#endif
+    Refresh();
+
   if (NULL == g_printData) {
     g_printData = new wxPrintData;
     g_printData->SetOrientation(wxLANDSCAPE);
@@ -6259,9 +6310,9 @@ void MyFrame::DoPrint(void) {
    frame->Initialize();
    frame->Show();
    */
-
+  g_PrintingInProgress = false;
+  Refresh();
 #ifdef __WXGTK__
-  SurfaceAllCanvasToolbars();
   GetPrimaryCanvas()->SetFocus();
   Raise();  // I dunno why...
 #endif
@@ -6776,16 +6827,9 @@ void MyFrame::applySettingsString(wxString settings) {
 
   if (rr & TOOLBAR_CHANGED) b_newToolbar = true;
 
-  if (b_newToolbar) {
-    // .. for each canvas...
-    for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
-      ChartCanvas *cc = g_canvasArray.Item(i);
-      if (cc) cc->DestroyToolbar();
-    }
-  }
 
   //  We do this is one case only to remove an orphan recovery window
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   if (previous_expert && !g_bUIexpert) {
     androidForceFullRepaint();
   }
@@ -6815,8 +6859,6 @@ void MyFrame::applySettingsString(wxString settings) {
     RequestNewMasterToolbar(true);
   }
 
-  SurfaceAllCanvasToolbars();
-
   gFrame->Raise();
 
   InvalidateAllGL();
@@ -6824,22 +6866,12 @@ void MyFrame::applySettingsString(wxString settings) {
   UpdateControlBar(GetPrimaryCanvas());
   Refresh();
 
-#if defined(__WXOSX__) || defined(__WXQT__)
-  if (g_MainToolbar) g_MainToolbar->Raise();
-
-  for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
-    ChartCanvas *cc = g_canvasArray.Item(i);
-    if (cc && cc->GetMUIBar()) cc->GetMUIBar()->Raise();
-  }
-
-#endif
-
   if (console) console->Raise();
 
   Refresh(false);
 
-  if (NMEALogWindow::Get().Active())
-    NMEALogWindow::Get().GetTTYWindow()->Raise();
+  if (NMEALogWindow::GetInstance().Active())
+    NMEALogWindow::GetInstance().GetTTYWindow()->Raise();
 }
 
 #ifdef wxHAS_POWER_EVENTS
@@ -6865,12 +6897,13 @@ void MyFrame::OnSuspendCancel(wxPowerEvent &WXUNUSED(event)) {
 int g_last_resume_ticks;
 void MyFrame::OnResume(wxPowerEvent &WXUNUSED(event)) {
   wxDateTime now = wxDateTime::Now();
-  //    printf("OnResume...%d\n", now.GetTicks());
   wxLogMessage(_T("System resumed from suspend."));
 
+
   if ((now.GetTicks() - g_last_resume_ticks) > 5) {
-    wxLogMessage(_T("Restarting streams."));
-    //       printf("   Restarting streams\n");
+    SystemEvents::GetInstance().evt_resume.Notify();
+
+    wxLogMessage("Restarting streams.");
     g_last_resume_ticks = now.GetTicks();
 //FIXME (dave)
 #if 0
@@ -6909,7 +6942,7 @@ void MyFrame::RequestNewMasterToolbar(bool bforcenew) {
 
   bool b_reshow = true;
   if (g_MainToolbar) {
-    b_reshow = g_MainToolbar->IsShown();
+    b_reshow = true; //g_MainToolbar->IsShown();
     float ff = fabs(g_MainToolbar->GetScaleFactor() - g_toolbar_scalefactor);
     if ((ff > 0.01f) || bforcenew) {
       g_MainToolbar->DestroyToolBar();
@@ -6928,27 +6961,23 @@ void MyFrame::RequestNewMasterToolbar(bool bforcenew) {
 #endif
     g_MainToolbar = new ocpnFloatingToolbarDialog(toolbarParent, wxPoint(-1, -1), orient,
                                                   g_toolbar_scalefactor);
-    g_MainToolbar->SetCornerRadius(5);
     g_MainToolbar->SetBackGroundColorString(_T("GREY3"));
     g_MainToolbar->SetToolbarHideMethod(TOOLBAR_HIDE_TO_FIRST_TOOL);
     g_MainToolbar->SetToolConfigString(g_toolbarConfig);
     g_MainToolbar->EnableRolloverBitmaps(false);
-    g_MainToolbar->SetGrabberEnable(false);
 
     g_MainToolbar->CreateConfigMenu();
-    // g_MainToolbar->MoveDialogInScreenCoords(wxPoint(g_maintoolbar_x,
-    // g_maintoolbar_y), wxPoint(0, 0));
+    g_MainToolbar->SetDefaultPosition();
+
     g_bmasterToolbarFull = true;
   }
 
   if (g_MainToolbar) {
     CreateMasterToolbar();
-    if (g_MainToolbar->isSubmergedToGrabber()) {
-      g_MainToolbar->SubmergeToGrabber();
-    } else {
-      g_MainToolbar->RestoreRelativePosition(g_maintoolbar_x, g_maintoolbar_y);
+    {
+      //g_MainToolbar->RestoreRelativePosition(g_maintoolbar_x, g_maintoolbar_y);
       g_MainToolbar->SetColorScheme(global_color_scheme);
-      g_MainToolbar->Show(b_reshow && g_bshowToolbar);
+      //g_MainToolbar->Show(b_reshow && g_bshowToolbar);
     }
   }
 
@@ -8386,6 +8415,7 @@ void LoadS57() {
     ps52plib->SetPLIBColorScheme(global_color_scheme, ChartCtxFactory());
 
     if (gFrame){
+      ps52plib->SetDisplayWidth(g_monitor_info[g_current_monitor].width);
       ps52plib->SetPPMM(g_BasePlatform->GetDisplayDPmm());
       double dip_factor = g_BasePlatform->GetDisplayDIPMult(gFrame);
       ps52plib->SetDIPFactor(dip_factor);

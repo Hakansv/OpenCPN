@@ -65,9 +65,14 @@
 
 #include <fstream>
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
 #include "androidSupport.h"
+#include "android_jvm.h"
+#include <jni.h>
 #endif
+
+
+
 
 #ifdef __WXMAC__
 #define CATALOGS_NAME_WIDTH 300
@@ -101,9 +106,6 @@
 #ifdef __OCPN__ANDROID__
 #include <QtAndroidExtras/QAndroidJniObject>
 #include "qdebug.h"
-
-extern JavaVM *java_vm;  // found in androidUtil.cpp, accidentally exported....
-JNIEnv *jenv;
 
 #endif
 
@@ -459,6 +461,7 @@ bool getDisplayMetrics() {
   jstring s = data.object<jstring>();
 
   //  Need a Java environment to decode the resulting string
+  JNIEnv *jenv;
   if (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK) {
     // qDebug() << "GetEnv failed.";
   } else {
@@ -1420,10 +1423,12 @@ After downloading the charts, please extract them to %s"),
             _("Downloading chart %u of %u (%s / %s)"), m_downloading,
             to_download, m_transferredsize.c_str(), m_totalsize.c_str()));
 
-      // if(g_pi && g_pi->m_dldrpanel)
-      // g_pi->m_dldrpanel->Raise();
+      Update();
+      Refresh();
+
+      wxTheApp->ProcessPendingEvents();
       wxYield();
-      wxMilliSleep(30);
+      wxMilliSleep(20);
     }
 
     if (cancelled) {
@@ -2461,4 +2466,5 @@ void ChartDldrPanelImpl::onDLEvent(OCPN_downloadEvent &ev) {
     default:
       break;
   }
+  wxYieldIfNeeded();
 }

@@ -22,6 +22,7 @@
 set(SRC_CONSOLE console.cpp api_shim.cpp)
 add_executable(opencpn-cmd ${SRC_CONSOLE})
 
+target_link_libraries(opencpn-cmd PUBLIC -rdynamic)
 if (NOT "${ENABLE_SANITIZER}" MATCHES "none")
   target_link_libraries(opencpn-cmd PRIVATE -fsanitize=${ENABLE_SANITIZER})
 endif ()
@@ -101,7 +102,11 @@ if (MSVC)
 endif ()
 
 
-install(TARGETS opencpn-cmd RUNTIME DESTINATION ${PREFIX_BIN})
+if (WIN32)
+  install(TARGETS opencpn-cmd RUNTIME DESTINATION ".")
+else()
+  install(TARGETS opencpn-cmd RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+endif ()
 
 if (APPLE)
   install(

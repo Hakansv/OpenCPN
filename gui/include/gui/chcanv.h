@@ -51,7 +51,6 @@ class IDX_entry;
 class ocpnCompass;
 class TimedPopupWin;
 class Track;
-class ocpnFloatingToolbarDialog;
 
 //    Useful static routines
 void ShowAISTargetQueryDialog(wxWindow *parent, int mmsi);
@@ -118,7 +117,11 @@ typedef enum ownship_state_t {
 
 enum { ID_S57QUERYTREECTRL = 10000, ID_AISDIALOGOK };
 
-enum { ID_PIANO_DISABLE_QUILT_CHART = 32000, ID_PIANO_ENABLE_QUILT_CHART };
+enum { ID_PIANO_DISABLE_QUILT_CHART = 32000,
+       ID_PIANO_ENABLE_QUILT_CHART,
+       ID_PIANO_CONTRACT_PIANO,
+       ID_PIANO_EXPAND_PIANO
+};
 
 enum { NORTH_UP_MODE, COURSE_UP_MODE, HEAD_UP_MODE };
 
@@ -145,6 +148,10 @@ public:
 
   bool MouseEventOverlayWindows(wxMouseEvent &event);
   bool MouseEventChartBar(wxMouseEvent &event);
+  bool MouseEventMUIBar(wxMouseEvent &event);
+  bool MouseEventToolbar(wxMouseEvent &event);
+  bool MouseEventIENCBar(wxMouseEvent &event);
+
   bool MouseEventSetup(wxMouseEvent &event, bool b_handle_dclick = true);
   bool MouseEventProcessObjects(wxMouseEvent &event);
   bool MouseEventProcessCanvas(wxMouseEvent &event);
@@ -249,6 +256,8 @@ public:
   std::vector<int> GetQuiltIndexArray(void);
   bool IsQuiltDelta(void);
   void SetQuiltChartHiLiteIndex(int dbIndex);
+  void SetQuiltChartHiLiteIndexArray(std::vector<int> hilite_array);
+  void ClearQuiltChartHiLiteIndexArray();
   int GetQuiltReferenceChartIndex(void);
   double GetBestStartScale(int dbi_hint, const ViewPort &vp);
   void ConfigureChartBar();
@@ -333,7 +342,8 @@ public:
   void SetQuiltRefChart(int dbIndex);
   std::vector<int> GetQuiltCandidatedbIndexArray(bool flag1 = true,
                                                  bool flag2 = true);
-  std::vector<int> GetQuiltExtendedStackdbIndexArray();
+  std::vector<int> &GetQuiltExtendedStackdbIndexArray();
+  std::vector<int> &GetQuiltFullScreendbIndexArray();
   std::vector<int> GetQuiltEclipsedStackdbIndexArray();
   int GetQuiltRefChartdbIndex(void);
   void InvalidateQuilt(void);
@@ -360,6 +370,8 @@ public:
 
   void ShowChartInfoWindow(int x, int dbIndex);
   void HideChartInfoWindow(void);
+  void ShowCompositeInfoWindow(int x, int n_charts,
+                               int scale, const std::vector<int> &index_vector);
 
   void StartMeasureRoute();
   void CancelMeasureRoute();
@@ -371,17 +383,22 @@ public:
   void selectCanvasChartDisplay(int type, int family);
   void RemoveChartFromQuilt(int dbIndex);
 
-  void HandlePianoClick(int selected_index, int selected_dbIndex);
+  void HandlePianoClick(int selected_index,
+                           const std::vector<int> &selected_dbIndex_array);
   void HandlePianoRClick(int x, int y, int selected_index,
-                         int selected_dbIndex);
-  void HandlePianoRollover(int selected_index, int selected_dbIndex);
+                         const std::vector<int> &selected_dbIndex_array);
+  void HandlePianoRollover(int selected_index,
+                           const std::vector<int> &selected_dbIndex_array,
+                           int n_charts, int scale);
+  void ClearPianoRollover();
   void UpdateCanvasControlBar(void);
   void FormatPianoKeys(void);
-  void PianoPopupMenu(int x, int y, int selected_index, int selected_dbIndex);
+  void PianoPopupMenu(int x, int y, int selected_index,
+                      const std::vector<int> &selected_dbIndex_array);
   void OnPianoMenuDisableChart(wxCommandEvent &event);
   void OnPianoMenuEnableChart(wxCommandEvent &event);
+
   bool IsPianoContextMenuActive() { return m_piano_ctx_menu != 0; }
-  void SetCanvasToolbarItemState(int tool_id, bool state);
   bool DoCanvasCOGSet(void);
   void UpdateFollowButtonState(void);
   void ApplyGlobalSettings();
@@ -458,28 +475,10 @@ public:
   Track *GetSelectedTrack() const { return m_pSelectedTrack; }
   RoutePoint *GetSelectedRoutePoint() const { return m_pFoundRoutePoint; }
 
-  ocpnFloatingToolbarDialog *RequestNewCanvasToolbar(bool bforcenew = true);
-  void UpdateToolbarColorScheme(ColorScheme cs);
   void SetAISCanvasDisplayStyle(int StyleIndx);
   void TouchAISToolActive(void);
   void UpdateAISTBTool(void);
-  void SetToolbarScaleFactor(double scale_factor) {
-    m_toolbar_scalefactor = scale_factor;
-  }
-  ocpnFloatingToolbarDialog *GetToolbar() { return m_toolBar; }
-  void SetToolbarConfigString(wxString &config) { m_toolbarConfig = config; }
-  wxString GetToolbarConfigString() { return m_toolbarConfig; }
 
-  void SetToolbarPosition(wxPoint position);
-  wxPoint GetToolbarPosition();
-  void SetToolbarOrientation(long orient);
-  long GetToolbarOrientation();
-
-  void SubmergeToolbar(void);
-  void SurfaceToolbar(void);
-  void ToggleToolbar(bool b_smooth = false);
-  bool IsToolbarShown();
-  void DestroyToolbar();
 
   void SelectChartFromStack(int index, bool bDir = false,
                             ChartTypeEnum New_Type = CHART_TYPE_DONTCARE,
@@ -500,8 +499,6 @@ public:
   bool GetShowOutlines() { return m_bShowOutlines; }
   void SetShowOutlines(bool show) { m_bShowOutlines = show; }
   bool GetShowChartbar() { return true; }
-  bool GetToolbarEnable() { return m_bToolbarEnable; }
-  void SetToolbarEnable(bool show);
   wxRect GetMUIBarRect();
   void SetMUIBarPosition();
   void DestroyMuiBar();
@@ -881,11 +878,6 @@ private:
 
   bool m_dragoffsetSet;
 
-  ocpnFloatingToolbarDialog *m_toolBar;
-  double m_toolbar_scalefactor;
-  wxString m_toolbarConfig;
-  wxPoint m_toolbarPosition;
-  long m_toolbarOrientation;
 
   bool m_bautofind;
   bool m_bFirstAuto;
@@ -910,7 +902,6 @@ private:
   bool m_bShowOutlines;
   bool m_bDisplayGrid;
   bool m_bShowDepthUnits;
-  bool m_bToolbarEnable;
   bool m_bShowAIS;
   bool m_bShowAISScaled;
 

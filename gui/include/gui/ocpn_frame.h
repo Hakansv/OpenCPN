@@ -37,6 +37,7 @@
 #include "model/ocpn_types.h"
 #include "model/comm_appmsg_bus.h"
 #include "bbox.h"
+#include "comm_overflow_dlg.h"
 #include "color_handler.h"
 #include "gui_lib.h"
 #include "load_errors_dlg.h"
@@ -44,6 +45,7 @@
 #include "ocpn_print.h"
 #include "s52s57.h"
 #include "SencManager.h"
+#include "displays.h"
 
 wxColour GetGlobalColor(wxString colorName);
 wxColour GetDialogColor(DialogColor color);
@@ -231,7 +233,9 @@ public:
   void ToggleChartOutlines(ChartCanvas *cc);
   void ToggleENCText(ChartCanvas *cc);
   void ToggleSoundings(ChartCanvas *cc);
+  #if 0
   void ToggleRocks(void);
+  #endif
   bool ToggleLights(ChartCanvas *cc);
   void ToggleAnchor(ChartCanvas *cc);
   void ToggleAISDisplay(ChartCanvas *cc);
@@ -278,7 +282,6 @@ public:
   void ChartsRefresh();
 
   bool CheckGroup(int igroup);
-  double GetMag(double a);
   double GetMag(double a, double lat, double lon);
   bool SendJSON_WMM_Var_Request(double lat, double lon, wxDateTime date);
 
@@ -346,6 +349,7 @@ public:
 
   void InitAppMsgBusListener();
   void InitApiListeners();
+  void ReleaseApiListeners();
   void UpdateStatusBar(void);
 
 private:
@@ -402,6 +406,8 @@ private:
   ObsListener m_on_raise_listener;
   ObsListener m_on_quit_listener;
   ObsListener m_routes_update_listener;
+
+  CommOverflowDlg comm_overflow_dlg;
 
   DECLARE_EVENT_TABLE()
 };

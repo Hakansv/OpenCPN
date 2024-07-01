@@ -86,8 +86,13 @@ class OCPNChartDirPanel;
 class OCPNSoundPanel;
 
 #define ID_DIALOG 10001
+#ifdef __WXOSX__
+#define SYMBOL_OPTIONS_STYLE \
+  wxCAPTION | wxRESIZE_BORDER | wxSYSTEM_MENU | wxCLOSE_BOX | wxSTAY_ON_TOP
+#else
 #define SYMBOL_OPTIONS_STYLE \
   wxCAPTION | wxRESIZE_BORDER | wxSYSTEM_MENU | wxCLOSE_BOX
+#endif
 #define SYMBOL_OPTIONS_TITLE _("Options")
 #define SYMBOL_OPTIONS_IDNAME ID_DIALOG
 #define SYMBOL_OPTIONS_SIZE wxSize(500, 500)
@@ -413,7 +418,7 @@ public:
   wxCheckBox *pCBCM93, *pCBLookAhead, *pSkewComp, *pOpenGL, *pSmoothPanZoom;
   wxCheckBox *pFullScreenQuilt, *pMobile, *pResponsive, *pOverzoomEmphasis;
   wxCheckBox *pOZScaleVector, *pToolbarAutoHideCB, *pInlandEcdis, *pRollover;
-  wxCheckBox *pZoomButtons;
+  wxCheckBox *pZoomButtons, *pChartBarEX;
   wxTextCtrl *pCOGUPUpdateSecs, *m_pText_OSCOG_Predictor, *pScreenMM;
   wxTextCtrl *pToolbarHideSecs, *m_pText_OSHDT_Predictor;
 
@@ -521,6 +526,7 @@ public:
 
   CanvasConfigSelect *m_sconfigSelect_single;
   CanvasConfigSelect *m_sconfigSelect_twovertical;
+  wxStaticText *m_Text_def_boat_speed;
 
   // For Configuration Template panel
   wxScrolledWindow *m_scrollWinConfigList;
@@ -607,6 +613,13 @@ public:
   OCPNSoundPanel *m_soundPanelAIS;
   OCPNSoundPanel *m_soundPanelSART;
   OCPNSoundPanel *m_soundPanelDSC;
+  void OnUXAudioEnableButtonClickAIS(wxCommandEvent &event);
+  void OnUXAudioEnableButtonClickSART(wxCommandEvent &event);
+  void OnUXAudioEnableButtonClickDSC(wxCommandEvent &event);
+
+  /** Notified with a OCPN_Sound* pointer when sound has completed. */
+  EventVar m_on_sound_done;
+  ObsListener m_sound_done_listener;
 
 private:
   void Init(void);
@@ -772,7 +785,6 @@ public:
   bool GetTextureCompression(void) const;
   bool GetPolygonSmoothing(void) const;
   bool GetLineSmoothing(void) const;
-  bool GetShowFPS(void) const;
   bool GetSoftwareGL(void) const;
   bool GetTextureCompressionCaching(void) const;
   bool GetRebuildCache(void) const;
@@ -785,7 +797,7 @@ private:
   wxString GetTextureCacheSize(void);
 
   wxCheckBox *m_cbUseAcceleratedPanning, *m_cbTextureCompression;
-  wxCheckBox *m_cbTextureCompressionCaching, *m_cbShowFPS, *m_cbSoftwareGL,
+  wxCheckBox *m_cbTextureCompressionCaching, *m_cbSoftwareGL,
       *m_cbPolygonSmoothing, *m_cbLineSmoothing;
   wxSpinCtrl *m_sTextureDimension, *m_sTextureMemorySize;
   wxStaticText *m_cacheSize, *m_memorySize;

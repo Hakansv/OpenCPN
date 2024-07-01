@@ -40,8 +40,8 @@
 #include <wx/socket.h>
 
 #include "rapidjson/fwd.h"
-#include "conn_params.h"
-#include "comm_drv_signalk.h"
+#include "model/conn_params.h"
+#include "model/comm_drv_signalk.h"
 
 #define SIGNALK_SOCKET_ID 5011
 #define N_DOG_TIMEOUT 5             // seconds
@@ -90,6 +90,10 @@ public:
   ConnectionParams m_params;
   DriverListener& m_listener;
 
+  static void initIXNetSystem();
+
+  static void uninitIXNetSystem();
+
 private:
   wxIPV4address m_addr;
   wxIPV4address GetAddr() const { return m_addr; }
@@ -107,6 +111,8 @@ private:
   bool m_bGPSValid_SK;
 
   bool SetOutputSocketOptions(wxSocketBase *sock);
+
+  std::string m_token;
 
   WebSocketThread *m_wsThread;
 

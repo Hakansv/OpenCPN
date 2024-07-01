@@ -39,6 +39,7 @@
 #include "model/comm_drv_n2k_serial.h"
 #include "model/comm_navmsg_bus.h"
 #include "model/comm_drv_registry.h"
+#include "model/logger.h"
 
 #include <N2kMsg.h>
 std::vector<unsigned char> BufferToActisenseFormat( tN2kMsg &msg);
@@ -741,16 +742,16 @@ void CommDriverN2KSerialThread::ThreadMessage(const wxString& msg) {
 size_t CommDriverN2KSerialThread::WriteComPortPhysical(std::vector<unsigned char> msg) {
   if (m_serial.isOpen()) {
     ssize_t status = 0;
+#if 0
+    printf("X                ");
+    for (size_t i = 0; i < msg.size(); i++) printf("%02X ", msg[i]);
+    printf("\n");
+#endif
     try {
-        printf("X                ");
-        for (size_t i = 0; i < msg.size(); i++)
-          printf("%02X ", msg.at(i));
-        printf("\n");
-
-        status = m_serial.write((uint8_t*)msg.data(), msg.size());
+      status = m_serial.write((uint8_t*)msg.data(), msg.size());
     } catch (std::exception& e) {
-       std::cerr << "Unhandled Exception while writing to serial port: " <<
-       e.what() << std::endl;
+      WARNING_LOG << "Unhandled Exception while writing to serial port: "
+          << e.what();
       return -1;
     }
     return status;
@@ -1035,35 +1036,40 @@ void* CommDriverN2KSerialThread::Entry() {
               if ((put_ptr - rx_buffer) > DS_RX_BUFFER_SIZE)
                 put_ptr = rx_buffer;
               bGotESC = false;
+            } else if ( ENDOFTEXT == next_byte ) {
+              // Process packet
+              //    Copy the message into a std::vector
+
+              auto buffer = std::make_shared<std::vector<unsigned char>>();
+              std::vector<unsigned char>* vec = buffer.get();
+
+              unsigned char* tptr;
+              tptr = tak_ptr;
+
+              while ((tptr != put_ptr)) {
+                vec->push_back(*tptr++);
+                if ((tptr - rx_buffer) > DS_RX_BUFFER_SIZE) tptr = rx_buffer;
+              }
+
+              tak_ptr = tptr;
+              bInMsg = false;
+              bGotESC = false;
+
+              // Message is finished
+              // Send the captured raw data vector pointer to the thread's
+              // "parent"
+              //  thereby releasing the thread for further data capture
+              CommDriverN2KSerialEvent Nevent(wxEVT_COMMDRIVER_N2K_SERIAL, 0);
+              Nevent.SetPayload(buffer);
+              m_pParentDriver->AddPendingEvent(Nevent);
+            } else if (next_byte == STARTOFTEXT) {
+              put_ptr = rx_buffer;
+              bGotESC = false;
+            } else {
+              put_ptr = rx_buffer;
+              bInMsg = false;
+              bGotESC = false;
             }
-          }
-
-          if (bGotESC && (ENDOFTEXT == next_byte)) {
-            // Process packet
-            //    Copy the message into a std::vector
-
-            auto buffer = std::make_shared<std::vector<unsigned char>>();
-            std::vector<unsigned char>* vec = buffer.get();
-
-            unsigned char* tptr;
-            tptr = tak_ptr;
-
-            while ((tptr != put_ptr)) {
-              vec->push_back(*tptr++);
-              if ((tptr - rx_buffer) > DS_RX_BUFFER_SIZE) tptr = rx_buffer;
-            }
-
-            tak_ptr = tptr;
-            bInMsg = false;
-            bGotESC = false;
-
-            // Message is finished
-            // Send the captured raw data vector pointer to the thread's
-            // "parent"
-            //  thereby releasing the thread for further data capture
-            CommDriverN2KSerialEvent Nevent(wxEVT_COMMDRIVER_N2K_SERIAL, 0);
-            Nevent.SetPayload(buffer);
-            m_pParentDriver->AddPendingEvent(Nevent);
 
           } else {
             bGotESC = (next_byte == ESCAPE);

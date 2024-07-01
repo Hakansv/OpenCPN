@@ -4,7 +4,7 @@ set -x
 
 # Install the stuff needed for upload to the Cloudsmith repository
 # before messing w /usr/local
-pip3 install --user  -q cloudsmith-cli
+/usr/bin/python3 -m venv $HOME/cs-venv
 
 #
 # Build the OSX artifacts
@@ -14,12 +14,12 @@ pip3 install --user  -q cloudsmith-cli
 # OpenCPN needs to support even older macOS releases than the system
 # it is being built on, set MACOSX_DEPLOYMENT_TARGET environment
 # variable to use the respective SDK version.
-export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-10.13}
+export MACOSX_DEPLOYMENT_TARGET=${MACOSX_DEPLOYMENT_TARGET:-11.0}
 
 # URL of the repository to download the dependency bundle from
-export DEPS_BUNDLE_REPO="${DEPS_BUNDLE_REPO:-https://dl.cloudsmith.io/public/nohal/opencpn-plugins/raw/files}"
+export DEPS_BUNDLE_REPO="${DEPS_BUNDLE_REPO:-https://dl.cloudsmith.io/public/nohal/opencpn-dependencies/raw/files}"
 # Name of the bundle
-export DEPS_BUNDLE_FILE="${DEPS_BUNDLE_FILE:-macos_deps_universal.tar.xz}"
+export DEPS_BUNDLE_FILE="${DEPS_BUNDLE_FILE:-macos_deps_universal-opencpn.tar.xz}"
 # Where to unpack the bundle
 export DEPS_BUNDLE_DEST="${DEPS_BUNDLE_DEST:-/usr/local}"
 # What architecture(s) to build for
@@ -46,23 +46,14 @@ brew list --versions python3 || {
 
 
 # Install the build dependencies for OpenCPN
-brew install boost    # pre-10.15 compatibility
 brew install cmake
 brew install gettext
+brew install create-dmg
 
 for pkg in python3  cmake ; do
     brew list --versions $pkg || brew install $pkg || brew install $pkg || :
     brew link --overwrite $pkg || :
 done
-
-if brew list --cask --versions packages; then
-    version=$(pkg_version packages '--cask')
-    sudo installer \
-        -pkg /usr/local/Caskroom/packages/$version/packages/Packages.pkg \
-        -target /
-else
-    brew install --cask packages
-fi
 
 # OpenCPN can be built against any wxWidgets version newer than 3.2.0
 # but the resulting binary will (almost certainly) not be ABI compatible with 3rd party plugins
@@ -105,6 +96,17 @@ cmake -DOCPN_CI_BUILD=$CI_BUILD \
 
 # Compile OpenCPN
 make -j$(sysctl -n hw.physicalcpu)
+
+# Make sure wx libraries are referenced using the symlinks
+
+app="OpenCPN.app/Contents/MacOS/OpenCPN"
+for lib in $(otool -L ${app} | grep libwx | cut -d' ' -f 1)
+do
+  newlib="$(echo $lib | sed 's/-3\.2.*\.dylib/-3.2.dylib/g')"
+  echo "${lib} -> ${newlib}"
+  install_name_tool -change ${lib} ${newlib} ${app}
+done
+
 # Create the package artifacts
 mkdir -p /tmp/opencpn/bin/OpenCPN.app/Contents/MacOS
 mkdir -p /tmp/opencpn/bin/OpenCPN.app/Contents/SharedSupport/plugins
@@ -112,12 +114,16 @@ make install
 make install # Dunno why the second is needed but it is, otherwise
              # plugin data is not included in the bundle
 
+# Make sure the code signatures are correct
+codesign --force --deep --sign - /tmp/opencpn/bin/OpenCPN.app
+
 dsymutil -o OpenCPN.dSYM /tmp/opencpn/bin/OpenCPN.app/Contents/MacOS/OpenCPN
 tar czf OpenCPN-$(git rev-parse --short HEAD).dSYM.tar.gz OpenCPN.dSYM
 
 make create-pkg
-make create-dmg
+if [[ ! -z "${CREATE_DMG+x}" ]]; then
+  make create-dmg
+fi
 
 # The build is over, if there is error now it is not ours
 set +e
-

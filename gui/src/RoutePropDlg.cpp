@@ -39,7 +39,7 @@
 #endif
 
 ///////////////////////////////////////////////////////////////////////////
-BEGIN_EVENT_TABLE(RoutePropDlg, wxFrame)
+BEGIN_EVENT_TABLE(RoutePropDlg, DIALOG_PARENT)
 #ifdef __OCPN__ANDROID__
 EVT_CHAR(RoutePropDlg::OnKeyChar)
 #endif
@@ -80,7 +80,7 @@ RoutePropDlgCtx RoutePropDlg::GetDlgCtx() {
 RoutePropDlg::RoutePropDlg(wxWindow* parent, wxWindowID id,
                            const wxString& title, const wxPoint& pos,
                            const wxSize& size, long style)
-    : wxFrame(parent, id, title, pos, size, style) {
+    : DIALOG_PARENT(parent, id, title, pos, size, style) {
   wxFont* qFont = GetOCPNScaledFont(_("Dialog"));
   SetFont(*qFont);
 
@@ -286,7 +286,7 @@ RoutePropDlg::RoutePropDlg(wxWindow* parent, wxWindowID id,
 
   wxString m_choiceStyleChoices[] = {_("Default"),    _("Solid"),
                                      _("Dot"),        _("Long dash"),
-                                     _("Short dash"), _("Dot dash")};
+                                     _("Short dash")};
   int m_choiceStyleNChoices = sizeof(m_choiceStyleChoices) / sizeof(wxString);
   m_choiceStyle =
       new wxChoice(m_pnlBasic, wxID_ANY, wxDefaultPosition, wxDefaultSize,

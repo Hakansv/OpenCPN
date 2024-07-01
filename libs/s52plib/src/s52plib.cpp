@@ -76,7 +76,9 @@ static const double mercator_k0 = 0.9996;
 #include "poly_math.h"
 #include "LOD_reduce.h"
 #include "linmath.h"
+#ifdef ocpnUSE_GL
 #include "Cs52_shaders.h"
+#endif
 
 #include <wx/image.h>
 #include <wx/tokenzr.h>
@@ -366,6 +368,7 @@ s52plib::s52plib(const wxString &PLib, bool b_forceLegacy) {
   SetGLLineSmoothing(false);
 
   m_displayScale = 1.0;
+  m_display_width = 0;
 
   // Clear the TexFont cache
   unsigned int i;
@@ -494,9 +497,7 @@ void s52plib::SetPPMM(float ppmm) {
   m_rv_scale_factor = 0.8;
 
   // Estimate the display size
-  int ww, hh;
-  ::wxDisplaySize(&ww, &hh);
-  m_display_size_mm = ww / GetPPMM();  // accurate enough for internal use
+  m_display_size_mm = m_display_width / GetPPMM();  // accurate enough for internal use
 
   m_display_size_mm /= m_displayScale;
 }
@@ -515,10 +516,7 @@ void s52plib::DestroyLUP(LUPrec *pLUP) {
   Rules *top = pLUP->ruleList;
   DestroyRulesChain(top);
 
-  for (unsigned int i = 0; i < pLUP->ATTArray.size(); i++)
-    free(pLUP->ATTArray[i]);
-
-  delete pLUP->INST;
+  delete pLUP;
 }
 
 void s52plib::DestroyRulesChain(Rules *top) {
@@ -795,14 +793,14 @@ LUPrec *s52plib::FindBestLUP(wxArrayOfLUPrec *LUPArray, unsigned int startIndex,
     for (unsigned int iLUPAtt = 0; iLUPAtt < LUPCandidate->ATTArray.size();
          iLUPAtt++) {
       // Get the LUP attribute name
-      char *slatc = LUPCandidate->ATTArray[iLUPAtt];
+      const char *slatc = LUPCandidate->ATTArray[iLUPAtt].c_str();
 
       if (slatc && (strlen(slatc) < 6))
         goto next_LUP_Attr;  // LUP attribute value not UTF8 convertible (never
                              // seen in PLIB 3.x)
 
       if (slatc) {
-        char *slatv = slatc + 6;
+        const char *slatv = slatc + 6;
         while (attIdx < pObj->n_attr) {
           if (0 == strncmp(slatc, currATT, 6)) {
             // OK we have an attribute name match
@@ -1123,8 +1121,8 @@ int s52plib::_LUP2rules(LUPrec *LUP, S57Obj *pObj) {
     return 0;
   }
 
-  if (LUP->INST != NULL) {
-    Rules *top = StringToRules(*LUP->INST);
+  if (!LUP->INST.IsEmpty()) {
+    Rules *top = StringToRules(LUP->INST);
     LUP->ruleList = top;
 
     return 1;
@@ -2867,6 +2865,8 @@ bool s52plib::RenderRasterSymbol(ObjRazRules *rzRules, Rule *prule, wxPoint &r,
     scale_factor *= pix_factor;
   }
 
+  scale_factor *= m_ContentScaleFactor;
+
   // a few special cases here
   if (!strncmp(rzRules->obj->FeatureName, "notmrk", 6) ||
       !strncmp(rzRules->obj->FeatureName, "NOTMRK", 6) ||
@@ -2922,15 +2922,14 @@ bool s52plib::RenderRasterSymbol(ObjRazRules *rzRules, Rule *prule, wxPoint &r,
     // cached, we have to dump the cache
     wxRect trect;
     m_chartSymbols.GetGLTextureRect(trect, prule->name.SYNM);
-    if (prule->parm2 != trect.width * scale_factor) b_dump_cache = true;
+    if (prule->parm2 != (int)(trect.width * scale_factor)) b_dump_cache = true;
 
     wxBitmap *pbm = NULL;
-    wxImage Image;
 
     // Instantiate the symbol if necessary
     if ((prule->pixelPtr == NULL) || (prule->parm1 != m_colortable_index) ||
         b_dump_cache) {
-      Image =  m_chartSymbols.GetImage(prule->name.SYNM);
+      wxImage Image =  m_chartSymbols.GetImage(prule->name.SYNM);
 
       // delete any old private data
       ClearRulesCache(prule);
@@ -4113,9 +4112,8 @@ int s52plib::RenderLSLegacy(ObjRazRules *rzRules, Rules *rules) {
 
     int *index_run;
     float *ppt;
-
     VC_Element *pnode;
-
+#ifdef ocpnUSE_GL
     CGLShaderProgram *shader = pCcolor_tri_shader_program[0/*GetCanvasIndex()*/];
     shader->Bind();
 
@@ -4131,6 +4129,7 @@ int s52plib::RenderLSLegacy(ObjRazRules *rzRules, Rules *rules) {
     colorv[3] = 1.0;
 
     shader->SetUniform4fv("color", colorv);
+#endif
 
     for (int iseg = 0; iseg < rzRules->obj->m_n_lsindex; iseg++) {
       int seg_index = iseg * 3;
@@ -4202,14 +4201,14 @@ int s52plib::RenderLSLegacy(ObjRazRules *rzRules, Rules *rules) {
                   m_pdc->DrawLine(x0, y0, x1, y1);
               }
               else {
-
-
+#ifdef ocpnUSE_GL
                 fBuf[0] = x0;
                 fBuf[1] = y0;
                 fBuf[2] = x1;
                 fBuf[3] = y1;
 
                 glDrawArrays(GL_LINES, 0, 2);
+#endif
 
               }
             }
@@ -4223,14 +4222,19 @@ int s52plib::RenderLSLegacy(ObjRazRules *rzRules, Rules *rules) {
       }  //for
     }   //for
 
+#ifdef ocpnUSE_GL
     glDisableVertexAttribArray(pos);
     shader->UnBind();
+#endif
   }
+
+#ifdef ocpnUSE_GL
   if (!m_pdc) {
     glDisable(GL_LINE_STIPPLE);
     glDisable(GL_LINE_SMOOTH);
     glDisable(GL_BLEND);
   }
+#endif
   return 1;
 }
 
@@ -4278,6 +4282,7 @@ int s52plib::RenderLSPlugIn(ObjRazRules *rzRules, Rules *rules) {
   }
   else  // OpenGL mode
   {
+#ifdef ocpnUSE_GL
     //    Set drawing width
     if (w > 1) {
       GLint parms[2];
@@ -4288,6 +4293,7 @@ int s52plib::RenderLSPlugIn(ObjRazRules *rzRules, Rules *rules) {
         glLineWidth(wxMax(m_GLMinCartographicLineWidth, w));
     } else
       glLineWidth(wxMax(m_GLMinCartographicLineWidth, 1));
+#endif
   }
 
   //    Get a true pixel clipping/bounding box from the vp
@@ -4305,7 +4311,7 @@ int s52plib::RenderLSPlugIn(ObjRazRules *rzRules, Rules *rules) {
   if (rzRules->obj->m_DPRI >= 0) priority_current = rzRules->obj->m_DPRI;
 
   if (rzRules->obj->m_ls_list_legacy) {
-
+#ifdef ocpnUSE_GL
     CGLShaderProgram *shader = pCcolor_tri_shader_program[0/*GetCanvasIndex()*/];
     shader->Bind();
 
@@ -4322,7 +4328,7 @@ int s52plib::RenderLSPlugIn(ObjRazRules *rzRules, Rules *rules) {
 
     GLint pos = shader->getAttributeLocation("position");
     glEnableVertexAttribArray(pos);
-
+#endif
     float *ppt;
     VE_Element *pedge;
     PI_connector_segment *pcs;
@@ -4364,6 +4370,7 @@ int s52plib::RenderLSPlugIn(ObjRazRules *rzRules, Rules *rules) {
                 m_pdc->DrawLine(x0, y0, x1, y1);
             }
             else {
+#ifdef ocpnUSE_GL
               // simplified faster test, let opengl do the rest
               if ((x0 > xmin_ || x1 > xmin_) && (x0 < xmax_ || x1 < xmax_) &&
                   (y0 > ymin_ || y1 > ymin_) && (y0 < ymax_ || y1 < ymax_)) {
@@ -4377,7 +4384,9 @@ int s52plib::RenderLSPlugIn(ObjRazRules *rzRules, Rules *rules) {
                                       pts);
 
                 glDrawArrays(GL_LINES, 0, 2);
+
               }
+#endif
             }
           }
 
@@ -4388,13 +4397,16 @@ int s52plib::RenderLSPlugIn(ObjRazRules *rzRules, Rules *rules) {
       ls = ls->next;
     }
 
+#ifdef ocpnUSE_GL
     shader->UnBind();
+#endif
   }
 
   return 1;
 }
 
 // Line Simple Style, Dashed, using GLSL
+#ifdef ocpnUSE_GL
 int s52plib::RenderLS_Dash_GLSL(ObjRazRules *rzRules, Rules *rules) {
 
   //  Retrieve the current clipping rectangle
@@ -4622,6 +4634,7 @@ int s52plib::RenderLS_Dash_GLSL(ObjRazRules *rzRules, Rules *rules) {
 
   return 1;
 }
+#endif
 
 // Line Complex
 int s52plib::RenderLC(ObjRazRules *rzRules, Rules *rules) {
@@ -5372,12 +5385,13 @@ void s52plib::draw_lc_poly(wxDC *pdc, wxColor &color, int width, wxPoint *ptp,
   else  // opengl
   {
     //    Set up the color
-
+#ifdef ocpnUSE_GL
     // Adjust line width up a bit, to improve render quality for
     // GL_BLEND/GL_LINE_SMOOTH
     float awidth = wxMax(m_GLMinCartographicLineWidth, (float)width * 0.7);
     awidth = wxMax(awidth, 1.5);
     glLineWidth(awidth);
+#endif
 
     int start_seg = 0;
     int end_seg = npt - 1;
@@ -5439,6 +5453,7 @@ void s52plib::draw_lc_poly(wxDC *pdc, wxColor &color, int width, wxPoint *ptp,
           }
 #endif
 
+#ifdef ocpnUSE_GL
           CGLShaderProgram *shader = pCcolor_tri_shader_program[0/*GetCanvasIndex()*/];
           shader->Bind();
 
@@ -5470,6 +5485,7 @@ void s52plib::draw_lc_poly(wxDC *pdc, wxColor &color, int width, wxPoint *ptp,
 
           glDisable(GL_LINE_SMOOTH);
           glDisable(GL_BLEND);
+#endif
         } else {
           float s = 0;
           float xs = ptp[iseg].x;
@@ -5503,6 +5519,8 @@ void s52plib::draw_lc_poly(wxDC *pdc, wxColor &color, int width, wxPoint *ptp,
           }
 
 #endif
+
+#ifdef ocpnUSE_GL
           CGLShaderProgram *shader = pCcolor_tri_shader_program[0/*GetCanvasIndex()*/];
           shader->Bind();
 
@@ -5534,6 +5552,7 @@ void s52plib::draw_lc_poly(wxDC *pdc, wxColor &color, int width, wxPoint *ptp,
 
           glDisable(GL_LINE_SMOOTH);
           glDisable(GL_BLEND);
+#endif
         }
       }
     next_seg:
@@ -5653,7 +5672,7 @@ int s52plib::RenderMPS(ObjRazRules *rzRules, Rules *rules) {
     wxPoint r = GetPixFromLLROT(lat, lon, 0);
 
     // Some simple inclusion tests
-    if((r.x < 0) || (r.y < 0))
+    if((r.x < -box_dim) || (r.y < -box_dim))
       continue;
     if ((r.x == INVALID_COORD) || (r.y == INVALID_COORD))
       continue;
@@ -5704,12 +5723,15 @@ int s52plib::RenderMPS(ObjRazRules *rzRules, Rules *rules) {
 }
 
 int s52plib::RenderCARC(ObjRazRules *rzRules, Rules *rules) {
+#ifdef ocpnUSE_GL
   if (m_useGLSL)
     return RenderCARC_GLSL(rzRules, rules);
   else
+#endif
     return RenderCARC_VBO(rzRules, rules);
 }
 
+#ifdef ocpnUSE_GL
 int s52plib::RenderCARC_GLSL(ObjRazRules *rzRules, Rules *rules) {
 
   //    glDisable( GL_SCISSOR_TEST );
@@ -5978,6 +6000,7 @@ int s52plib::RenderCARC_GLSL(ObjRazRules *rzRules, Rules *rules) {
 
   return 1;
 }
+#endif
 
 int s52plib::RenderCARC_VBO(ObjRazRules *rzRules, Rules *rules) {
 
@@ -7948,14 +7971,16 @@ void s52plib::RenderToBufferFilledPolygon(ObjRazRules *rzRules, S57Obj *obj,
   }  // if pPolyTessGeo
 }
 
+#ifdef ocpnUSE_GL
 int s52plib::RenderToGLAC(ObjRazRules *rzRules, Rules *rules) {
   return RenderToGLAC_GLSL(rzRules, rules);
 }
+#endif
 
 int n_areaObjs;
 int n_areaTris;
 
-
+#ifdef ocpnUSE_GL
 int s52plib::RenderToGLAC_GLSL(ObjRazRules *rzRules, Rules *rules) {
   if (!ObjectRenderCheckPosReduced(rzRules))
     return false;
@@ -8316,7 +8341,7 @@ int s52plib::RenderToGLAC_GLSL(ObjRazRules *rzRules, Rules *rules) {
 
   return 1;
 }
-
+#endif
 
 void s52plib::SetGLClipRect(const VPointCompat &vp, const wxRect &rect) {
 }
@@ -8348,7 +8373,7 @@ int s52plib::RenderToGLAP(ObjRazRules *rzRules, Rules *rules) {
 #endif  // #ifdef ocpnUSE_GLSL
 
 }
-
+#ifdef ocpnUSE_GL
 int s52plib::RenderToGLAP_GLSL(ObjRazRules *rzRules, Rules *rules) {
   if (!ObjectRenderCheckPosReduced(rzRules))
     return false;
@@ -8659,7 +8684,7 @@ int s52plib::RenderToGLAP_GLSL(ObjRazRules *rzRules, Rules *rules) {
 
   return 1;
 }
-
+#endif
 
 #ifdef ocpnUSE_GL
 
@@ -9212,9 +9237,11 @@ void s52plib::GetAndAddCSRules(ObjRazRules *rzRules, Rules *rules) {
   LUPrec *NewLUP;
   LUPrec *LUP;
   LUPrec *LUPCandidate;
+  wxString cs_string;
 
   char *rule_str1 = RenderCS(rzRules, rules);
-  wxString cs_string(rule_str1, wxConvUTF8);
+  if (rule_str1)
+    cs_string = wxString(rule_str1, wxConvUTF8);
   free(rule_str1);  // delete rule_str1;
 
   //  Try to find a match for this object/attribute set in dynamic CS LUP Table
@@ -9232,7 +9259,7 @@ void s52plib::GetAndAddCSRules(ObjRazRules *rzRules, Rules *rules) {
   while ((index < index_max)) {
     LUPCandidate = la->Item(index);
     if (!strcmp(rzRules->LUP->OBCL, LUPCandidate->OBCL)) {
-      if (LUPCandidate->INST->IsSameAs(cs_string)) {
+      if (LUPCandidate->INST.IsSameAs(cs_string)) {
         if (LUPCandidate->DISC == rzRules->LUP->DISC) {
           LUP = LUPCandidate;
           break;
@@ -9246,18 +9273,14 @@ void s52plib::GetAndAddCSRules(ObjRazRules *rzRules, Rules *rules) {
 
   if (NULL == LUP)  // Not found
   {
-    NewLUP = (LUPrec *)calloc(1, sizeof(LUPrec));
-    pAlloc->Add(NewLUP);
-
+    NewLUP = new LUPrec();
     NewLUP->DISC = rzRules->LUP->DISC;  // as a default
-
-    // sscanf(pBuf+11, "%d", &LUP->RCID);
 
     memcpy(NewLUP->OBCL, rzRules->LUP->OBCL, 6);  // the object class name
 
     //      Add the complete CS string to the LUP
-    wxString *pINST = new wxString(cs_string);
-    NewLUP->INST = pINST;
+    if(cs_string.Length())
+      NewLUP->INST = cs_string;
 
     _LUP2rules(NewLUP, rzRules->obj);
 
@@ -9907,6 +9930,7 @@ void s52plib::PrepareForRender(void) { PrepareForRender( &vp_plib); }
 void s52plib::PrepareForRender(VPointCompat *vp) {
   m_benableGLLS = true;  // default is to always use RenderToGLLS (VBO support)
 
+#ifdef ocpnUSE_GL
   void PrepareS52ShaderUniforms(VPointCompat * vp);
   if (m_useGLSL && vp){
     PrepareS52ShaderUniforms(vp);
@@ -9917,6 +9941,7 @@ void s52plib::PrepareForRender(VPointCompat *vp) {
         s_txf[i].cache->PrepareShader(vp->pix_width, vp->pix_height, vp->rotation);
     }
   }
+#endif
 
   m_ChartScaleFactorExp = GetOCPNChartScaleFactor_Plugin();
 
@@ -10128,6 +10153,7 @@ void DrawAALine(wxDC *pDC, int x0, int y0, int x1, int y1, wxColour clrLine,
 
 void s52plib::DrawDashLine(wxPen &pen, wxCoord x1, wxCoord y1, wxCoord x2,
                            wxCoord y2) {
+#ifdef ocpnUSE_GL
   glLineWidth(pen.GetWidth());
 
   CGLShaderProgram *shader = pCcolor_tri_shader_program[0/*GetCanvasIndex()*/];
@@ -10214,7 +10240,7 @@ void s52plib::DrawDashLine(wxPen &pen, wxCoord x1, wxCoord y1, wxCoord x2,
   }
 
   shader->UnBind();
-
+#endif
 }
 
 /****************************************************************************/
@@ -10846,6 +10872,7 @@ wxArrayPtrVoid s52gTesselatorVertices;
 
 void RenderFromHPGL::DrawPolygon(int n, wxPoint points[], wxCoord xoffset,
                                  wxCoord yoffset, float scale, float angle) {
+#ifdef ocpnUSE_GL
   //    if( 0 )
   // dc->DrawPolygon( n, points, xoffset, yoffset );
   //       else
@@ -10938,6 +10965,7 @@ void RenderFromHPGL::DrawPolygon(int n, wxPoint points[], wxCoord xoffset,
     glDisable(GL_POLYGON_SMOOTH);
     glDisable(GL_BLEND);
   }
+#endif
 }
 
 #ifdef ocpnUSE_GL
@@ -11044,10 +11072,9 @@ void xs52_endCallbackD_GLSL(void *data) {
 
 void RenderFromHPGL::DrawPolygonTessellated(int n, wxPoint points[],
                                             wxCoord xoffset, wxCoord yoffset) {
-  //    if( 0 )
-  // dc->DrawPolygon( n, points, xoffset, yoffset );
-  // else
-  {
+#ifndef ocpnUSE_GL
+   //dc->DrawPolygon( n, points, xoffset, yoffset );
+#else
 #if !defined(ocpnUSE_GLES) || \
     defined(USE_ANDROID_GLES2)  // tessalator in glues is broken
     if (n < 5)
@@ -11119,10 +11146,11 @@ void RenderFromHPGL::DrawPolygonTessellated(int n, wxPoint points[],
     //         i++)
     //             delete [] *i;
     //         odc_combine_work_data.clear();
-  }
+
+#endif
 }
 
-
+#ifdef ocpnUSE_GL
 void PrepareS52ShaderUniforms(VPointCompat *vp) {
 
   loadS52Shaders();
@@ -11209,8 +11237,8 @@ void PrepareS52ShaderUniforms(VPointCompat *vp) {
   shader->SetUniformMatrix4fv("MVMatrix", (GLfloat *)Q);
   shader->SetUniformMatrix4fv("TransformMatrix", (GLfloat *)I);
   shader->UnBind();
-
 }
+#endif
 
 //      CRC calculation for a byte buffer
 

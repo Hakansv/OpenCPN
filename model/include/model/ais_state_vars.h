@@ -47,6 +47,7 @@ extern bool g_bShowScaled;
 extern bool g_bSyncCogPredictors;
 extern bool g_bTCPA_Max;
 extern bool g_bTrackCarryOver;
+extern bool g_AisFirstTimeUse;
 
 extern double g_AckTimeout_Mins;
 extern double g_AIS_RealtPred_Kts;
@@ -58,6 +59,7 @@ extern double g_MarkLost_Mins;
 extern double g_RemoveLost_Mins;
 extern double g_ShowCOG_Mins;
 extern double g_ShowMoored_Kts;
+extern double g_SOGminCOG_kts;
 extern double g_TCPA_Max;
 
 extern int g_ais_alert_dialog_sx, g_ais_alert_dialog_sy;

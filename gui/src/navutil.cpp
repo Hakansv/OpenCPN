@@ -78,6 +78,8 @@
 #include "chcanv.h"
 #include "cm93.h"
 #include "config.h"
+#include "ConfigMgr.h"
+#include "displays.h"
 #include "dychart.h"
 #include "FontMgr.h"
 #include "Layer.h"
@@ -91,6 +93,7 @@
 #include "OCPN_Sound.h"
 #include "s52plib.h"
 #include "s52utils.h"
+#include "snd_config.h"
 #include "styles.h"
 
 #ifdef ocpnUSE_GL
@@ -120,15 +123,13 @@ extern int g_nbrightness;
 extern bool g_bShowStatusBar;
 extern bool g_bUIexpert;
 extern bool g_bFullscreen;
-extern wxString g_winPluginDir;
 
 extern wxString g_SENCPrefix;
 extern wxString g_UserPresLibData;
-extern wxString g_TalkerIdText;
 
 extern wxString *pInit_Chart_Dir;
 extern wxString gWorldMapLocation;
-extern WayPointman *pWayPointMan;
+extern wxString gWorldShapefileLocation;
 
 extern bool s_bSetSystemTime;
 extern bool g_bDisplayGrid;  // Flag indicating if grid is to be displayed
@@ -144,7 +145,6 @@ extern bool g_bAutoAnchorMark;
 extern bool g_bskew_comp;
 extern bool g_bopengl;
 extern bool g_bSoftwareGL;
-extern bool g_bShowFPS;
 extern bool g_bsmoothpanzoom;
 extern bool g_fog_overzoom;
 extern double g_overzoom_emphasis_base;
@@ -174,15 +174,14 @@ extern bool g_bShowLiveETA;
 extern double g_defaultBoatSpeed;
 extern double g_defaultBoatSpeedUserUnit;
 
-extern wxString g_AisTargetList_perspective;
 extern bool g_bUseOnlyConfirmedAISName;
 extern int g_ScaledNumWeightSOG;
-extern int g_ScaledSizeMinimal;
 
 extern int g_S57_dialog_sx, g_S57_dialog_sy;
 int g_S57_extradialog_sx, g_S57_extradialog_sy;
 
 extern int g_iNavAidRadarRingsNumberVisible;
+extern bool g_bNavAidRadarRingsShown;
 extern float g_fNavAidRadarRingsStep;
 extern int g_pNavAidRadarRingsStepUnits;
 extern bool g_bWayPointPreventDragging;
@@ -201,6 +200,14 @@ extern bool g_bDebugCM93;
 extern bool g_bDebugS57;
 
 extern double g_ownship_predictor_minutes;
+extern int g_cog_predictor_style;
+extern wxString g_cog_predictor_color;
+extern int g_cog_predictor_endmarker;
+extern int g_cog_predictor_width;
+extern int g_ownship_HDTpredictor_style;
+extern wxString g_ownship_HDTpredictor_color;
+extern int g_ownship_HDTpredictor_endmarker;
+extern int g_ownship_HDTpredictor_width;
 extern double g_ownship_HDTpredictor_miles;
 
 extern bool g_own_ship_sog_cog_calc;
@@ -304,13 +311,11 @@ extern ArrayOfMmsiProperties g_MMSI_Props_Array;
 extern int g_chart_zoom_modifier_raster;
 extern int g_chart_zoom_modifier_vector;
 
-extern int g_NMEAAPBPrecision;
-
 extern bool g_bShowTrackPointTime;
 
 extern bool g_bAdvanceRouteWaypointOnArrivalOnly;
 extern double g_display_size_mm;
-extern double g_config_display_size_mm;
+extern std::vector<size_t> g_config_display_size_mm;
 extern bool g_config_display_size_manual;
 
 extern bool g_benable_rotate;
@@ -330,7 +335,6 @@ extern float g_ShipScaleFactorExp;
 extern int g_ENCSoundingScaleFactor;
 extern int g_ENCTextScaleFactor;
 
-extern bool g_bInlandEcdis;
 extern int g_iENCToolbarPosX;
 extern int g_iENCToolbarPosY;
 extern bool g_bRollover;
@@ -347,7 +351,6 @@ extern bool g_useMUI;
 int g_nCPUCount;
 
 extern unsigned int g_canvasConfig;
-extern arrayofCanvasConfigPtr g_canvasConfigArray;
 extern wxString g_lastAppliedTemplateGUID;
 
 extern int g_route_prop_x, g_route_prop_y;
@@ -405,21 +408,73 @@ MyConfig::MyConfig(const wxString &LocalFileName)
   m_sNavObjSetChangesFile = m_sNavObjSetFile + _T ( ".changes" );
 
   m_pNavObjectInputSet = NULL;
-  m_pNavObjectChangesSet = NULL;
-
+  m_pNavObjectChangesSet = NavObjectChanges::getInstance();
 }
 
 MyConfig::~MyConfig() {
-  for (size_t i = 0; i < g_canvasConfigArray.GetCount(); i++) {
-    delete g_canvasConfigArray.Item(i);
-  }
 }
 
 void MyConfig::CreateRotatingNavObjBackup() {
   // Avoid nonsense log errors...
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   wxLogNull logNo;
 #endif
+  // Monthly backup, keep max 3
+  if(wxFileExists(m_sNavObjSetFile)) {
+    int month = wxDateTime::Now().GetMonth() + 1;
+    wxString fn = wxString::Format(_T("%s.m%d"), m_sNavObjSetFile.c_str(), month);
+    if (!wxFileExists(fn)) {
+      wxCopyFile(m_sNavObjSetFile, fn);
+    }
+    if (month > 3) {
+      for (wxDateTime::wxDateTime_t i = 1; i <= month - 3; i++) {
+        fn = wxString::Format(_T("%s.m%d"), m_sNavObjSetFile.c_str(), i);
+        if (wxFileExists(fn)) {
+          wxRemoveFile(fn);
+        }
+      }
+      for (wxDateTime::wxDateTime_t i = month + 1; i <= 12; i++) {
+        fn = wxString::Format(_T("%s.m%d"), m_sNavObjSetFile.c_str(), i);
+        if (wxFileExists(fn)) {
+          wxRemoveFile(fn);
+        }
+      }
+    } else {
+      for (wxDateTime::wxDateTime_t i = month + 1; i <= 12 - month; i++) {
+        fn = wxString::Format(_T("%s.m%d"), m_sNavObjSetFile.c_str(), i);
+        if (wxFileExists(fn)) {
+          wxRemoveFile(fn);
+        }
+      }
+    }
+    // Weekly backup, we want to keep max 4
+    wxDateTime::wxDateTime_t week = wxDateTime::Now().GetWeekOfYear();
+    fn = wxString::Format(_T("%s.w%u"), m_sNavObjSetFile.c_str(), week);
+    if (!wxFileExists(fn)) {
+      wxCopyFile(m_sNavObjSetFile, fn);
+    }
+    if (week > 4) {
+      for (wxDateTime::wxDateTime_t i = 1; i <= week - 4; i++) {
+        fn = wxString::Format(_T("%s.w%u"), m_sNavObjSetFile.c_str(), i);
+        if (wxFileExists(fn)) {
+          wxRemoveFile(fn);
+        }
+      }
+      for (wxDateTime::wxDateTime_t i = week + 1; i <= 53; i++) {
+        fn = wxString::Format(_T("%s.w%u"), m_sNavObjSetFile.c_str(), i);
+        if (wxFileExists(fn)) {
+          wxRemoveFile(fn);
+        }
+      }
+    } else {
+      for (wxDateTime::wxDateTime_t i = week + 1; i <= 53 - week; i++) {
+        fn = wxString::Format(_T("%s.w%u"), m_sNavObjSetFile.c_str(), i);
+        if (wxFileExists(fn)) {
+          wxRemoveFile(fn);
+        }
+      }
+    }
+  }
 
   // Rotate navobj backups, but just in case there are some changes in the
   // current version to prevent the user trying to "fix" the problem by
@@ -451,7 +506,8 @@ void MyConfig::CreateRotatingNavObjBackup() {
         if (wxFile::Exists(oldname)) wxCopyFile(oldname, newname);
       }
 
-      if (wxFile::Exists(m_sNavObjSetFile)) {
+      wxULongLong size = wxFileName::GetSize(m_sNavObjSetFile);
+      if (wxFile::Exists(m_sNavObjSetFile) && size > 0) {
         newname = wxString::Format(_T("%s.1"), m_sNavObjSetFile.c_str());
         wxCopyFile(m_sNavObjSetFile, newname);
       }
@@ -469,7 +525,8 @@ void MyConfig::CreateRotatingNavObjBackup() {
 
 int MyConfig::LoadMyConfig() {
   int display_width, display_height;
-  wxDisplaySize(&display_width, &display_height);
+  display_width = g_monitor_info[g_current_monitor].width;
+  display_height = g_monitor_info[g_current_monitor].height;
 
   //  Set up any defaults not set elsewhere
   g_useMUI = true;
@@ -512,6 +569,13 @@ int MyConfig::LoadMyConfig() {
   g_bShowChartBar = 1;
   g_defaultBoatSpeed = 6.0;
   g_ownship_predictor_minutes = 5;
+  g_cog_predictor_style = 105;
+  g_cog_predictor_color = _T("rgb(255,0,0)" );
+  g_cog_predictor_endmarker = 1;
+  g_ownship_HDTpredictor_style = 105;
+  g_ownship_HDTpredictor_color = _T("rgb(255,0,0)" );
+  g_ownship_HDTpredictor_endmarker = 1;
+  g_ownship_HDTpredictor_width = 0;
   g_cog_predictor_width = 3;
   g_ownship_HDTpredictor_miles = 1;
   g_n_ownship_min_mm = 2;
@@ -560,6 +624,7 @@ int MyConfig::LoadMyConfig() {
   g_maxzoomin = 800;
 
   g_iNavAidRadarRingsNumberVisible = 0;
+  g_bNavAidRadarRingsShown = false;
   g_fNavAidRadarRingsStep = 1.0;
   g_pNavAidRadarRingsStepUnits = 0;
   g_colourOwnshipRangeRingsColour = *wxRED;
@@ -669,7 +734,8 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   wxString val;
 
   int display_width, display_height;
-  wxDisplaySize(&display_width, &display_height);
+  display_width = g_monitor_info[g_current_monitor].width;
+  display_height = g_monitor_info[g_current_monitor].height;
 
   //    Global options and settings
   SetPath(_T ( "/Settings" ));
@@ -685,7 +751,6 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   if (wxIsEmpty(g_CmdSoundString))
     g_CmdSoundString = wxString(OCPN_SOUND_CMD);
   Read(_T ( "NavMessageShown" ), &n_NavMessageShown);
-  Read(_T ( "DisableOpenGL" ), &g_bdisable_opengl);
 
   Read(_T ( "AndroidVersionCode" ), &g_AndroidVersionCode);
 
@@ -735,17 +800,28 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   Read(_T ( "ShowTide" ), &g_bShowTide);
   Read(_T ( "ShowCurrent" ), &g_bShowCurrent);
 
-  int size_mm = -1;
+  wxString size_mm;
   Read(_T ( "DisplaySizeMM" ), &size_mm);
 
   Read(_T ( "SelectionRadiusMM" ), &g_selection_radius_mm);
   Read(_T ( "SelectionRadiusTouchMM" ), &g_selection_radius_touch_mm);
 
   if (!bAsTemplate) {
-    if (size_mm > 0) {
-      g_config_display_size_mm = size_mm;
-      if ((size_mm > 100) && (size_mm < 2000)) {
-        g_display_size_mm = size_mm;
+    g_config_display_size_mm.clear();
+    wxStringTokenizer tokenizer(size_mm, ",");
+    while ( tokenizer.HasMoreTokens() )
+    {
+      wxString token = tokenizer.GetNextToken();
+      int size;
+      try {
+        size = std::stoi(token.ToStdString());
+      } catch (std::invalid_argument &e) {
+        size = 0;
+      }
+      if (size > 100 && size < 2000) {
+        g_config_display_size_mm.push_back(size);
+      } else {
+        g_config_display_size_mm.push_back(0);
       }
     }
     Read(_T ( "DisplaySizeManual" ), &g_config_display_size_manual);
@@ -796,12 +872,11 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   Read(_T ( "LookAheadMode" ), &g_bLookAhead);
   Read(_T ( "SkewToNorthUp" ), &g_bskew_comp);
 
-  Read(_T ( "ShowFPS" ), &g_bShowFPS);
-
   Read(_T( "NMEAAPBPrecision" ), &g_NMEAAPBPrecision);
 
   Read(_T( "TalkerIdText" ), &g_TalkerIdText);
   Read(_T( "MaxWaypointNameLength" ), &g_maxWPNameLength);
+  Read(_T( "MbtilesMaxLayers" ), &g_mbtilesMaxLayers);
 
   Read(_T( "ShowTrackPointTime" ), &g_bShowTrackPointTime, true);
   /* opengl options */
@@ -845,7 +920,7 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
 
 //  "Responsive graphics" option deprecated in O58+
 //  Read(_T ( "ResponsiveGraphics" ), &g_bresponsive);
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   g_bresponsive = true;
 #else
   g_bresponsive = false;
@@ -907,7 +982,14 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   Read(_T ( "DefaultBoatSpeed" ), &g_defaultBoatSpeed);
 
   Read(_T ( "OwnshipCOGPredictorMinutes" ), &g_ownship_predictor_minutes);
+  Read(_T ( "OwnshipCOGPredictorStyle" ), &g_cog_predictor_style);
+  Read(_T ( "OwnshipCOGPredictorColor" ), &g_cog_predictor_color);
+  Read(_T ( "OwnshipCOGPredictorEndmarker" ), &g_cog_predictor_endmarker);
   Read(_T ( "OwnshipCOGPredictorWidth" ), &g_cog_predictor_width);
+  Read(_T ( "OwnshipHDTPredictorStyle" ), &g_ownship_HDTpredictor_style);
+  Read(_T ( "OwnshipHDTPredictorColor" ), &g_ownship_HDTpredictor_color);
+  Read(_T ( "OwnshipHDTPredictorEndmarker" ), &g_ownship_HDTpredictor_endmarker);
+  Read(_T ( "OwnshipHDTPredictorWidth" ), &g_ownship_HDTpredictor_width);
   Read(_T ( "OwnshipHDTPredictorMiles" ), &g_ownship_HDTpredictor_miles);
 
   Read(_T ( "OwnShipIconType" ), &g_OwnShipIconType);
@@ -953,11 +1035,11 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   // We allow 0-99 backups ov navobj.xml
   Read(_T ( "KeepNavobjBackups" ), &g_navobjbackups);
 
-  NMEALogWindow::Get().SetSize(Read(_T("NMEALogWindowSizeX"), 600L),
+  NMEALogWindow::GetInstance().SetSize(Read(_T("NMEALogWindowSizeX"), 600L),
                                Read(_T("NMEALogWindowSizeY"), 400L));
-  NMEALogWindow::Get().SetPos(Read(_T("NMEALogWindowPosX"), 10L),
+  NMEALogWindow::GetInstance().SetPos(Read(_T("NMEALogWindowPosX"), 10L),
                               Read(_T("NMEALogWindowPosY"), 10L));
-  NMEALogWindow::Get().CheckPos(display_width, display_height);
+  NMEALogWindow::GetInstance().CheckPos(display_width, display_height);
 
   // Boolean to cater for legacy Input COM Port filer behaviour, i.e. show msg
   // filtered but put msg on bus.
@@ -1080,6 +1162,10 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   if (Read(_T ( "MooredTargetMaxSpeedKnots" ), &s))
     s.ToDouble(&g_ShowMoored_Kts);
 
+  g_SOGminCOG_kts = 0.2;
+  if (Read(_T ( "SOGMinimumForCOGDisplay" ), &s))
+    s.ToDouble(&g_SOGminCOG_kts);
+
   Read(_T ("bShowScaledTargets"), &g_bAllowShowScaled);
   Read(_T ( "AISScaledNumber" ), &g_ShowScaled_Num);
   Read(_T ( "AISScaledNumberWeightSOG" ), &g_ScaledNumWeightSOG);
@@ -1159,6 +1245,7 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   Read(_T ( "GPXIODir" ), &g_gpx_path);     // Get the Directory name
   Read(_T ( "TCDataDir" ), &g_TCData_Dir);  // Get the Directory name
   Read(_T ( "BasemapDir"), &gWorldMapLocation);
+  Read(_T ( "BaseShapefileDir"), &gWorldShapefileLocation);
   Read(_T ( "pluginInstallDir"), &g_winPluginDir);
   wxLogMessage("winPluginDir, read from ini file: %s",
                g_winPluginDir.mb_str().data());
@@ -1287,25 +1374,25 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
 
   wxString str;
   long dummy;
-  wxString *pval = new wxString;
+  wxString pval;
   wxArrayString deleteList;
 
   bool bCont = GetFirstEntry(str, dummy);
   while (bCont) {
-    Read(str, pval);
+    pval = Read(str);
 
     if (str.StartsWith(_T("Font"))) {
       // Convert pre 3.1 setting. Can't delete old entries from inside the
       // GetNextEntry() loop, so we need to save those and delete outside.
       deleteList.Add(str);
-      wxString oldKey = pval->BeforeFirst(_T(':'));
+      wxString oldKey = pval.BeforeFirst(_T(':'));
       str = FontMgr::GetFontConfigKey(oldKey);
     }
 
-    if (pval->IsEmpty() || pval->StartsWith(_T(":"))) {
+    if (pval.IsEmpty() || pval.StartsWith(_T(":"))) {
       deleteList.Add(str);
     } else
-      FontMgr::Get().LoadFontNative(&str, pval);
+      FontMgr::Get().LoadFontNative(&str, &pval);
 
     bCont = GetNextEntry(str, dummy);
   }
@@ -1314,7 +1401,6 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
     DeleteEntry(deleteList[i]);
   }
   deleteList.Clear();
-  delete pval;
 
   //  Tide/Current Data Sources
   SetPath(_T ( "/TideCurrentDataSources" ));
@@ -1345,6 +1431,7 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   // Radar rings
   Read(_T ( "RadarRingsNumberVisible" ), &val);
   if (val.Length() > 0) g_iNavAidRadarRingsNumberVisible = atoi(val.mb_str());
+  g_bNavAidRadarRingsShown = g_iNavAidRadarRingsNumberVisible > 0;
 
   Read(_T ( "RadarRingsStep" ), &val);
   if (val.Length() > 0) g_fNavAidRadarRingsStep = atof(val.mb_str());
@@ -1375,6 +1462,7 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   if (!Read(_T("WaypointUseScaMinOverrule"), &g_bOverruleScaMin))
     g_bOverruleScaMin = false;
   if (!Read(_T("WaypointsShowName"), &g_bShowWptName)) g_bShowWptName = true;
+  if (!Read(_T("UserIconsFirst"), &g_bUserIconsFirst)) g_bUserIconsFirst = true;
 
   //  Support Version 3.0 and prior config setting for Radar Rings
   bool b300RadarRings = true;
@@ -1572,7 +1660,7 @@ static bool ReloadPendingChanges(const wxString& changes_path) {
   // Let's reconstruct the unsaved changes
   auto pNavObjectChangesSet = NavObjectChanges::getTempInstance();
   pNavObjectChangesSet->Init(changes_path);
-  pNavObjectChangesSet->load_file(changes_path.fn_str());
+  auto res = pNavObjectChangesSet->load_file(changes_path.fn_str());
 
   //  Remove the file before applying the changes,
   //  just in case the changes file itself causes a fault.
@@ -1580,31 +1668,87 @@ static bool ReloadPendingChanges(const wxString& changes_path) {
   if (::wxFileExists(changes_path))
     ::wxRemoveFile(changes_path);
 
-  if (size == 0) return false;
+  if (size == 0 || res.status != pugi::xml_parse_status::status_ok) {
+    wxLogMessage(changes_path + " seems corrupted, not applying it.");
+    pNavObjectChangesSet->reset();
+    return false;
+  }
 
   wxLogMessage(_T("Applying NavObjChanges"));
   pNavObjectChangesSet->ApplyChanges();
   return  true;
 }
 
+wxString MyConfig::FindNewestUsableBackup() const {
+  wxString newest_backup;
+  pugi::xml_document doc;
+  for (int i = 1; i <= g_navobjbackups; i++) {
+    wxString backup = m_sNavObjSetFile + "." + wxString::Format("%d", i);
+    if (wxFileExists(backup) && wxFileName::GetSize(backup) > 461 && doc.load_file(backup.fn_str()).status == pugi::xml_parse_status::status_ok) {
+      newest_backup = backup;
+      break;
+    }
+  }
+  return newest_backup;
+}
+
 void MyConfig::LoadNavObjects() {
   //      next thing to do is read tracks, etc from the NavObject XML file,
   wxLogMessage(_T("Loading navobjects from navobj.xml"));
-  CreateRotatingNavObjBackup();
 
   if (NULL == m_pNavObjectInputSet)
     m_pNavObjectInputSet = new NavObjectCollection1();
 
   int wpt_dups = 0;
-  if (::wxFileExists(m_sNavObjSetFile) &&
-      m_pNavObjectInputSet->load_file(m_sNavObjSetFile.fn_str()))
-    m_pNavObjectInputSet->LoadAllGPXObjects(false, wpt_dups);
-
-  wxLogMessage(_T("Done loading navobjects, %d duplicate waypoints ignored"),
+  wxString newest_backup;
+  if (::wxFileExists(m_sNavObjSetFile)) {
+    if (wxFileName::GetSize(m_sNavObjSetFile) < 461) { // Empty navobj.xml file with just the gpx tag is 461 bytes, so anything smaller is obvious sign of a fatal crash while saving it last time, replace it with latest backup if available
+      wxLogMessage("Navobjects file exists, but seems truncated!");
+      newest_backup = FindNewestUsableBackup();
+      if (wxFileExists(newest_backup)) {
+        wxLogMessage("We do have a backup " + newest_backup +  " that looks healthy and will use it.");
+        wxCopyFile(newest_backup, m_sNavObjSetFile, true);
+      }
+    }
+  } else { //File does not exist, try to recover from a backup
+    newest_backup = FindNewestUsableBackup();
+    if (wxFileExists(newest_backup)) {
+      wxLogMessage("We do have a backup " + newest_backup +  " that looks healthy and will use it.");
+        wxCopyFile(newest_backup, m_sNavObjSetFile, true);
+    } else {
+      wxLogMessage("No navobjects.xml file or usable backup exist, will create a new one.");
+    }
+  }
+  bool success = false;
+  // We did all we could to have an usable navobj.xml file in scenarios where it did not exist or was clearly corrupted, let's try to load it
+  if(::wxFileExists(m_sNavObjSetFile) && m_pNavObjectInputSet->load_file(m_sNavObjSetFile.fn_str()).status == pugi::xml_parse_status::status_ok) {
+    CreateRotatingNavObjBackup(); // We only create backups when data is good, there is no point in saving something we can't even load
+    success = m_pNavObjectInputSet->LoadAllGPXObjects(false, wpt_dups);
+  } else {
+    // It was still not valid after all our efforts and did not load as XML, let's rename it to a corrupted file and try to recover from a backup on last time
+    wxString corrupted_file = m_sNavObjSetFile + wxDateTime::Now().Format(".corrupted.%Y-%m-%d-%H-%M-%S");
+    wxRenameFile(m_sNavObjSetFile, corrupted_file, true);
+    wxLogMessage("Error while loading navobjects from " + m_sNavObjSetFile + ", the corrupted file was renamed to " + corrupted_file);
+    // If we got here with existing navobj.xml file, but it's corrupted, we can still try to recover from a backup
+    if (newest_backup.IsEmpty()) { // If we got here with empty newest_backup, navobj.xml probably did exist, but was corrupted XML-wise, so we need to find a new backup
+      newest_backup = FindNewestUsableBackup();
+    }
+    m_pNavObjectInputSet->reset();
+    if (wxFileExists(newest_backup) && m_pNavObjectInputSet->load_file(newest_backup.fn_str()).status == pugi::xml_parse_status::status_ok) {
+      success = m_pNavObjectInputSet->LoadAllGPXObjects(false, wpt_dups);
+      wxLogMessage("We do have a healthy backup " + newest_backup +  " and did load it.");
+    } else {
+      wxLogMessage("No usable backup found, a new navobj.xml file will be created.");
+      m_pNavObjectInputSet->reset();
+    }
+  }
+  if (success) {
+    wxLogMessage(_T("Done loading navobjects, %d duplicate waypoints ignored"),
                wpt_dups);
+  } else {
+    wxLogMessage(_T("Failed to load navobjects, creating a new navobj.xml file."));
+  }
   delete m_pNavObjectInputSet;
-
-  m_pNavObjectChangesSet = NavObjectChanges::getInstance();
 
   if (::wxFileExists(m_sNavObjSetChangesFile)) {
     if (ReloadPendingChanges(m_sNavObjSetChangesFile)) {
@@ -1681,7 +1825,10 @@ bool MyConfig::LoadLayers(wxString &path) {
 
           if (::wxFileExists(file_path)) {
             NavObjectCollection1 *pSet = new NavObjectCollection1;
-            pSet->load_file(file_path.fn_str());
+            if (pSet->load_file(file_path.fn_str()).status != pugi::xml_parse_status::status_ok) {
+              wxLogMessage("Error loading GPX file " + file_path);
+              pSet->reset();
+            }
             long nItems = pSet->LoadAllGPXObjectsAsLayer(
                 l->m_LayerID, bLayerViz, l->m_bHasVisibleNames);
             l->m_NoOfItems += nItems;
@@ -1834,7 +1981,7 @@ bool MyConfig::UpdateChartDirs(ArrayOfCDI &dir_array) {
   }
 
 // Avoid nonsense log errors...
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   wxLogNull logNo;
 #endif
 
@@ -1929,6 +2076,7 @@ void MyConfig::LoadConfigGroups(ChartGroupArray *pGroupArray) {
 void MyConfig::LoadCanvasConfigs(bool bApplyAsTemplate) {
   wxString s;
   canvasConfig *pcc;
+  auto &config_array = ConfigMgr::Get().GetCanvasConfigArray();
 
   SetPath(_T ( "/Canvas" ));
 
@@ -1936,35 +2084,35 @@ void MyConfig::LoadCanvasConfigs(bool bApplyAsTemplate) {
   if (!HasEntry(_T ( "CanvasConfig" ))) {
     pcc = new canvasConfig(0);
     pcc->LoadFromLegacyConfig(this);
-    g_canvasConfigArray.Add(pcc);
+    config_array.Add(pcc);
 
     return;
   }
 
   Read(_T ( "CanvasConfig" ), (int *)&g_canvasConfig, 0);
 
+
   // Do not recreate canvasConfigs when applying config dynamically
-  if (g_canvasConfigArray.GetCount() ==
-      0) {  // This is initial load from startup
+  if (config_array.GetCount() == 0) {  // This is initial load from startup
     s.Printf(_T("/Canvas/CanvasConfig%d"), 1);
     SetPath(s);
     canvasConfig *pcca = new canvasConfig(0);
     LoadConfigCanvas(pcca, bApplyAsTemplate);
-    g_canvasConfigArray.Add(pcca);
+    config_array.Add(pcca);
 
     s.Printf(_T("/Canvas/CanvasConfig%d"), 2);
     SetPath(s);
     pcca = new canvasConfig(1);
     LoadConfigCanvas(pcca, bApplyAsTemplate);
-    g_canvasConfigArray.Add(pcca);
+    config_array.Add(pcca);
   } else {  // This is a dynamic (i.e. Template) load
-    canvasConfig *pcca = g_canvasConfigArray[0];
+    canvasConfig *pcca = config_array[0];
     s.Printf(_T("/Canvas/CanvasConfig%d"), 1);
     SetPath(s);
     LoadConfigCanvas(pcca, bApplyAsTemplate);
 
-    if (g_canvasConfigArray.GetCount() > 1) {
-      canvasConfig *pcca = g_canvasConfigArray[1];
+    if (config_array.GetCount() > 1) {
+      canvasConfig *pcca = config_array[1];
       s.Printf(_T("/Canvas/CanvasConfig%d"), 2);
       SetPath(s);
       LoadConfigCanvas(pcca, bApplyAsTemplate);
@@ -1973,7 +2121,7 @@ void MyConfig::LoadCanvasConfigs(bool bApplyAsTemplate) {
       SetPath(s);
       pcca = new canvasConfig(1);
       LoadConfigCanvas(pcca, bApplyAsTemplate);
-      g_canvasConfigArray.Add(pcca);
+      config_array.Add(pcca);
     }
   }
 }
@@ -2070,6 +2218,8 @@ void MyConfig::LoadConfigCanvas(canvasConfig *cConfig, bool bApplyAsTemplate) {
 }
 
 void MyConfig::SaveCanvasConfigs() {
+  auto &config_array = ConfigMgr::Get().GetCanvasConfigArray();
+
   SetPath(_T ( "/Canvas" ));
   Write(_T ( "CanvasConfig" ), (int)g_canvasConfig);
 
@@ -2083,8 +2233,8 @@ void MyConfig::SaveCanvasConfigs() {
       s.Printf(_T("/Canvas/CanvasConfig%d"), 1);
       SetPath(s);
 
-      if (g_canvasConfigArray.GetCount() > 0) {
-        pcc = g_canvasConfigArray.Item(0);
+      if (config_array.GetCount() > 0) {
+        pcc = config_array.Item(0);
         if (pcc) {
           SaveConfigCanvas(pcc);
         }
@@ -2093,17 +2243,17 @@ void MyConfig::SaveCanvasConfigs() {
 
     case 1:
 
-      if (g_canvasConfigArray.GetCount() > 1) {
+      if (config_array.GetCount() > 1) {
         s.Printf(_T("/Canvas/CanvasConfig%d"), 1);
         SetPath(s);
-        pcc = g_canvasConfigArray.Item(0);
+        pcc = config_array.Item(0);
         if (pcc) {
           SaveConfigCanvas(pcc);
         }
 
         s.Printf(_T("/Canvas/CanvasConfig%d"), 2);
         SetPath(s);
-        pcc = g_canvasConfigArray.Item(1);
+        pcc = config_array.Item(1);
         if (pcc) {
           SaveConfigCanvas(pcc);
         }
@@ -2136,11 +2286,6 @@ void MyConfig::SaveConfigCanvas(canvasConfig *cConfig) {
 
     Write(_T ( "canvasbFollow" ), cConfig->canvas->m_bFollow);
     Write(_T ( "ActiveChartGroup" ), cConfig->canvas->m_groupIndex);
-
-    Write(_T ( "canvasToolbarConfig" ),
-          cConfig->canvas->GetToolbarConfigString());
-    Write(_T ( "canvasShowToolbar" ),
-          0);  // cConfig->canvas->GetToolbarEnable() );
 
     Write(_T ( "canvasQuilt" ), cConfig->canvas->GetQuiltMode());
     Write(_T ( "canvasShowGrid" ), cConfig->canvas->GetShowGrid());
@@ -2190,7 +2335,7 @@ void MyConfig::SaveConfigCanvas(canvasConfig *cConfig) {
 void MyConfig::UpdateSettings() {
   //  Temporarily suppress logging of trivial non-fatal wxLogSysError() messages
   //  provoked by Android security...
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   wxLogNull logNo;
 #endif
 
@@ -2265,10 +2410,10 @@ void MyConfig::UpdateSettings() {
   Write(_T ( "ShowCM93DetailSlider" ), g_bShowDetailSlider);
 
   Write(_T ( "SkewToNorthUp" ), g_bskew_comp);
-  Write(_T ( "OpenGL" ), g_bopengl);
-  Write(_T ( "DisableOpenGL" ), g_bdisable_opengl);
+  if (!g_bdisable_opengl) { // Only modify the saved value if OpenGL is not force-disabled from the command line
+    Write(_T ( "OpenGL" ), g_bopengl);
+  }
   Write(_T ( "SoftwareGL" ), g_bSoftwareGL);
-  Write(_T ( "ShowFPS" ), g_bShowFPS);
 
   Write(_T ( "ZoomDetailFactor" ), g_chart_zoom_modifier_raster);
   Write(_T ( "ZoomDetailFactorVector" ), g_chart_zoom_modifier_vector);
@@ -2301,8 +2446,16 @@ void MyConfig::UpdateSettings() {
   Write(_T ( "UseMagAPB" ), g_bMagneticAPB);
 
   Write(_T ( "OwnshipCOGPredictorMinutes" ), g_ownship_predictor_minutes);
+  Write(_T ( "OwnshipCOGPredictorStyle" ), g_cog_predictor_style);
+  Write(_T ( "OwnshipCOGPredictorColor" ), g_cog_predictor_color);
+  Write(_T ( "OwnshipCOGPredictorEndmarker" ), g_cog_predictor_endmarker);
   Write(_T ( "OwnshipCOGPredictorWidth" ), g_cog_predictor_width);
+  Write(_T ( "OwnshipHDTPredictorStyle" ), g_ownship_HDTpredictor_style);
+  Write(_T ( "OwnshipHDTPredictorColor" ), g_ownship_HDTpredictor_color);
+  Write(_T ( "OwnshipHDTPredictorEndmarker" ), g_ownship_HDTpredictor_endmarker);
+  Write(_T ( "OwnshipHDTPredictorWidth" ), g_ownship_HDTpredictor_width);
   Write(_T ( "OwnshipHDTPredictorMiles" ), g_ownship_HDTpredictor_miles);
+
   Write(_T ( "OwnShipIconType" ), g_OwnShipIconType);
   Write(_T ( "OwnShipLength" ), g_n_ownship_length_meters);
   Write(_T ( "OwnShipWidth" ), g_n_ownship_beam_meters);
@@ -2323,10 +2476,10 @@ void MyConfig::UpdateSettings() {
 
   Write(_T ( "ChartQuilting" ), g_bQuiltEnable);
 
-  Write(_T ( "NMEALogWindowSizeX" ), NMEALogWindow::Get().GetSizeW());
-  Write(_T ( "NMEALogWindowSizeY" ), NMEALogWindow::Get().GetSizeH());
-  Write(_T ( "NMEALogWindowPosX" ), NMEALogWindow::Get().GetPosX());
-  Write(_T ( "NMEALogWindowPosY" ), NMEALogWindow::Get().GetPosY());
+  Write(_T ( "NMEALogWindowSizeX" ), NMEALogWindow::GetInstance().GetSizeW());
+  Write(_T ( "NMEALogWindowSizeY" ), NMEALogWindow::GetInstance().GetSizeH());
+  Write(_T ( "NMEALogWindowPosX" ), NMEALogWindow::GetInstance().GetPosX());
+  Write(_T ( "NMEALogWindowPosY" ), NMEALogWindow::GetInstance().GetPosY());
 
   Write(_T ( "PreserveScaleOnX" ), g_bPreserveScaleOnX);
 
@@ -2374,13 +2527,17 @@ void MyConfig::UpdateSettings() {
   Write(_T ( "AutoHideToolbar" ), g_bAutoHideToolbar);
   Write(_T ( "AutoHideToolbarSecs" ), g_nAutoHideToolbar);
 
-  Write(_T ( "DisplaySizeMM" ), g_config_display_size_mm);
+  wxString st0;
+  for (const auto &mm : g_config_display_size_mm) {
+    st0.Append(wxString::Format(_T ( "%zu," ), mm));
+  }
+  st0.RemoveLast(); //Strip last comma
+  Write(_T ( "DisplaySizeMM" ), st0);
   Write(_T ( "DisplaySizeManual" ), g_config_display_size_manual);
 
   Write(_T ( "SelectionRadiusMM" ), g_selection_radius_mm);
   Write(_T ( "SelectionRadiusTouchMM" ), g_selection_radius_touch_mm);
 
-  wxString st0;
   st0.Printf(_T ( "%g" ), g_PlanSpeed);
   Write(_T ( "PlanSpeed" ), st0);
 
@@ -2605,6 +2762,7 @@ void MyConfig::UpdateSettings() {
   Write(_T ( "GPXIODir" ), g_gpx_path);
   Write(_T ( "TCDataDir" ), g_TCData_Dir);
   Write(_T ( "BasemapDir" ), g_Platform->NormalizePath(gWorldMapLocation));
+  Write(_T ( "BaseShapefileDir" ), g_Platform->NormalizePath(gWorldShapefileLocation));
   Write(_T ( "pluginInstallDir" ), g_Platform->NormalizePath(g_winPluginDir));
 
   SetPath(_T ( "/Settings/NMEADataSource" ));
@@ -2686,6 +2844,7 @@ void MyConfig::UpdateSettings() {
   Write(_T( "WaypointScaMinValue" ), g_iWpt_ScaMin);
   Write(_T( "WaypointUseScaMinOverrule" ), g_bOverruleScaMin);
   Write(_T("WaypointsShowName"), g_bShowWptName);
+  Write(_T("UserIconsFirst"), g_bUserIconsFirst);
 
   // Waypoint Radar rings
   Write(_T ( "WaypointRangeRingsNumber" ), g_iWaypointRangeRingsNumber);
@@ -2756,7 +2915,10 @@ void MyConfig::UpdateNavObj(bool bRecreate) {
     m_pNavObjectChangesSet->Init(m_sNavObjSetChangesFile);
 
     m_pNavObjectChangesSet->reset();
-    m_pNavObjectChangesSet->load_file(m_sNavObjSetChangesFile.fn_str());
+    if (m_pNavObjectChangesSet->load_file(m_sNavObjSetChangesFile.fn_str()).status != pugi::xml_parse_status::status_ok) {
+      wxLogMessage("Error while loading " + m_sNavObjSetChangesFile + ", ignoring contents of the file.");
+      m_pNavObjectChangesSet->reset();
+    }
   }
 }
 
@@ -2791,11 +2953,7 @@ static wxFileName exportFileName(wxWindow *parent,
 }
 
 bool MyConfig::IsChangesFileDirty() {
-  if (m_pNavObjectChangesSet) {
-    return m_pNavObjectChangesSet->IsDirty();
-  } else {
-    return true;
-  }
+  return m_pNavObjectChangesSet->IsDirty();
 }
 
 bool ExportGPXRoutes(wxWindow *parent, RouteList *pRoutes,
@@ -2805,7 +2963,7 @@ bool ExportGPXRoutes(wxWindow *parent, RouteList *pRoutes,
     NavObjectCollection1 *pgpx = new NavObjectCollection1;
     pgpx->AddGPXRoutesList(pRoutes);
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
     wxString fns = androidGetCacheDir() + wxFileName::GetPathSeparator() +
                    fn.GetFullName();
     pgpx->SaveFile(fns);
@@ -2828,7 +2986,7 @@ bool ExportGPXTracks(wxWindow *parent, std::vector<Track*> *pTracks,
   if (fn.IsOk()) {
     NavObjectCollection1 *pgpx = new NavObjectCollection1;
     pgpx->AddGPXTracksList(pTracks);
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
     wxString fns = androidGetCacheDir() + wxFileName::GetPathSeparator() +
                    fn.GetFullName();
     pgpx->SaveFile(fns);
@@ -2850,7 +3008,7 @@ bool ExportGPXWaypoints(wxWindow *parent, RoutePointList *pRoutePoints,
     NavObjectCollection1 *pgpx = new NavObjectCollection1;
     pgpx->AddGPXPointsList(pRoutePoints);
 
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
     wxString fns = androidGetCacheDir() + wxFileName::GetPathSeparator() +
                    fn.GetFullName();
     pgpx->SaveFile(fns);
@@ -2940,7 +3098,7 @@ void ExportGPX(wxWindow *parent, bool bviz_only, bool blayer) {
     // Android 5+ requires special handling to support native app file writes to
     // SDCard We need to use a two step copy process using a guaranteed
     // accessible location for the first step.
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
     wxString fns = androidGetCacheDir() + wxFileName::GetPathSeparator() +
                    fn.GetFullName();
     pgpx->SaveFile(fns);
@@ -2966,7 +3124,7 @@ void UI_ImportGPX(wxWindow *parent, bool islayer, wxString dirpath,
     //  Platform DoFileSelectorDialog method does not properly handle multiple
     //  selections So use native method if not Android, which means Android gets
     //  single selection only.
-#ifndef __OCPN__ANDROID__
+#ifndef __ANDROID__
     wxFileDialog *popenDialog =
         new wxFileDialog(NULL, _("Import GPX file"), g_gpx_path, wxT(""),
                          wxT("GPX files (*.gpx)|*.gpx|All files (*.*)|*.*"),
@@ -3056,7 +3214,12 @@ void UI_ImportGPX(wxWindow *parent, bool islayer, wxString dirpath,
 
       if (::wxFileExists(path)) {
         NavObjectCollection1 *pSet = new NavObjectCollection1;
-        pSet->load_file(path.fn_str());
+        if (pSet->load_file(path.fn_str()).status != pugi::xml_parse_status::status_ok) {
+          wxLogMessage("Error loading GPX file " + path);
+          pSet->reset();
+          delete pSet;
+          continue;
+        }
 
         if (islayer) {
           l->m_NoOfItems = pSet->LoadAllGPXObjectsAsLayer(
@@ -3275,11 +3438,11 @@ wxString formatAngle(double angle) {
   wxString out;
   if (g_bShowMag && g_bShowTrue) {
     out.Printf(wxT("%03.0f %cT (%.0f %cM)"), angle, 0x00B0,
-               gFrame->GetMag(angle), 0x00B0);
+               toMagnetic(angle), 0x00B0);
   } else if (g_bShowTrue) {
     out.Printf(wxT("%03.0f %cT"), angle, 0x00B0);
   } else {
-    out.Printf(wxT("%03.0f %cM"), gFrame->GetMag(angle), 0x00B0);
+    out.Printf(wxT("%03.0f %cM"), toMagnetic(angle), 0x00B0);
   }
   return out;
 }
@@ -3512,4 +3675,25 @@ void DimeControl(wxWindow *ctrl, wxColour col, wxColour window_back_color,
       depth--;
     }
   }
+}
+
+#define LUMIMOSITY_NIGHT (-0.8)
+#define LUMIMOSITY_DUSK (-0.5)
+
+wxColor GetDimedColor(const wxColor& c)
+{
+    switch (global_color_scheme) {
+    case ColorScheme::GLOBAL_COLOR_SCHEME_NIGHT:
+        return (
+            wxColor(wxMax(0, wxMin(c.Red() + c.Red() * LUMIMOSITY_NIGHT, 255)),
+                wxMax(0, wxMin(c.Green() + c.Green() * LUMIMOSITY_NIGHT, 255)),
+                wxMax(0, wxMin(c.Blue() + c.Blue() * LUMIMOSITY_NIGHT, 255))));
+    case ColorScheme::GLOBAL_COLOR_SCHEME_DUSK:
+        return (
+            wxColor(wxMax(0, wxMin(c.Red() + c.Red() * LUMIMOSITY_DUSK, 255)),
+                wxMax(0, wxMin(c.Green() + c.Green() * LUMIMOSITY_DUSK, 255)),
+                wxMax(0, wxMin(c.Blue() + c.Blue() * LUMIMOSITY_DUSK, 255))));
+    default:
+        return c;
+    }
 }

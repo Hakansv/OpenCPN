@@ -30,11 +30,15 @@
 #include <string>
 #include <vector>
 
+// if wxWidgets headers have not been included, include them now
+#ifndef _WX_DEFS_H_
 #include <wx/wxprec.h>
 
 #ifndef WX_PRECOMP
 #include <wx/wx.h>
 #endif  // precompiled headers
+
+#endif // _WX_DEFS_H_
 
 #include <wx/bmpbuttn.h>
 #include <wx/clrpicker.h>
@@ -111,7 +115,7 @@ public:
   double GetDisplayAreaCM2();
   virtual double GetDisplayDPmm();
 
-  void SetDisplaySizeMM(double size);
+  void SetDisplaySizeMM(size_t monitor, double size);
   unsigned int GetSelectRadiusPix();
   double GetToolbarScaleFactor(int GUIScaleFactor);
   double GetCompassScaleFactor(int GUIScaleFactor);

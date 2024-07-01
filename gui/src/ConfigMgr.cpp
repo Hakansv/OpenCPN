@@ -47,35 +47,35 @@
 #include <wx/listimpl.cpp>
 #include <wx/progdlg.h>
 
+#include "model/ais_decoder.h"
 #include "model/ais_state_vars.h"
-#include "navutil.h"
-#include "chcanv.h"
-#include "model/georef.h"
 #include "model/cutil.h"
-#include "styles.h"
-#include "model/routeman.h"
-#include "s52utils.h"
-#include "chartbase.h"
-#include "ocpndc.h"
 #include "model/geodesic.h"
+#include "model/georef.h"
 #include "model/multiplexer.h"
-#include "nmea0183.h"
-#include "ais.h"
+#include "model/nav_object_database.h"
 #include "model/route.h"
+#include "model/routeman.h"
 #include "model/select.h"
+#include "model/track.h"
+
+#include "ais.h"
+#include "CanvasConfig.h"
+#include "chartbase.h"
+#include "chartdb.h"
+#include "chcanv.h"
+#include "cm93.h"
 #include "FontMgr.h"
 #include "Layer.h"
-#include "model/nav_object_database.h"
+#include "navutil.h"
+#include "nmea0183.h"
 #include "NMEALogWindow.h"
-#include "model/ais_decoder.h"
-#include "OCPNPlatform.h"
-#include "model/track.h"
-#include "chartdb.h"
-#include "CanvasConfig.h"
+#include "ocpndc.h"
 #include "ocpn_frame.h"
-
+#include "OCPNPlatform.h"
 #include "s52plib.h"
-#include "cm93.h"
+#include "s52utils.h"
+#include "styles.h"
 
 #ifdef ocpnUSE_GL
 #include "glChartCanvas.h"
@@ -92,7 +92,6 @@ extern int g_restore_dbindex;
 extern LayerList *pLayerList;
 extern MyConfig *pConfig;
 extern int g_nbrightness;
-extern bool g_bShowTrue, g_bShowMag;
 extern bool g_bShowStatusBar;
 extern bool g_bUIexpert;
 extern bool g_bFullscreen;
@@ -102,7 +101,7 @@ extern wxString g_UserPresLibData;
 
 extern wxString *pInit_Chart_Dir;
 extern wxString gWorldMapLocation;
-extern wxString  g_TalkerIdText;
+extern wxString gWorldShapefileLocation;
 
 extern bool s_bSetSystemTime;
 extern bool g_bDisplayGrid;  // Flag indicating if grid is to be displayed
@@ -118,7 +117,6 @@ extern bool g_bAutoAnchorMark;
 extern bool g_bskew_comp;
 extern bool g_bopengl;
 extern bool g_bSoftwareGL;
-extern bool g_bShowFPS;
 extern bool g_bsmoothpanzoom;
 
 extern bool g_bShowOutlines;
@@ -126,7 +124,6 @@ extern bool g_bShowActiveRouteHighway;
 extern bool g_bShowRouteTotal;
 extern int g_nAWDefault;
 extern int g_nAWMax;
-extern int g_nTrackPrecision;
 
 extern int g_nframewin_x;
 extern int g_nframewin_y;
@@ -146,6 +143,7 @@ extern double g_defaultBoatSpeed;
 extern int g_S57_dialog_sx, g_S57_dialog_sy;
 
 extern int g_iNavAidRadarRingsNumberVisible;
+extern bool g_bNavAidRadarRingsShown;
 extern float g_fNavAidRadarRingsStep;
 extern int g_pNavAidRadarRingsStepUnits;
 extern int g_iWaypointRangeRingsNumber;
@@ -254,11 +252,9 @@ extern ArrayOfMmsiProperties g_MMSI_Props_Array;
 extern int g_chart_zoom_modifier_raster;
 extern int g_chart_zoom_modifier_vector;
 
-extern int g_NMEAAPBPrecision;
-
 extern bool g_bAdvanceRouteWaypointOnArrivalOnly;
 extern double g_display_size_mm;
-extern double g_config_display_size_mm;
+extern std::vector<size_t> g_config_display_size_mm;
 extern bool g_config_display_size_manual;
 
 extern bool g_benable_rotate;
@@ -467,9 +463,7 @@ ConfigPanel::ConfigPanel(OCPNConfigObject *config, wxWindow *parent,
 
   SetMinSize(wxSize(-1, 6 * GetCharHeight()));
 
-  wxColour colour;
-  GetGlobalColor(_T("COMP1"), &colour);
-  SetBackgroundColour(colour);
+  SetBackgroundColour(wxSystemSettings::GetColour(wxSystemColour::wxSYS_COLOUR_WINDOW));
   // Connect(wxEVT_LEFT_DOWN,
   // wxMouseEventHandler(ConfigPanel::OnConfigPanelMouseSelected), NULL, this);
 }
@@ -507,7 +501,7 @@ ConfigMgr::ConfigMgr() {
   LoadCatalog();
 }
 
-ConfigMgr::~ConfigMgr() { delete configList; }
+ConfigMgr::~ConfigMgr() { configList->Clear(); delete configList; }
 
 void ConfigMgr::Init() {
   m_configDir = g_Platform->GetPrivateDataDir();
@@ -804,7 +798,7 @@ bool ConfigMgr::SaveTemplate(wxString fileName) {
 
 //  Temporarily suppress logging of trivial non-fatal wxLogSysError() messages
 //  provoked by Android security...
-#ifdef __OCPN__ANDROID__
+#ifdef __ANDROID__
   wxLogNull logNo;
 #endif
 
@@ -914,7 +908,12 @@ bool ConfigMgr::SaveTemplate(wxString fileName) {
   conf->Write(_T ( "AutoHideToolbar" ), g_bAutoHideToolbar);
   conf->Write(_T ( "AutoHideToolbarSecs" ), g_nAutoHideToolbar);
 
-  conf->Write(_T ( "DisplaySizeMM" ), g_config_display_size_mm);
+  wxString st0;
+  for (const auto &mm : g_config_display_size_mm) {
+    st0.Append(wxString::Format(_T ( "%zu," ), mm));
+  }
+  st0.RemoveLast(); //Strip last comma
+  conf->Write(_T ( "DisplaySizeMM" ), st0);
   conf->Write(_T ( "DisplaySizeManual" ), g_config_display_size_manual);
 
   conf->Write(_T ( "PlanSpeed" ), wxString::Format(_T("%.2f"), g_PlanSpeed));
@@ -1070,6 +1069,7 @@ bool ConfigMgr::SaveTemplate(wxString fileName) {
                                               0));  // 3.0.0 config support
   conf->Write(_T ( "RadarRingsNumberVisible" ),
               g_iNavAidRadarRingsNumberVisible);
+  g_bNavAidRadarRingsShown = g_iNavAidRadarRingsNumberVisible > 0;
   conf->Write(_T ( "RadarRingsStep" ), g_fNavAidRadarRingsStep);
   conf->Write(_T ( "RadarRingsStepUnits" ), g_pNavAidRadarRingsStepUnits);
   conf->Write(_T ( "RadarRingsColour" ),
@@ -1169,20 +1169,20 @@ bool ConfigMgr::CheckTemplateGUID(wxString GUID) {
 
 #define CHECK_INT(s, t)                           \
   read_int = *t;                                  \
-  if (!conf->Read(s, &read_int)) wxLogMessage(s); \
+  if (!conf.Read(s, &read_int)) wxLogMessage(s); \
   if ((int)*t != read_int) return false;
 
 #define CHECK_STR(s, t) \
   val = t;              \
-  conf->Read(s, &val);  \
+  conf.Read(s, &val);  \
   if (!t.IsSameAs(val)) return false;
 
 #define CHECK_STRP(s, t) \
-  conf->Read(s, &val);   \
+  conf.Read(s, &val);   \
   if (!t->IsSameAs(val)) return false;
 
 #define CHECK_FLT(s, t, eps) \
-  conf->Read(s, &val);       \
+  conf.Read(s, &val);       \
   val.ToDouble(&dval);       \
   if (fabs(dval - *t) > eps) return false;
 
@@ -1193,10 +1193,10 @@ bool ConfigMgr::CheckTemplate(wxString fileName) {
   wxString val;
   double dval;
 
-  MyConfig *conf = new MyConfig(fileName);
+  MyConfig conf(fileName);
 
   //    Global options and settings
-  conf->SetPath(_T ( "/Settings" ));
+  conf.SetPath(_T ( "/Settings" ));
 
   CHECK_INT(_T ( "UIexpert" ), &g_bUIexpert);
 
@@ -1267,12 +1267,11 @@ bool ConfigMgr::CheckTemplate(wxString fileName) {
   CHECK_INT(_T ( "OpenGL" ), &g_bopengl);
   CHECK_INT(_T ( "SoftwareGL" ), &g_bSoftwareGL);
 
-  CHECK_INT(_T ( "ShowFPS" ), &g_bShowFPS);
-
   CHECK_INT(_T( "NMEAAPBPrecision" ), &g_NMEAAPBPrecision);
 
   CHECK_STR(_T( "TalkerIdText" ), g_TalkerIdText);
   CHECK_INT(_T( "MaxWaypointNameLength" ), &g_maxWPNameLength);
+  CHECK_INT(_T( "MbtilesMaxLayers" ), &g_mbtilesMaxLayers);
 
   /* opengl options */
 #ifdef ocpnUSE_GL
@@ -1408,7 +1407,7 @@ bool ConfigMgr::CheckTemplate(wxString fileName) {
 
   CHECK_INT(_T ( "EnableUDPNullHeader" ), &g_benableUDPNullHeader);
 
-  conf->SetPath(_T ( "/Settings/GlobalState" ));
+  conf.SetPath(_T ( "/Settings/GlobalState" ));
 
   CHECK_INT(_T ( "FrameWinX" ), &g_nframewin_x);
   CHECK_INT(_T ( "FrameWinY" ), &g_nframewin_y);
@@ -1430,7 +1429,7 @@ bool ConfigMgr::CheckTemplate(wxString fileName) {
             &g_nDepthUnitDisplay);  // default is metres
 
   //    AIS
-  conf->SetPath(_T ( "/Settings/AIS" ));
+  conf.SetPath(_T ( "/Settings/AIS" ));
   CHECK_INT(_T ( "bNoCPAMax" ), &g_bCPAMax);
   CHECK_FLT(_T ( "NoCPAMaxNMi" ), &g_CPAMax_NM, .01)
   CHECK_INT(_T ( "bCPAWarn" ), &g_bCPAWarn);
@@ -1494,7 +1493,7 @@ bool ConfigMgr::CheckTemplate(wxString fileName) {
   CHECK_INT(_T ( "QueryDialogPosX" ), &g_ais_query_dialog_x);
   CHECK_INT(_T ( "QueryDialogPosY" ), &g_ais_query_dialog_y);
 
-  conf->SetPath(_T ( "/Directories" ));
+  conf.SetPath(_T ( "/Directories" ));
   CHECK_STR(_T ( "PresentationLibraryData" ), g_UserPresLibData)
   /// CHECK_STRP( _T ( "InitChartDir" ), pInit_Chart_Dir)
 
@@ -1503,17 +1502,18 @@ bool ConfigMgr::CheckTemplate(wxString fileName) {
   CHECK_STR(_T ( "GPXIODir" ), g_gpx_path);     // Get the Directory name
   CHECK_STR(_T ( "TCDataDir" ), g_TCData_Dir);  // Get the Directory name
   CHECK_STR(_T ( "BasemapDir"), gWorldMapLocation);
+  CHECK_STR(_T ( "BaseShapefileDir"), gWorldShapefileLocation);
 
   //    Fonts
 
 #if 0
     //  Load the persistent Auxiliary Font descriptor Keys
-    conf->SetPath ( _T ( "/Settings/AuxFontKeys" ) );
+    conf.SetPath ( _T ( "/Settings/AuxFontKeys" ) );
 
     wxString strk;
     long dummyk;
     wxString kval;
-    bool bContk = conf->GetFirstEntry( strk, dummyk );
+    bool bContk = conf,GetFirstEntry( strk, dummyk );
     bool bNewKey = false;
     while( bContk ) {
         Read( strk, &kval );
@@ -1527,26 +1527,26 @@ bool ConfigMgr::CheckTemplate(wxString fileName) {
 #endif
 
 #ifdef __WXX11__
-  conf->SetPath(_T ( "/Settings/X11Fonts" ));
+  conf.SetPath(_T ( "/Settings/X11Fonts" ));
 #endif
 
 #ifdef __WXGTK__
-  conf->SetPath(_T ( "/Settings/GTKFonts" ));
+  conf.SetPath(_T ( "/Settings/GTKFonts" ));
 #endif
 
 #ifdef __WXMSW__
-  conf->SetPath(_T ( "/Settings/MSWFonts" ));
+  conf.SetPath(_T ( "/Settings/MSWFonts" ));
 #endif
 
 #ifdef __WXMAC__
-  conf->SetPath(_T ( "/Settings/MacFonts" ));
+  conf.SetPath(_T ( "/Settings/MacFonts" ));
 #endif
 
 #ifdef __WXQT__
-  conf->SetPath(_T ( "/Settings/QTFonts" ));
+  conf.SetPath(_T ( "/Settings/QTFonts" ));
 #endif
 
-  conf->SetPath(_T ( "/Settings/Others" ));
+  conf.SetPath(_T ( "/Settings/Others" ));
 
   // Radar rings
   CHECK_INT(_T ( "RadarRingsNumberVisible" ), &g_iNavAidRadarRingsNumberVisible)
@@ -1599,17 +1599,17 @@ bool ConfigMgr::CheckTemplate(wxString fileName) {
   // S57 template items
 
 #define CHECK_BFN(s, t)     \
-  conf->Read(s, &read_int); \
+  conf.Read(s, &read_int);  \
   bval = t;                 \
   bval0 = read_int != 0;    \
   if (bval != bval0) return false;
 
 #define CHECK_IFN(s, t)     \
-  conf->Read(s, &read_int); \
+  conf.Read(s, &read_int);  \
   if (read_int != t) return false;
 
 #define CHECK_FFN(s, t) \
-  conf->Read(s, &dval); \
+  conf.Read(s, &dval);  \
   if (fabs(dval - t) > 0.1) return false;
 
   if (ps52plib) {
@@ -1617,7 +1617,7 @@ bool ConfigMgr::CheckTemplate(wxString fileName) {
     double dval;
     bool bval, bval0;
 
-    conf->SetPath(_T ( "/Settings/GlobalState" ));
+    conf.SetPath(_T ( "/Settings/GlobalState" ));
 
     CHECK_BFN(_T ( "bShowS57Text" ), ps52plib->GetShowS57Text());
 
@@ -1649,9 +1649,9 @@ bool ConfigMgr::CheckTemplate(wxString fileName) {
 
     OBJLElement *pOLE;
 
-    conf->SetPath(_T ( "/Settings/ObjectFilter" ));
+    conf.SetPath(_T ( "/Settings/ObjectFilter" ));
 
-    unsigned int iOBJMax = conf->GetNumberOfEntries();
+    unsigned int iOBJMax = conf.GetNumberOfEntries();
 
     if (iOBJMax != ps52plib->pOBJLArray->GetCount()) return false;
 
@@ -1660,9 +1660,9 @@ bool ConfigMgr::CheckTemplate(wxString fileName) {
       long val;
       long dummy;
 
-      bool bCont = conf->GetFirstEntry(str, dummy);
+      bool bCont = conf.GetFirstEntry(str, dummy);
       while (bCont) {
-        conf->Read(str, &val);  // Get an Object Viz
+        conf.Read(str, &val);  // Get an Object Viz
 
         // scan for the same key in the global list
         bool bfound = false;
@@ -1680,20 +1680,20 @@ bool ConfigMgr::CheckTemplate(wxString fileName) {
 
           if (!bfound) return false;
         }
-        bCont = conf->GetNextEntry(str, dummy);
+        bCont = conf.GetNextEntry(str, dummy);
       }
     }
   }
 
-  conf->SetPath(_T ( "/MmsiProperties" ));
-  int iPMax = conf->GetNumberOfEntries();
+  conf.SetPath(_T ( "/MmsiProperties" ));
+  int iPMax = conf.GetNumberOfEntries();
   if (iPMax) {
     wxString str, val;
     long dummy;
 
-    bool bCont = conf->GetFirstEntry(str, dummy);
+    bool bCont = conf.GetFirstEntry(str, dummy);
     while (bCont) {
-      conf->Read(str, &val);  // Get an entry
+      conf.Read(str, &val);  // Get an entry
 
       bool bfound = false;
       for (unsigned int j = 0; j < g_MMSI_Props_Array.GetCount(); j++) {
@@ -1705,7 +1705,7 @@ bool ConfigMgr::CheckTemplate(wxString fileName) {
       }
       if (!bfound) return false;
 
-      bCont = conf->GetNextEntry(str, dummy);
+      bCont = conf.GetNextEntry(str, dummy);
     }
   }
 
