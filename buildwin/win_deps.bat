@@ -67,3 +67,7 @@ if not exist %CACHE_DIR%\buildwin\libcurl.dll (
   wget !opencpn_support_base!/opencpn-support/raw/files/iphlpapi.lib ^
    -O %CACHE_DIR%\buildwin\iphlpapi.lib
 )
+
+wget -nv -O !CACHE_DIR!\QuickStartManual.zip ^
+       https://www.dropbox.com/scl/fi/3ofdz0leqewj0kf0blch0/QuickStartManual.zip?rlkey=v3gnflqo9786219d0gemfi6wy&st=zzzqd0k3&dl=1
+7z x -y !CACHE_DIR!\QuickStartManual.zip  -o%CACHE_DIR%\..\data\doc
