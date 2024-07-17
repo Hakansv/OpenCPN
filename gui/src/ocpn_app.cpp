@@ -1881,6 +1881,7 @@ bool MyApp::OnInit() {
   if (!n_NavMessageShown || (vs != g_config_version_string)) {
     if (wxID_CANCEL == ShowNavWarning()) return false;
     n_NavMessageShown = 1;
+    pConfig->Flush();
   }
 #endif
 
