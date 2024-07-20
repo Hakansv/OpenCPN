@@ -1850,17 +1850,17 @@ if (APPLE)
 
   if (OCPN_BUNDLE_DOCS)
     set_source_files_properties(
-      data/doc/toc_flat.html PROPERTIES MACOSX_PACKAGE_LOCATION
-                                          SharedSupport/doc
+      data/doc/local/toc_flat.html PROPERTIES MACOSX_PACKAGE_LOCATION
+                                          SharedSupport/doc/local
     )
-    file(GLOB_RECURSE WIKI_DOC_FILES "${CMAKE_SOURCE_DIR}/data/doc/*")
+    file(GLOB_RECURSE WIKI_DOC_FILES "${CMAKE_SOURCE_DIR}/data/doc/local/*")
     foreach (_currentWikiDocFile ${WIKI_DOC_FILES})
       file(RELATIVE_PATH _docfileRelPath # Output variable
-           "${CMAKE_SOURCE_DIR}/data/doc/" # Base directory
+           "${CMAKE_SOURCE_DIR}/data/doc/local" # Base directory
            ${_currentWikiDocFile} # Absolute path to the file
       )
       get_filename_component(_docfileLocation ${_docfileRelPath} DIRECTORY)
-      set(_location "SharedSupport/doc/${_docfileLocation}")
+      set(_location "SharedSupport/doc/local/${_docfileLocation}")
       set_source_files_properties(
         ${_currentWikiDocFile} PROPERTIES MACOSX_PACKAGE_LOCATION ${_location}
       )
@@ -1885,7 +1885,7 @@ if (APPLE)
   set(MACOSX_BUNDLE_GUI_IDENTIFIER "org.opencpn")
 
   if (OCPN_BUNDLE_DOCS)
-    set(DOC_FILES data/doc/help_web.html data/doc/toc_flat.html
+    set(DOC_FILES data/doc/help_web.html
                   ${WIKI_DOC_FILES}
     )
   else ()
