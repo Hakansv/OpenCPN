@@ -296,7 +296,7 @@ int send_mdns_query(mdns_query_t* query, size_t count, size_t timeout_secs,
 mdns_query_t s_query;
 
 void FindAllOCPNServers(size_t timeout_secs) {
-  s_query.name = "opencpn-object-control-service";
+  s_query.name = "opencpn-object._tcp.";
   s_query.type = MDNS_RECORDTYPE_PTR;
   s_query.length = strlen(s_query.name);
 
