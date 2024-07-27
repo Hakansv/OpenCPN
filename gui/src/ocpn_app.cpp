@@ -1934,7 +1934,7 @@ bool MyApp::OnInit() {
 
     m_rest_server.StartServer(fs::path(data_dir.ToStdString()));
     StartMDNSService(g_hostname.ToStdString(),
-                     "opencpn-object._tcp.", 8000);
+                     "opencpn-object-control-service", 8000);
   }
   return TRUE;
 }
