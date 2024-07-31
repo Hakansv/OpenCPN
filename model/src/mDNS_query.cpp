@@ -55,11 +55,10 @@
 
 #include "model/cmdline.h"
 #include "mdns_util.h"
+#include "model/mdns_cache.h"
 #include "model/mDNS_query.h"
 
 // Static data structs
-std::vector<std::shared_ptr<ocpn_DNS_record_t>> g_DNS_cache;
-wxDateTime g_DNS_cache_time;
 std::vector<ocpn_DNS_record_t> g_sk_servers;
 
 static char addrbuffer[64];
@@ -75,13 +74,13 @@ static int has_ipv4;
 static int has_ipv6;
 
 static void log_printf(const char* fmt, ...) {
-    if (getenv("OCPN_MDNS_DEBUG")
-        || wxLog::GetActiveTarget()->GetLogLevel() >= wxLOG_Debug) {
-      va_list ap;
-      va_start(ap, fmt);
-      vprintf(fmt, ap);
-      va_end(ap);
-    }
+  if (getenv("OCPN_MDNS_DEBUG") ||
+      wxLog::GetActiveTarget()->GetLogLevel() >= wxLOG_Debug) {
+    va_list ap;
+    va_start(ap, fmt);
+    vprintf(fmt, ap);
+    va_end(ap);
+  }
 }
 
 static int ocpn_query_callback(int sock, const struct sockaddr* from,
@@ -111,9 +110,9 @@ static int ocpn_query_callback(int sock, const struct sockaddr* from,
         mdns_record_parse_ptr(data, size, record_offset, record_length,
                               namebuffer, sizeof(namebuffer));
     log_printf("%.*s : %s %.*s PTR %.*s rclass 0x%x ttl %u length %d\n",
-           MDNS_STRING_FORMAT(fromaddrstr), entrytype,
-           MDNS_STRING_FORMAT(entrystr), MDNS_STRING_FORMAT(namestr), rclass,
-           ttl, (int)record_length);
+               MDNS_STRING_FORMAT(fromaddrstr), entrytype,
+               MDNS_STRING_FORMAT(entrystr), MDNS_STRING_FORMAT(namestr),
+               rclass, ttl, (int)record_length);
 
     std::string srv(namestr.str, namestr.length);
     size_t rh = srv.find("opencpn-object");
@@ -124,32 +123,10 @@ static int ocpn_query_callback(int sock, const struct sockaddr* from,
     size_t r = from.find(':');
     std::string ip = from.substr(0, r);
 
-    //  Search for this record in the cache
-    auto func = [srv, ip](const std::shared_ptr<ocpn_DNS_record_t> record) {
-      return (!record->service_instance.compare(srv)) &&
-             (ip == record->ip);
-    };
-    auto found = std::find_if(g_DNS_cache.begin(), g_DNS_cache.end(), func);
-
-    std::shared_ptr<ocpn_DNS_record_t> entry;
-
-    if (found == g_DNS_cache.end()) {
-      // Add a record
-      entry = std::make_shared<ocpn_DNS_record_t>();
-      g_DNS_cache.push_back(entry);
-    } else
-      entry = *found;
-
-    // Update the cache entry
-    entry->service_instance = srv;
-    entry->hostname = hostname;
-    entry->ip = ip;
-    entry->port = "8000";
     // Is the destination a portable?  Detect by string inspection.
-    std::string p("Portable");
-    std::size_t port = hostname.find(p);
-    ;
-    if (port != std::string::npos) entry->port = "8001";
+    std::string port =
+      hostname.find("Portable") == std::string::npos ? "8000" : "8001";
+    MdnsCache::GetInstance().Add(srv, hostname, ip, port);
   }
 
   return 0;
@@ -233,7 +210,7 @@ int send_mdns_query(mdns_query_t* query, size_t count, size_t timeout_secs,
     return -1;
   }
   log_printf("Opened %d socket%s for mDNS query\n", num_sockets,
-         num_sockets ? "s" : "");
+             num_sockets ? "s" : "");
 
   size_t capacity = 2048;
   void* buffer = malloc(capacity);
@@ -449,7 +426,8 @@ std::vector<std::string> get_local_ipv4_addresses() {
   struct ifaddrs* ifaddr = 0;
   struct ifaddrs* ifa = 0;
 
-  if (getifaddrs(&ifaddr) < 0) log_printf("Unable to get interface addresses\n");
+  if (getifaddrs(&ifaddr) < 0)
+    log_printf("Unable to get interface addresses\n");
 
   int first_ipv4 = 1;
   int first_ipv6 = 1;
