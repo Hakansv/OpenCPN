@@ -87,6 +87,7 @@ CMake variables
 	Var VERSION_OLDER
 	Var CANCEL_INSTALLER
 	Var VERSION_DATE
+	Var LAST_VERSION_DATE
 	Var LANG_NAME
 	Var Status_SecGrpSetConfig
 	Var MAJOR_D
@@ -837,6 +838,7 @@ Section "-Install Section" SecInstall
 	WriteRegStr SHCTX "${REG_KEY_UN}" "DisplayName" "@CPACK_PACKAGE_NAME@ @CPACK_PACKAGE_VERSION@"
 	WriteRegStr SHCTX "${REG_KEY_UN}" "DisplayVersion" "@CPACK_PACKAGE_VERSION@"
 	WriteRegStr SHCTX "${REG_KEY_UN}" "CompareVersion" "$VERSION_DATE"
+	WriteRegStr SHCTX "${REG_KEY_UN}" "LastCompareVersion" "$LAST_VERSION_DATE"
 	WriteRegStr SHCTX "${REG_KEY_UN}" "StartMenuPath" "$SMPROGRAMS\$STARTMENU_FOLDER"
 	WriteRegStr SHCTX "${REG_KEY_UN}" "InstallLocation" "$INSTDIR"
 	WriteRegStr SHCTX "${REG_KEY_UN}" "UninstallString" "$\"$INSTDIR\Uninstall @CPACK_PACKAGE_VERSION@.exe$\""
@@ -3692,6 +3694,7 @@ FunctionEnd
 				${If} $R3 == "OpenCPN"
 				${AndIf} $R2 > 7
 					ReadRegStr $R4 SHCTX "${REG_ROOT_KEY_UN}\$R1" "CompareVersion"
+					StrCpy $LAST_VERSION_DATE $R4
 					ReadRegStr $R6 SHCTX "${REG_ROOT_KEY_UN}\$R1" "InstallLocation"
 					${If} $R4 != ""
 						${VersionCompare} $VERSION_DATE $R4 $Compare_Version_Result
