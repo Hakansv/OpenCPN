@@ -4637,8 +4637,8 @@ bool b_IsBuoyMmsi(int msi) {
   // IMO standard is not yet(?) implemented for (net)buoys
   // This "hack", based on real-world outcomes, is used instead
   msi /= 1000000;
-  if (msi == 108 || msi == 109 || msi / 10 == 94 || msi / 10 == 95 ||
-      msi / 10 == 87 || msi / 10 == 88) {
+  if (msi / 10 == 94 || msi / 10 == 95 || msi / 10 == 87 || msi / 10 == 88 ||
+    msi == 106 || msi == 108 || msi == 109 || msi == 123) {
     return true;
   }
   return false;
