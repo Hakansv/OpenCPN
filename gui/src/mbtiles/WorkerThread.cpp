@@ -1,4 +1,5 @@
 
+#include <mutex>
 #include <wx/thread.h>
 #include "dychart.h"
 #include "WorkerThread.hpp"
@@ -75,6 +76,8 @@ wxThread::ExitCode MbtTilesThread::Entry() {
 /// @brief Load bitmap data of a tile from the MbTiles file to the tile cache
 /// @param tile Pointer to the tile to be loaded
 void MbtTilesThread::LoadTile(mbTileDescriptor *tile) {
+  std::lock_guard lock(TileCache::GetMutex(tile));
+
   // If the tile has not been found in the SQL database in a previous attempt,
   // don't search for it again
   if (!tile->m_bAvailable) return;
@@ -142,6 +145,8 @@ void MbtTilesThread::LoadTile(mbTileDescriptor *tile) {
       int tex_h = 256;
       // Copy and process the tile
       unsigned char *teximage = (unsigned char *)malloc(stride * tex_w * tex_h);
+      if (!teximage) return;
+
       bool transparent = blobImage.HasAlpha();
       //  *(int*)0 = 0;  // test exception
 
