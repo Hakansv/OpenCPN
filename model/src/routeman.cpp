@@ -37,6 +37,8 @@
 #include <wx/listimpl.cpp>
 #include <wx/tokenzr.h>
 
+#include <wx/textfile.h> // Hakan
+
 #include "model/ais_decoder.h"
 #include "model/base_platform.h"
 #include "model/comm_n0183_output.h"
@@ -60,8 +62,13 @@
 
 bool g_bPluginHandleAutopilotRoute;
 
-bool g_bXTE_multiply; //Hakan
-double g_dXTE_multiplier; //Hakan
+// Hakan
+bool g_bXTE_multiply;
+double g_dXTE_multiplier;
+int wp30DevData[361];
+bool devfileNotfound;
+    // Hakan
+
 Routeman* g_pRouteMan;
 Route *pAISMOBRoute;
 
@@ -97,6 +104,27 @@ static void ActivatePersistedRoute(Routeman *routeman) {
     return;
   }
   routeman->ActivateRoute(route);  // FIXME (leamas) better start point
+}
+
+static void UpdateWP30DevData() {  // Hakan
+  wxString wp30DevDataFile = g_BasePlatform->GetPrivateDataDir();
+  appendOSDirSlash(&wp30DevDataFile);
+  wp30DevDataFile << "MomoAPDev.csv";
+  // open the file
+  wxTextFile devfile;
+  if (devfile.Open(wp30DevDataFile)) {
+    int row = 0;
+    wp30DevData[row] = wxAtoi(devfile.GetFirstLine());
+    while (!devfile.Eof() && row < 360) {
+      row++;
+      wp30DevData[row] = wxAtoi(devfile.GetNextLine());
+    }
+    devfile.Close();
+    if (wp30DevData[0] == 0) wp30DevData[0] = 1;  // flag: Data is loaded
+  } else {
+    devfileNotfound = true;
+    wxLogMessage("MoMo wp30 No deviation file found. MomoAPDev.csv");
+  }
 }
 
 //--------------------------------------------------------------------------------
@@ -457,16 +485,26 @@ bool Routeman::UpdateAutopilot() {
 
   // Send all known Autopilot messages upstream
   //Hakan
+  double f_brg = CurrentBrgToActivePoint;
    //If active multiply XTE with given factor.
    if (g_bXTE_multiply) {
-       static bool b_arrived;
-       if (b_arrived) { // zero XTE once at first turn after arrival
-           CurrentXTEToActivePoint = 0.0;
-           b_arrived = false;
+     // Fetch Momo AP wp30 deviation table once
+     if (!devfileNotfound && wp30DevData[0] == 0)
+       UpdateWP30DevData();
+     if (wp30DevData[0] != 0) { // flag: updated file
+       int brg = CurrentBrgToActivePoint;
+       if (brg < 361 && brg >= 0) {
+         CurrentBrgToActivePoint += wp30DevData[brg];
        }
-       if ((CurrentXTEToActivePoint *= g_dXTE_multiplier) > 1.2)
-           CurrentXTEToActivePoint = 1.2;
-       if (m_bArrival) b_arrived = true;
+     }
+      static bool b_arrived;
+      if (b_arrived) { // zero XTE once at first turn after arrival
+          CurrentXTEToActivePoint = 0.0;
+          b_arrived = false;
+      }
+      if ((CurrentXTEToActivePoint *= g_dXTE_multiplier) > 1.2)
+          CurrentXTEToActivePoint = 1.2;
+      if (m_bArrival) b_arrived = true;
    }
    //Hakan
 
@@ -685,7 +723,7 @@ bool Routeman::UpdateAutopilot() {
     m_NMEA0183.Xte.Write(snt);
     BroadcastNMEA0183Message(snt.Sentence, m_nmea_log, on_message_sent);
   }
-
+  if (g_bXTE_multiply) CurrentBrgToActivePoint = f_brg; // Hakan reset to origin
   return true;
 }
 
