@@ -42,6 +42,7 @@
 #include "model/ais_decoder.h"
 #include "model/config_vars.h"
 #include "model/georef.h"
+#include "model/mdns_cache.h"
 #include "model/mDNS_query.h"
 #include "model/navutil_base.h"
 #include "model/own_ship.h"
@@ -80,7 +81,7 @@ enum { colWPTICON = 0, colWPTSCALE, colWPTNAME, colWPTDIST };
 
 // GLOBALS :0
 extern RouteList *pRouteList;
-extern std::vector<Track*> g_TrackList;
+extern std::vector<Track *> g_TrackList;
 extern LayerList *pLayerList;
 extern wxString GetLayerName(int id);
 extern RoutePropDlgImpl *pRoutePropDialog;
@@ -93,8 +94,6 @@ extern MyFrame *gFrame;
 extern bool g_bShowLayers;
 extern wxString g_default_wp_icon;
 extern OCPNPlatform *g_Platform;
-extern std::vector<std::shared_ptr<ocpn_DNS_record_t>> g_DNS_cache;
-extern wxDateTime g_DNS_cache_time;
 
 // Helper for conditional file name separator
 void appendOSDirSlash(wxString *pString);
@@ -503,7 +502,6 @@ void RouteManagerDialog::Create() {
       wxEVT_COMMAND_BUTTON_CLICKED,
       wxCommandEventHandler(RouteManagerDialog::OnRteExportClick), NULL, this);
 
-
   btnRteResequence = new wxButton(winr, -1, reseq_label);
   bsRouteButtonsInner->Add(btnRteResequence, 0, wxALL | wxEXPAND,
                            DIALOG_MARGIN);
@@ -664,8 +662,7 @@ void RouteManagerDialog::Create() {
       this);
 
   btnTrkSendToPeer = new wxButton(wint, -1, _("Send to &Peer"));
-  bsTrkButtonsInner->Add(btnTrkSendToPeer, 0, wxALL | wxEXPAND,
-                           DIALOG_MARGIN);
+  bsTrkButtonsInner->Add(btnTrkSendToPeer, 0, wxALL | wxEXPAND, DIALOG_MARGIN);
   btnTrkSendToPeer->Connect(
       wxEVT_COMMAND_BUTTON_CLICKED,
       wxCommandEventHandler(RouteManagerDialog::OnTrkSendToPeerClick), NULL,
@@ -710,8 +707,7 @@ void RouteManagerDialog::Create() {
       wxEVT_COMMAND_TEXT_UPDATED,
       wxCommandEventHandler(RouteManagerDialog::OnFilterChanged), NULL, this);
 
-  m_cbShowAllWP =
-      new wxCheckBox(m_pPanelWpt, wxID_ANY, _("Show all marks"));
+  m_cbShowAllWP = new wxCheckBox(m_pPanelWpt, wxID_ANY, _("Show all marks"));
   bSizerWptContents->Add(m_cbShowAllWP, 0, wxEXPAND | wxLEFT, 5);
   m_cbShowAllWP->Connect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
@@ -749,8 +745,8 @@ void RouteManagerDialog::Create() {
                                4 * char_width);
   m_pWptListCtrl->InsertColumn(colWPTSCALE, _("Scale"), wxLIST_FORMAT_LEFT,
                                8 * char_width);
-  m_pWptListCtrl->InsertColumn(colWPTNAME, _("Mark Name"),
-                               wxLIST_FORMAT_LEFT, 15 * char_width);
+  m_pWptListCtrl->InsertColumn(colWPTNAME, _("Mark Name"), wxLIST_FORMAT_LEFT,
+                               15 * char_width);
   m_pWptListCtrl->InsertColumn(colWPTDIST, _("Distance from own ship"),
                                wxLIST_FORMAT_LEFT, 14 * char_width);
 
@@ -812,8 +808,7 @@ void RouteManagerDialog::Create() {
       this);
 
   btnWptSendToPeer = new wxButton(winw, -1, _("Send to &Peer"));
-  bsWptButtonsInner->Add(btnWptSendToPeer, 0, wxALL | wxEXPAND,
-                           DIALOG_MARGIN);
+  bsWptButtonsInner->Add(btnWptSendToPeer, 0, wxALL | wxEXPAND, DIALOG_MARGIN);
   btnWptSendToPeer->Connect(
       wxEVT_COMMAND_BUTTON_CLICKED,
       wxCommandEventHandler(RouteManagerDialog::OnWptSendToPeerClick), NULL,
@@ -854,14 +849,12 @@ void RouteManagerDialog::Create() {
 
   // Dialog OK button
   wxSize sz = ::wxGetDisplaySize();
-  if (sz.y < sz.x) {     // landscape
+  if (sz.y < sz.x) {                           // landscape
     itemBoxSizer6->Add(0, 0, 1, wxEXPAND, 5);  // Spacer
     itemBoxSizer6->Add(new wxButton(this, wxID_OK), 0, wxALL, DIALOG_MARGIN);
-  }
-  else {
-    wxStaticLine* staticLine121 =
-      new wxStaticLine(this, wxID_ANY, wxDefaultPosition,
-                       wxDefaultSize, wxLI_HORIZONTAL);
+  } else {
+    wxStaticLine *staticLine121 = new wxStaticLine(
+        this, wxID_ANY, wxDefaultPosition, wxDefaultSize, wxLI_HORIZONTAL);
     itemBoxSizer1->Add(staticLine121, 0, wxALL | wxEXPAND, DIALOG_MARGIN);
 
     wxBoxSizer *itemBoxSizer7 = new wxBoxSizer(wxHORIZONTAL);
@@ -871,7 +864,8 @@ void RouteManagerDialog::Create() {
     itemBoxSizer7->Add(itemBoxSizer7a, 1, wxEXPAND);
 
     itemBoxSizer7a->AddStretchSpacer();
-    itemBoxSizer7a->Add(new wxButton(this, wxID_OK), 0, wxRIGHT | wxALIGN_RIGHT, DIALOG_MARGIN *4);
+    itemBoxSizer7a->Add(new wxButton(this, wxID_OK), 0, wxRIGHT | wxALIGN_RIGHT,
+                        DIALOG_MARGIN * 4);
   }
 
   //  Create "Layers" panel
@@ -1384,13 +1378,13 @@ void RouteManagerDialog::ZoomtoRoute(Route *route) {
   DistanceBearingMercator(RBBox.GetMinLat(), RBBox.GetMinLon(),
                           RBBox.GetMaxLat(), RBBox.GetMinLon(), NULL, &rh);
 
-  gFrame->GetPrimaryCanvas()->GetSize(&ww, &wh);
+  if (gFrame->GetFocusCanvas()) {
+    gFrame->GetFocusCanvas()->GetSize(&ww, &wh);
+    ppm = wxMin(ww / (rw * 1852), wh / (rh * 1852)) * (100 - fabs(clat)) / 90;
+    ppm = wxMin(ppm, 1.0);
 
-  ppm = wxMin(ww / (rw * 1852), wh / (rh * 1852)) * (100 - fabs(clat)) / 90;
-
-  ppm = wxMin(ppm, 1.0);
-
-  gFrame->JumpToPosition(gFrame->GetPrimaryCanvas(), clat, clon, ppm);
+    gFrame->JumpToPosition(gFrame->GetFocusCanvas(), clat, clon, ppm);
+  }
 
   m_bNeedConfigFlush = true;
 }
@@ -1590,7 +1584,7 @@ void RouteManagerDialog::OnRteResequenceClick(wxCommandEvent &event) {
 }
 
 void RouteManagerDialog::OnRteSendToPeerClick(wxCommandEvent &event) {
-  std::vector<Route*> list;
+  std::vector<Route *> list;
   long item = -1;
   for (;;) {
     item = m_pRouteListCtrl->GetNextItem(item, wxLIST_NEXT_ALL,
@@ -1604,37 +1598,30 @@ void RouteManagerDialog::OnRteSendToPeerClick(wxCommandEvent &event) {
     }
   }
   if (!list.empty()) {
-        SendToPeerDlg dlg;
-        for (auto r : list) {
-          dlg.SetRoute(r);
-        }
+    SendToPeerDlg dlg;
+    for (auto r : list) {
+      dlg.SetRoute(r);
+    }
 
-        // Perform initial scan, if necessary
+    // Perform initial scan, if necessary
 
-        // Check for stale cache...
-        bool bDNScacheStale = true;
-        wxDateTime tnow = wxDateTime::Now();
-        if (g_DNS_cache_time.IsValid()){
-          wxTimeSpan delta = tnow.Subtract(g_DNS_cache_time);
-          if (delta.GetMinutes() < 5)
-            bDNScacheStale = false;
-        }
+    // Check for stale cache...
+    MdnsCache::GetInstance().Validate();
+    if (MdnsCache::GetInstance().GetCache().empty()) dlg.SetScanOnCreate(true);
 
-        if ((g_DNS_cache.size() == 0) || bDNScacheStale)
-           dlg.SetScanOnCreate(true);
-
-        dlg.SetScanTime(5);     // seconds
-        dlg.Create(NULL, -1, _("Send Route(s) to OpenCPN Peer") + _T( "..." ), _T(""));
-        dlg.ShowModal();
+    dlg.SetScanTime(5);  // seconds
+    dlg.Create(NULL, -1, _("Send Route(s) to OpenCPN Peer") + _T( "..." ),
+               _T(""));
+    dlg.ShowModal();
   }
 }
 
 void RouteManagerDialog::OnWptSendToPeerClick(wxCommandEvent &event) {
-  std::vector<RoutePoint*> list;
+  std::vector<RoutePoint *> list;
   long item = -1;
   for (;;) {
     item = m_pWptListCtrl->GetNextItem(item, wxLIST_NEXT_ALL,
-                                         wxLIST_STATE_SELECTED);
+                                       wxLIST_STATE_SELECTED);
     if (item == -1) break;
 
     RoutePoint *proutep = (RoutePoint *)m_pWptListCtrl->GetItemData(item);
@@ -1644,37 +1631,30 @@ void RouteManagerDialog::OnWptSendToPeerClick(wxCommandEvent &event) {
     }
   }
   if (!list.empty()) {
-        SendToPeerDlg dlg;
-        for (auto r : list) {
-          dlg.SetWaypoint(r);
-        }
+    SendToPeerDlg dlg;
+    for (auto r : list) {
+      dlg.SetWaypoint(r);
+    }
 
-        // Perform initial scan, if necessary
+    // Perform initial scan, if necessary
 
-        // Check for stale cache...
-        bool bDNScacheStale = true;
-        wxDateTime tnow = wxDateTime::Now();
-        if (g_DNS_cache_time.IsValid()){
-          wxTimeSpan delta = tnow.Subtract(g_DNS_cache_time);
-          if (delta.GetMinutes() < 5)
-            bDNScacheStale = false;
-        }
+    // Check for stale cache...
+    MdnsCache::GetInstance().Validate();
+    if (MdnsCache::GetInstance().GetCache().empty()) dlg.SetScanOnCreate(true);
 
-        if ((g_DNS_cache.size() == 0) || bDNScacheStale)
-           dlg.SetScanOnCreate(true);
-
-        dlg.SetScanTime(5);     // seconds
-        dlg.Create(NULL, -1, _("Send Waypoint(s) to OpenCPN Peer") + _T( "..." ), _T(""));
-        dlg.ShowModal();
+    dlg.SetScanTime(5);  // seconds
+    dlg.Create(NULL, -1, _("Send Waypoint(s) to OpenCPN Peer") + _T( "..." ),
+               _T(""));
+    dlg.ShowModal();
   }
 }
 
 void RouteManagerDialog::OnTrkSendToPeerClick(wxCommandEvent &event) {
-  std::vector<Track*> list;
+  std::vector<Track *> list;
   long item = -1;
   for (;;) {
     item = m_pTrkListCtrl->GetNextItem(item, wxLIST_NEXT_ALL,
-                                         wxLIST_STATE_SELECTED);
+                                       wxLIST_STATE_SELECTED);
     if (item == -1) break;
 
     Track *ptrk = (Track *)m_pTrkListCtrl->GetItemData(item);
@@ -1684,28 +1664,21 @@ void RouteManagerDialog::OnTrkSendToPeerClick(wxCommandEvent &event) {
     }
   }
   if (!list.empty()) {
-        SendToPeerDlg dlg;
-        for (auto r : list) {
-          dlg.SetTrack(r);
-        }
+    SendToPeerDlg dlg;
+    for (auto r : list) {
+      dlg.SetTrack(r);
+    }
 
-        // Perform initial scan, if necessary
+    // Perform initial scan, if necessary
 
-        // Check for stale cache...
-        bool bDNScacheStale = true;
-        wxDateTime tnow = wxDateTime::Now();
-        if (g_DNS_cache_time.IsValid()){
-          wxTimeSpan delta = tnow.Subtract(g_DNS_cache_time);
-          if (delta.GetMinutes() < 5)
-            bDNScacheStale = false;
-        }
+    // Check for stale cache...
+    MdnsCache::GetInstance().Validate();
+    if (MdnsCache::GetInstance().GetCache().empty()) dlg.SetScanOnCreate(true);
 
-        if ((g_DNS_cache.size() == 0) || bDNScacheStale)
-           dlg.SetScanOnCreate(true);
-
-        dlg.SetScanTime(5);     // seconds
-        dlg.Create(NULL, -1, _("Send Track(s) to OpenCPN Peer") + _T( "..." ), _T(""));
-        dlg.ShowModal();
+    dlg.SetScanTime(5);  // seconds
+    dlg.Create(NULL, -1, _("Send Track(s) to OpenCPN Peer") + _T( "..." ),
+               _T(""));
+    dlg.ShowModal();
   }
 }
 
@@ -2066,7 +2039,7 @@ void RouteManagerDialog::UpdateTrkListCtrl() {
   m_pTrkListCtrl->DeleteAllItems();
 
   // then add tracks to the listctrl
-  std::vector<Track*>::iterator it;
+  std::vector<Track *>::iterator it;
   int index = 0;
   int list_index = 0;
   bool bpartialViz = false;
@@ -2253,7 +2226,7 @@ void RouteManagerDialog::OnTrkPropertiesClick(wxCommandEvent &event) {
 }
 
 void RouteManagerDialog::OnTrkDeleteClick(wxCommandEvent &event) {
-  std::vector<Track*> list;
+  std::vector<Track *> list;
 
   int answer = OCPNMessageBox(
       this, _("Are you sure you want to delete the selected object(s)"),
@@ -2303,7 +2276,7 @@ void RouteManagerDialog::OnTrkDeleteClick(wxCommandEvent &event) {
 }
 
 void RouteManagerDialog::OnTrkExportClick(wxCommandEvent &event) {
-  std::vector<Track*> list;
+  std::vector<Track *> list;
   wxString suggested_name = _T("tracks");
 
   long item = -1;
@@ -2596,7 +2569,8 @@ void RouteManagerDialog::OnWptToggleVisibility(wxMouseEvent &event) {
 
     if (!wp->IsSharedInVisibleRoute()) {
       wp->SetVisible(!wp->IsVisible());
-      m_pWptListCtrl->SetItemImage(clicked_index, RoutePointGui(*wp).GetIconImageIndex());
+      m_pWptListCtrl->SetItemImage(clicked_index,
+                                   RoutePointGui(*wp).GetIconImageIndex());
 
       pConfig->UpdateWayPoint(wp);
     }
@@ -2651,22 +2625,23 @@ void RouteManagerDialog::OnWptNewClick(wxCommandEvent &event) {
                            // Dialog
     g_pMarkInfoDialog = new MarkInfoDlg(GetParent());
 
-  WptShowPropertiesDialog(std::vector<RoutePoint*> {pWP}, GetParent());
+  WptShowPropertiesDialog(std::vector<RoutePoint *>{pWP}, GetParent());
 }
 
 void RouteManagerDialog::OnWptPropertiesClick(wxCommandEvent &event) {
   std::vector<RoutePoint *> wptlist;
   long item = wxNOT_FOUND;
-  item = m_pWptListCtrl->GetNextItem(item, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
-  while (item != wxNOT_FOUND)
-  {
+  item =
+      m_pWptListCtrl->GetNextItem(item, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
+  while (item != wxNOT_FOUND) {
     auto wp = (RoutePoint *)m_pWptListCtrl->GetItemData(item);
     if (wp) {
       wptlist.push_back(wp);
     }
-    item = m_pWptListCtrl->GetNextItem(item, wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED);
+    item = m_pWptListCtrl->GetNextItem(item, wxLIST_NEXT_ALL,
+                                       wxLIST_STATE_SELECTED);
   }
-      
+
   if (wptlist.size() == 0) return;
 
   WptShowPropertiesDialog(wptlist, GetParent());
@@ -2675,8 +2650,8 @@ void RouteManagerDialog::OnWptPropertiesClick(wxCommandEvent &event) {
   m_bNeedConfigFlush = true;
 }
 
-void RouteManagerDialog::WptShowPropertiesDialog(std::vector<RoutePoint *> wptlist,
-                                                 wxWindow *parent) {
+void RouteManagerDialog::WptShowPropertiesDialog(
+    std::vector<RoutePoint *> wptlist, wxWindow *parent) {
   if (!g_pMarkInfoDialog)  // There is one global instance of the MarkProp
                            // Dialog
     g_pMarkInfoDialog = new MarkInfoDlg(parent);
@@ -2685,17 +2660,16 @@ void RouteManagerDialog::WptShowPropertiesDialog(std::vector<RoutePoint *> wptli
   g_pMarkInfoDialog->UpdateProperties();
 
   wxString base_title = _("Mark Properties");
-  if (wptlist[0]->m_bIsInRoute)
-    base_title = _("Waypoint Properties");
+  if (wptlist[0]->m_bIsInRoute) base_title = _("Waypoint Properties");
 
   if (wptlist[0]->m_bIsInLayer) {
-    wxString caption(wxString::Format(_T("%s, %s: %s"),
-                                      base_title, _("Layer"),
+    wxString caption(wxString::Format(_T("%s, %s: %s"), base_title, _("Layer"),
                                       GetLayerName(wptlist[0]->m_LayerID)));
     g_pMarkInfoDialog->SetDialogTitle(caption);
   } else {
     if (wptlist.size() > 1)
-      g_pMarkInfoDialog->SetDialogTitle(base_title + wxString::Format(_(" (%lu points)"), wptlist.size()));
+      g_pMarkInfoDialog->SetDialogTitle(
+          base_title + wxString::Format(_(" (%lu points)"), wptlist.size()));
     else
       g_pMarkInfoDialog->SetDialogTitle(base_title);
   }
@@ -2714,8 +2688,10 @@ void RouteManagerDialog::OnWptZoomtoClick(wxCommandEvent &event) {
 
   if (!wp) return;
 
-  gFrame->JumpToPosition(gFrame->GetPrimaryCanvas(), wp->m_lat, wp->m_lon,
-                         gFrame->GetPrimaryCanvas()->GetVPScale());
+  if (gFrame->GetFocusCanvas()) {
+    gFrame->JumpToPosition(gFrame->GetFocusCanvas(), wp->m_lat, wp->m_lon,
+                           gFrame->GetFocusCanvas()->GetVPScale());
+  }
 }
 
 void RouteManagerDialog::OnWptDeleteClick(wxCommandEvent &event) {
@@ -3148,7 +3124,7 @@ void RouteManagerDialog::ToggleLayerContentsOnChart(Layer *layer) {
     node1 = node1->GetNext();
   }
 
-  for (Track* pTrack : g_TrackList) {
+  for (Track *pTrack : g_TrackList) {
     if (pTrack->m_bIsInLayer && (pTrack->m_LayerID == layer->m_LayerID))
       pTrack->SetVisible(layer->IsVisibleOnChart());
   }

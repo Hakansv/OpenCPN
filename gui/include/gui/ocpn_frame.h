@@ -63,14 +63,13 @@ void ApplyLocale(void);
 
 void LoadS57();
 
-
 //    Fwd definitions
 class ChartCanvas;
 class ocpnFloatingToolbarDialog;
 class OCPN_MsgEvent;
 class options;
 class Track;
-//class OCPN_ThreadMessageEvent;
+// class OCPN_ThreadMessageEvent;
 class wxHtmlWindow;
 class ArrayOfCDI;
 
@@ -81,8 +80,6 @@ class ArrayOfCDI;
 #define TIMER_GFRAME_1 999
 
 #define ID_CM93ZOOMG 102
-
-
 
 // Command identifiers for wxCommandEvents coming from the outside world.
 // Removed from enum to facilitate constant definition
@@ -95,7 +92,6 @@ class ArrayOfCDI;
 #define ID_CMD_POST_JSON_TO_PLUGINS 304
 #define ID_CMD_SOUND_FINISHED 306
 // NOLINTEND
-
 
 #ifdef __ANDROID__
 #define STAT_FIELD_COUNT 2
@@ -115,7 +111,6 @@ class ArrayOfCDI;
 
 //      Define a constant GPS signal watchdog timeout value
 #define GPS_TIMEOUT_SECONDS 10
-
 
 #define MAX_COG_AVERAGE_SECONDS 60
 #define MAX_COGSOG_FILTER_SECONDS 60
@@ -146,8 +141,11 @@ private:
   std::string m_string;
 };
 
+/**
+ * Main application frame. Top-level window frame for OpenCPN that manages
+ * overall application state, menus, toolbars, and child windows like chart canvases.
+ */
 class MyFrame : public wxFrame {
-
 public:
   MyFrame(wxFrame *frame, const wxString &title, const wxPoint &pos,
           const wxSize &size, long style);
@@ -233,9 +231,9 @@ public:
   void ToggleChartOutlines(ChartCanvas *cc);
   void ToggleENCText(ChartCanvas *cc);
   void ToggleSoundings(ChartCanvas *cc);
-  #if 0
+#if 0
   void ToggleRocks(void);
-  #endif
+#endif
   bool ToggleLights(ChartCanvas *cc);
   void ToggleAnchor(ChartCanvas *cc);
   void ToggleAISDisplay(ChartCanvas *cc);
@@ -411,6 +409,5 @@ private:
 
   DECLARE_EVENT_TABLE()
 };
-
 
 #endif  // _OFRAME_H

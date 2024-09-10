@@ -52,7 +52,6 @@
 
 #include "observable_evtvar.h"
 
-
 //    Constants for SendToPeer... Dialog
 #define ID_STPDIALOG 10006
 #define SYMBOL_STP_STYLE                                      \
@@ -66,7 +65,8 @@
 enum { ID_STP_CANCEL = 10000, ID_STP_OK, ID_STP_CHOICE_PEER, ID_STP_SCAN };
 
 /**
- * Route "Send to Peer..." Dialog Definition
+ * Dialog for sending navigation objects to peer devices. Enables sending routes, waypoints, and tracks to peer devices over a network.
+ * It allows selecting the peer device and provides options for scanning for available peers.
  */
 class SendToPeerDlg : public wxDialog {
   DECLARE_DYNAMIC_CLASS(SendToPeerDlg)
@@ -83,11 +83,13 @@ public:
               const wxSize& size = SYMBOL_STP_SIZE,
               long style = SYMBOL_STP_STYLE);
   void SetRoute(Route* pRoute) { m_RouteList.push_back(pRoute); }
-  void SetWaypoint(RoutePoint* pRoutePoint) { m_RoutePointList.push_back(pRoutePoint); }
+  void SetWaypoint(RoutePoint* pRoutePoint) {
+    m_RoutePointList.push_back(pRoutePoint);
+  }
   void SetTrack(Track* pTrack) { m_TrackList.push_back(pTrack); }
   void SetMessage(wxString message);
-  void SetScanOnCreate(bool s){ m_bScanOnCreate = s;}
-  void SetScanTime(int t){ m_scanTime = t * 2;}
+  void SetScanOnCreate(bool s) { m_bScanOnCreate = s; }
+  void SetScanTime(int t) { m_scanTime = t * 2; }
 
 private:
   void CreateControls([[maybe_unused]] const wxString& hint);
@@ -95,8 +97,8 @@ private:
   void OnCancelClick(wxCommandEvent& event);
   void OnSendClick([[maybe_unused]] wxCommandEvent& event);
   void OnScanClick(wxCommandEvent& event);
-  void OnTimerAutoscan(wxTimerEvent &event);
-  void OnTimerScanTick(wxTimerEvent &event);
+  void OnTimerAutoscan(wxTimerEvent& event);
+  void OnTimerScanTick(wxTimerEvent& event);
   void DoScan();
   bool EnableActivateChkbox();
 
@@ -112,13 +114,13 @@ private:
   wxCheckBox* m_activate_chkbox;
   EventVar progress;
   ObsListener progress_listener;
+  std::string m_ownipAddr;
 
   wxTimer m_autoScanTimer;
   wxTimer m_ScanTickTimer;
   int m_tick;
   int m_scanTime;
   bool m_bScanOnCreate;
-
 };
 
 #endif

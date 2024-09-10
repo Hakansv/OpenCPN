@@ -102,9 +102,9 @@ wxDEFINE_EVENT(wxEVT_COMMDRIVER_N0183_SERIAL, CommDriverN0183SerialEvent);
 
 CommDriverN0183SerialEvent::CommDriverN0183SerialEvent(wxEventType commandType,
                                                        int id = 0)
-    : wxEvent(id, commandType){};
+    : wxEvent(id, commandType) {};
 
-CommDriverN0183SerialEvent::~CommDriverN0183SerialEvent(){};
+CommDriverN0183SerialEvent::~CommDriverN0183SerialEvent() {};
 
 void CommDriverN0183SerialEvent::SetPayload(
     std::shared_ptr<std::vector<unsigned char>> data) {
@@ -222,6 +222,15 @@ CommDriverN0183Serial::CommDriverN0183Serial(const ConnectionParams* params,
   SetSecThreadInActive();
   m_garmin_handler = NULL;
   this->attributes["commPort"] = params->Port.ToStdString();
+  this->attributes["userComment"] = params->UserComment.ToStdString();
+  dsPortType iosel = params->IOSelect;
+  std::string s_iosel = std::string("IN");
+  if (iosel == DS_TYPE_INPUT_OUTPUT) {
+    s_iosel = "OUT";
+  } else if (iosel == DS_TYPE_INPUT_OUTPUT) {
+    s_iosel = "IN/OUT";
+  }
+  this->attributes["ioDirection"] = s_iosel;
 
   // Prepare the wxEventHandler to accept events from the actual hardware thread
   Bind(wxEVT_COMMDRIVER_N0183_SERIAL, &CommDriverN0183Serial::handle_N0183_MSG,
@@ -466,8 +475,9 @@ void CommDriverN0183SerialThread::ThreadMessage(const wxString& msg) {
   //   if (gFrame) gFrame->GetEventHandler()->AddPendingEvent(event);
 }
 
-ssize_t CommDriverN0183SerialThread::WriteComPortPhysical(const std::string& msg) {
-  if (!m_serial.isOpen())  return -1;
+ssize_t CommDriverN0183SerialThread::WriteComPortPhysical(
+    const std::string& msg) {
+  if (!m_serial.isOpen()) return -1;
 
   auto ptr = reinterpret_cast<const uint8_t*>(msg.c_str());
   size_t written = 0;
@@ -614,7 +624,7 @@ void* CommDriverN0183SerialThread::Entry() {
 
       b_qdata = !out_que.empty();
     }  // while b_qdata
-  }    // while not done.
+  }  // while not done.
 
 thread_exit:
   CloseComPortPhysical();

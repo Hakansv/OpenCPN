@@ -452,6 +452,11 @@ if (QT_ANDROID)
   set(CMAKE_SHARED_LINKER_FLAGS "-Wl,-soname,libgorp.so -Wl,--build-id")
 endif ()
 
+if (ARCH STREQUAL armhf)
+  # See: https://forums.raspberrypi.com/viewtopic.php?t=144115
+  add_compile_options(-mcpu=cortex-a53  -mfpu=neon-fp-armv8)
+endif ()   # Assuming at least RPi 3
+
 message(STATUS "Final compiler options:")
 message(STATUS "CMAKE_CXX_FLAGS: ${CMAKE_CXX_FLAGS}")
 message(STATUS "CMAKE_CXX_FLAGS_DEBUG: ${CMAKE_CXX_FLAGS_DEBUG}")
@@ -853,8 +858,6 @@ set(GUI_HDRS
     ${GUI_HDR_DIR}/waypointman_gui.h
     ${GUI_HDR_DIR}/WindowDestroyListener.h
     ${GUI_HDR_DIR}/WindowDestroyListener.h
-    ${GUI_HDR_DIR}/wiz_ui_proto.h
-    ${GUI_HDR_DIR}/wiz_ui.h
 )
 list(APPEND  GUI_HDRS
     ${GUI_S57_DIR}/include/ogr_s57.h
@@ -908,6 +911,7 @@ set(GUI_SRC
     ${GUI_SRC_DIR}/load_errors_dlg.cpp
     ${GUI_SRC_DIR}/MarkInfo.cpp
     ${GUI_SRC_DIR}/mbtiles/mbtiles.cpp
+    ${GUI_SRC_DIR}/mbtiles/WorkerThread.cpp
     ${GUI_SRC_DIR}/mbtiles/WorkerThread.hpp
     ${GUI_SRC_DIR}/mbtiles/TileQueue.hpp
     ${GUI_SRC_DIR}/mbtiles/TileDescriptor.hpp
@@ -970,9 +974,18 @@ set(GUI_SRC
     ${GUI_SRC_DIR}/update_mgr.cpp
     ${GUI_SRC_DIR}/viewport.cpp
     ${GUI_SRC_DIR}/waypointman_gui.cpp
-    ${GUI_SRC_DIR}/initwiz/wiz_ui_proto.cpp
-    ${GUI_SRC_DIR}/initwiz/wiz_ui.cpp
 )
+
+if (NOT QT_ANDROID)
+  list(APPEND GUI_HDRS
+          ${GUI_HDR_DIR}/wiz_ui_proto.h
+          ${GUI_HDR_DIR}/wiz_ui.h
+          )
+  list(APPEND GUI_SRC
+          ${GUI_SRC_DIR}/initwiz/wiz_ui_proto.cpp
+          ${GUI_SRC_DIR}/initwiz/wiz_ui.cpp
+          )
+endif ()
 
 list(APPEND GUI_SRC
   ${GUI_S57_DIR}/src/ogrs57datasource.cpp
@@ -1004,6 +1017,12 @@ if (QT_ANDROID)
   list(APPEND GUI_HDRS android/androidUTIL.h)
   list(APPEND GUI_SRC ${CMAKE_SOURCE_DIR}/android/androidUTIL.cpp)
 endif ()
+
+if (NOT MSVC AND NOT APPLE)
+  list(APPEND GUI_HDRS ${GUI_HDR_DIR}/ocpn_fontdlg.h)
+  list(APPEND GUI_SRC ${GUI_SRC_DIR}/ocpn_fontdlg.cpp)
+endif ()
+
 
 set(SRCS ${GUI_SRC})
 set(HDRS ${GUI_HDRS})
@@ -1099,14 +1118,6 @@ find_package(Gettext REQUIRED)
 add_subdirectory(libs/ssl_sha1)
 target_link_libraries(${PACKAGE_NAME} PRIVATE ssl::sha1)
 
-if (LINUX)
-  find_package(LIBUDEV)
-  if (LIBUDEV_FOUND)
-    target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::libudev)
-    set(HAVE_LIBUDEV 1)
-  endif ()
-endif ()
-
 if (OCPN_USE_SYSFS_PORTS)
   set(USE_SYSFS_PORTS 1)
 endif ()
@@ -1115,7 +1126,8 @@ if (EXISTS /sys/devices)
   set(HAVE_SYSFS_PORTS 1)
 endif ()
 
-if (wxWidgets_VERSION_STRING VERSION_LESS "3.1.6")
+if (wxWidgets_VERSION_STRING VERSION_LESS "3.1.6"
+        AND NOT QT_ANDROID)
   find_package(PANGO)
   if (PANGO_FOUND)
     target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::pango)
@@ -1245,7 +1257,13 @@ target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::sqlite)
 add_subdirectory("libs/SQLiteCpp")
 target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::sqlite_cpp)
 
-add_subdirectory("libs/shapelib")
+find_package(Shapelib)
+if (SHAPELIB_FOUND)
+  message(STATUS "Using system shapelib")
+else ()
+  message(STATUS "Using bundled shapelib")
+  add_subdirectory("libs/shapelib")
+endif ()
 target_link_libraries(${PACKAGE_NAME} PRIVATE shapelib::shapelib)
 
 add_subdirectory("libs/ShapefileCpp")
@@ -1254,10 +1272,8 @@ target_include_directories(${PACKAGE_NAME} PRIVATE ${SHAPEFILECPP_INCLUDE_DIR})
 target_include_directories(${PACKAGE_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/libs/gdal/include/gdal)
 
 if (NOT QT_ANDROID)
-  # TODO: On Linux libdnet may be available from system packages
   add_subdirectory("libs/libdnet")
-  target_link_libraries(${PACKAGE_NAME} PRIVATE dnet)
-  target_include_directories(${PACKAGE_NAME} PRIVATE ${CMAKE_SOURCE_DIR}/libs/libdnet/include)
+  target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::dnet)
 endif ()
 
 if (UNIX)
@@ -1303,72 +1319,6 @@ if (CMAKE_HOST_WIN32)
   list(APPEND CMAKE_PREFIX_PATH
        "${CMAKE_CURRENT_SOURCE_DIR}/cache/buildwin/include"
   )
-endif ()
-
-if (OCPN_USE_CURL)
-  if (CMAKE_HOST_WIN32)
-    install(
-      FILES "${CMAKE_SOURCE_DIR}/cache/buildwin/curl-ca-bundle.crt"
-            "${CMAKE_SOURCE_DIR}/cache/buildwin/libeay32.dll"
-            "${CMAKE_SOURCE_DIR}/cache/buildwin/ssleay32.dll" DESTINATION "."
-    )
-    if (MSVC)
-      set(CURL_LIBRARIES "${CMAKE_SOURCE_DIR}/buildwin/libcurl.lib")
-      install(FILES "cache/buildwin/libcurl.dll" DESTINATION ".")
-      install(FILES "cache/buildwin/zlib1.dll" DESTINATION ".")
-    endif ()
-  else ()
-    set(OCPN_USE_EXTERN_CURL ON)
-  endif ()
-
-  if (NOT QT_ANDROID)
-    if (OCPN_USE_EXTERN_CURL)
-      find_package(CURL REQUIRED)
-      message(STATUS "ocpn: using external curl libraries...")
-      message(STATUS "  curl includes: " ${CURL_INCLUDE_DIRS})
-      message(STATUS "  curl libraries: " ${CURL_LIBRARIES})
-
-      target_include_directories(${PACKAGE_NAME} PRIVATE ${CURL_INCLUDE_DIRS})
-    else ()
-      include("Curl")
-      message(STATUS "Using bundled curl library...")
-    endif ()
-
-    pkg_search_module(SYS_WXCURL libwxcurl wxcurl)
-    use_bundled_lib(USE_BUNDLED_WXCURL wxcurl)
-    if (SYS_WXCURL_FOUND AND NOT USE_BUNDLED_WXCURL)
-      message(STATUS "Building with system wxcurl")
-      target_include_directories(
-        ${PACKAGE_NAME} PRIVATE ${CURL_INCLUDE_DIRS} ${SYS_WXCURL_INCLUDE_DIR}
-      )
-      target_link_libraries(${PACKAGE_NAME} PRIVATE ${SYS_WXCURL_LIBRARIES})
-    else ()
-      message(STATUS "Building with bundled wxcurl")
-      include("Curl")
-      add_subdirectory("libs/wxcurl")
-      target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::wxcurl)
-    endif ()
-
-    target_link_libraries(${PACKAGE_NAME} PRIVATE ${CURL_LIBRARIES})
-
-    if (WIN32 AND OCPN_USE_EXTERN_CURL)
-      find_library(
-        CURL_LIBRARY_DLL
-        NAMES curl curllib libcurl_imp curllib_static libcurl
-        PATH_SUFFIXES dll
-      )
-      install(FILES ${CURL_LIBRARY_DLL} DESTINATION ".")
-    endif ()
-  else ()
-    target_include_directories(
-      ${PACKAGE_NAME}
-      PRIVATE ${CMAKE_SOURCE_DIR}/buildandroid/libcurl/${ARCH}/include
-    )
-    target_link_libraries(
-      ${PACKAGE_NAME}
-      PRIVATE ${CMAKE_SOURCE_DIR}/buildandroid/libcurl/${ARCH}/lib/libcurl.a
-    )
-  endif ()
 endif ()
 
 if (QT_ANDROID)
@@ -1628,6 +1578,10 @@ set(basemap_shp
 
 # Various data files
 
+set(ssfnData
+        data/ssfn/FreeSans.sfn
+        )
+
 set(uiData
     resources/bitmaps/styles.xml
     resources/bitmaps/toolicons_journeyman.png
@@ -1692,6 +1646,9 @@ if (APPLE)
   )
   set_source_files_properties(
     ${basemap_shp} PROPERTIES MACOSX_PACKAGE_LOCATION SharedSupport/basemap_shp
+  )
+  set_source_files_properties(
+    ${ssfnData} PROPERTIES MACOSX_PACKAGE_LOCATION SharedSupport/ssfndata
   )
   set_source_files_properties(
     ${uiData} PROPERTIES MACOSX_PACKAGE_LOCATION SharedSupport/uidata
@@ -1831,17 +1788,17 @@ if (APPLE)
 
   if (OCPN_BUNDLE_DOCS)
     set_source_files_properties(
-      data/doc/help_en_US.html PROPERTIES MACOSX_PACKAGE_LOCATION
-                                          SharedSupport/doc
+      data/doc/local/toc_flat.html PROPERTIES MACOSX_PACKAGE_LOCATION
+                                          SharedSupport/doc/local
     )
-    file(GLOB_RECURSE WIKI_DOC_FILES "${CMAKE_SOURCE_DIR}/data/doc/*")
+    file(GLOB_RECURSE WIKI_DOC_FILES "${CMAKE_SOURCE_DIR}/data/doc/local/*")
     foreach (_currentWikiDocFile ${WIKI_DOC_FILES})
       file(RELATIVE_PATH _docfileRelPath # Output variable
-           "${CMAKE_SOURCE_DIR}/data/doc/" # Base directory
+           "${CMAKE_SOURCE_DIR}/data/doc/local" # Base directory
            ${_currentWikiDocFile} # Absolute path to the file
       )
       get_filename_component(_docfileLocation ${_docfileRelPath} DIRECTORY)
-      set(_location "SharedSupport/doc/${_docfileLocation}")
+      set(_location "SharedSupport/doc/local/${_docfileLocation}")
       set_source_files_properties(
         ${_currentWikiDocFile} PROPERTIES MACOSX_PACKAGE_LOCATION ${_location}
       )
@@ -1866,7 +1823,7 @@ if (APPLE)
   set(MACOSX_BUNDLE_GUI_IDENTIFIER "org.opencpn")
 
   if (OCPN_BUNDLE_DOCS)
-    set(DOC_FILES data/doc/help_web.html data/doc/help_en_US.html
+    set(DOC_FILES data/doc/help_web.html
                   ${WIKI_DOC_FILES}
     )
   else ()
@@ -1877,6 +1834,7 @@ if (APPLE)
     ${PACKAGE_NAME}
     PRIVATE ${gshhs}
             ${basemap_shp}
+            ${ssfnData}
             ${uiData}
             ${s57data}
             ${tcData}
@@ -1944,7 +1902,16 @@ add_subdirectory(libs/picosha2)
 add_subdirectory(libs/pugixml)
 add_subdirectory(libs/rapidjson)
 add_subdirectory(libs/s52plib)
+
+if (QT_ANDROID)
+  set(SOUND_WX_INCLUDE_DIR "${ANDROID_WX_INCLUDES}" CACHE STRING "")
+  set(SOUND_WX_LIBS "${ANDROID_WX_LIBS}" CACHE STRING "")
+else ()
+  set(SOUND_WX_INCLUDE_DIR "${wxWidgets_INCLUDE_DIRS}" CACHE STRING "")
+  set(SOUND_WX_LIBS "${wxWidgets_LIBRARIES}" CACHE STRING "")
+endif ()
 add_subdirectory(libs/sound)
+
 add_subdirectory(libs/wxJSON)
 
 #
@@ -2000,6 +1967,8 @@ if (NOT APPLE)
 
   install(FILES ${basemap_shp} DESTINATION ${PREFIX_PKGDATA}/basemap_shp)
 
+  install(FILES ${ssfnData} DESTINATION ${PREFIX_PKGDATA}/ssfndata)
+
   file(GLOB LICENSES "${CMAKE_SOURCE_DIR}/COPYING.*")
   install(FILES ${LICENSES} LICENSING DESTINATION "${PREFIX_PKGDATA}")
 
@@ -2023,7 +1992,7 @@ if (NOT APPLE)
   install(DIRECTORY data/sounds/ DESTINATION ${PREFIX_PKGDATA}/sounds)
 
   if (OCPN_BUNDLE_DOCS)
-    install(DIRECTORY data/doc/ DESTINATION ${PREFIX_PKGDATA}/doc)
+    install(DIRECTORY data/doc DESTINATION ${PREFIX_PKGDATA})
   else ()
     install(FILES data/doc/help_web.html DESTINATION ${PREFIX_PKGDATA}/doc)
   endif ()
@@ -2558,40 +2527,8 @@ configure_file(
   "${CMAKE_BINARY_DIR}/opencpn.appdata.xml" @ONLY
 )
 
-#
-# Debian package setup
-#
-set(PKG_DESCR
-    [=[
-OpenCPN is a concise ChartPlotter/Navigator. The application supports:
-GPS/GPSD Position Input, BSB Raster Chart Display, S57 Vector ENChart
-Display, AIS Input Decoding, Waypoint Autopilot Navigation. ]=]
-)
-
-if (UNIX AND NOT APPLE)
-  set(CPACK_STRIP_FILES ON)
-  set(CPACK_GENERATOR ${PACKAGE_FORMAT})
-  set(CPACK_PACKAGE_CONTACT "David S. Register ")
-
-  # autogenerate additional dependency information
-  set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
-  set(CPACK_DEBIAN_PACKAGE_RECOMMENDS ${PACKAGE_RECS})
-  if ("${ARCH}" STREQUAL "x86_64")
-    set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
-  else ()
-    set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE ${ARCH})
-  endif ()
-  set(CPACK_DEBIAN_PACKAGE_VERSION "${CPACK_PACKAGE_VERSION}")
-  set(CPACK_DEBIAN_PACKAGE_SECTION "misc")
-  set(CPACK_DEBIAN_COMPRESSION_TYPE "xz")
-  set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "OpenSource Chart Plotter/Navigator")
-  set(CPACK_PACKAGE_DESCRIPTION ${PKG_DESCR})
-  set(CPACK_PACKAGE_RELOCATABLE OFF)
-  set(CPACK_SET_DESTDIR ON)
-  set(CPACK_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
-endif ()
-
-# Command line tools - must be added before the macOS bundle is defined, otherwise they do not get installed before fixup_bundle is performed
+# Command line tools - must be added before the macOS bundle is defined,
+# otherwise they do not get installed before fixup_bundle is performed
 if (NOT QT_ANDROID)
   add_subdirectory(cli)
 endif ()
@@ -2786,5 +2723,4 @@ if (QT_ANDROID)
       ${CMAKE_SOURCE_DIR}/buildandroid/libopenssl/${ARCH}/openssl/lib/libssl.a
       ${CMAKE_SOURCE_DIR}/buildandroid/libopenssl/${ARCH}/openssl/lib/libcrypto.a
   )
-  add_definitions(-DMG_ENABLE_OPENSSL)
 endif ()

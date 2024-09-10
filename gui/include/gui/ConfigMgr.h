@@ -38,9 +38,8 @@ class OCPNConfigObject;
 WX_DECLARE_LIST(OCPNConfigObject, ConfigObjectList);
 
 /**
- * Manages the user config matrix.
- *
- * Singleton.
+ * Manages the user configuration matrix. Singleton that handles the creation,
+ * deletion, and management of user configurations in OpenCPN.
  */
 class ConfigMgr {
 public:
@@ -56,7 +55,7 @@ public:
   wxString GetTemplateTitle(wxString GUID);
   bool ApplyConfigGUID(wxString GUID);
   bool CheckTemplateGUID(wxString GUID);
-  arrayofCanvasConfigPtr &GetCanvasConfigArray(){ return g_canvasConfigArray;}
+  arrayofCanvasConfigPtr &GetCanvasConfigArray() { return g_canvasConfigArray; }
 
 private:  // private for singleton
   ConfigMgr();
@@ -80,9 +79,12 @@ private:  // private for singleton
   OCPNConfigCatalog *m_configCatalog;
   ConfigObjectList *configList;
   arrayofCanvasConfigPtr g_canvasConfigArray;
-
 };
 
+/**
+ * Represents a panel for displaying and editing a configuration. Creates a wxPanel
+ * that shows the details of a specific configuration object and allows for user interaction.
+ */
 class ConfigPanel : public wxPanel {
 public:
   ConfigPanel(OCPNConfigObject *config, wxWindow *parent,

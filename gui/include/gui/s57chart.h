@@ -65,7 +65,7 @@ extern "C" bool s57_GetChartExtent(const wxString &FullPath, Extent *pext);
 void s57_DrawExtendedLightSectors(ocpnDC &temp_dc, ViewPort &VPoint,
                                   std::vector<s57Sector_t> &sectorlegs);
 void s57_DrawExtendedLightSectorsGL(ocpnDC &temp_dc, ViewPort &VPoint,
-                                  std::vector<s57Sector_t> &sectorlegs);
+                                    std::vector<s57Sector_t> &sectorlegs);
 bool s57_CheckExtendedLightSectors(ChartCanvas *cc, int mx, int my,
                                    ViewPort &VPoint,
                                    std::vector<s57Sector_t> &sectorlegs);
@@ -109,9 +109,21 @@ WX_DECLARE_OBJARRAY(S57Obj, ArrayOfS57Obj);
 
 WX_DECLARE_LIST(ObjRazRules, ListOfObjRazRules);
 
-//----------------------------------------------------------------------------
-// s57 Chart object class
-//----------------------------------------------------------------------------
+/**
+ * Represents an S57 format electronic navigational chart in OpenCPN.
+ *
+ * S57 is an international standard for encoding and exchanging digital hydrographic data.
+ * These vector charts contain maritime information
+ * including depths, buoys, lights, and other navigational features.
+ *
+ * Key features of S57 charts and this class:
+ * - Vector data: Allows for smooth scaling and rotation without loss of quality
+ * - Rich feature set: Includes detailed information about various maritime objects
+ * - Layered display: Supports showing/hiding different types of information
+ * - SENC support: Can create and use System ENC (SENC) files for faster loading
+ * - Render options: Supports various rendering modes including OpenGL
+ * - Object queries: Allows for detailed queries of chart objects
+ */
 class s57chart : public ChartBase {
 public:
   s57chart();
@@ -198,7 +210,7 @@ public:
   //    DEPCNT VALDCO array access
   bool GetNearestSafeContour(double safe_cnt, double &next_safe_cnt);
 
-  virtual std::list<S57Obj*> *GetAssociatedObjects(S57Obj *obj);
+  virtual std::list<S57Obj *> *GetAssociatedObjects(S57Obj *obj);
 
   virtual std::unordered_map<unsigned, VE_Element *> &Get_ve_hash(void) {
     return m_ve_hash;
@@ -337,7 +349,7 @@ private:
                                        ChartPlugInWrapper *target_plugin_chart,
                                        s57chart *Chs57,
                                        ListOfObjRazRules *rule_list,
-                                       std::list<S57Obj*> *pi_rule_list,
+                                       std::list<S57Obj *> *pi_rule_list,
                                        std::vector<s57Sector_t> &sectorlegs);
   void CreateChartContext();
   void PopulateObjectsWithContext();
@@ -384,7 +396,6 @@ private:
   long m_plib_state_hash;
   bool m_btex_mem;
   char m_usage_char;
-
 
   int m_LineVBO_name;
 

@@ -47,7 +47,6 @@
 #include "timers.h"
 #include "emboss_data.h"
 
-
 class wxGLContext;
 class GSHHSChart;
 class IDX_entry;
@@ -75,9 +74,10 @@ class ChInfoWin;
 class glChartCanvas;
 class Track;
 
-//----------------------------------------------------------------------------
-// CanvasMenuHandler
-//----------------------------------------------------------------------------
+/**
+ * Handles context menu events for the chart canvas. Manages the creation and handling of context menus that appear
+ * when right-clicking on the chart canvas.
+ */
 class CanvasMenuHandler : public wxEvtHandler {
 public:
   CanvasMenuHandler(ChartCanvas *parentCanvas, Route *selectedRoute,
@@ -89,7 +89,7 @@ public:
   void CanvasPopupMenu(int x, int y, int seltype);
   void PopupMenuHandler(wxCommandEvent &event);
   static int GetNextContextMenuId();
-  void PrepareMenuItem( wxMenuItem *item );
+  void PrepareMenuItem(wxMenuItem *item);
   void MenuPrepend1(wxMenu *menu, int id, wxString label);
   void MenuAppend1(wxMenu *menu, int id, wxString label);
   void SetMenuItemFont1(wxMenuItem *item);

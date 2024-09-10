@@ -71,6 +71,13 @@ sudo tar -C ${DEPS_BUNDLE_DEST} -xJf /tmp/${DEPS_BUNDLE_FILE}
 export PATH="/usr/local/opt/gettext/bin:$PATH"
 echo 'export PATH="/usr/local/opt/gettext/bin:$PATH"' >> ~/.bash_profile
 
+# Download and unzip documentation files
+wget -nv -O QuickStartGuide.zip \
+  "https://dl.cloudsmith.io/public/david-register/opencpn-docs/raw/files/QuickStartGuide-v0.4.zip"
+mkdir -p data/doc/local
+unzip QuickStartGuide.zip -d data/doc/local
+sudo chmod -R +r data/doc/local
+
 # Build, install and make package
 mkdir -p build
 cd build
@@ -91,6 +98,7 @@ cmake -DOCPN_CI_BUILD=$CI_BUILD \
   -DOCPN_USE_SYSTEM_LIBARCHIVE=OFF \
   -DOCPN_DEPS_BUNDLE_PATH=${DEPS_BUNDLE_DEST} \
   -DwxWidgets_CONFIG_EXECUTABLE=${DEPS_BUNDLE_DEST}/lib/wx/config/osx_cocoa-unicode-3.2 \
+  -DCMAKE_APPBUNDLE_PATH=${DEPS_BUNDLE_DEST} \
   -DwxWidgets_CONFIG_OPTIONS="--prefix=${DEPS_BUNDLE_DEST}" \
   ..
 

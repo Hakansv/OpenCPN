@@ -42,13 +42,12 @@ AboutFrameImpl::AboutFrameImpl(wxWindow* parent, wxWindowID id,
                                const wxString& title, const wxPoint& pos,
                                const wxSize& size, long style)
     : AboutFrame(parent, id, title, pos, size, style) {
-
-  if(strlen(DEBIAN_PPA_VERSION))
-   m_staticTextVersion->SetLabel(wxString(DEBIAN_PPA_VERSION));
+  if (strlen(DEBIAN_PPA_VERSION))
+    m_staticTextVersion->SetLabel(wxString(DEBIAN_PPA_VERSION));
   else
-   m_staticTextVersion->SetLabel(PACKAGE_VERSION);
+    m_staticTextVersion->SetLabel(PACKAGE_VERSION);
 
-  m_staticTextCopyYears->SetLabel("\u00A9 2000-2023");
+  m_staticTextCopyYears->SetLabel("\u00A9 2000-2024");
   m_hyperlinkIniFile->SetLabel(g_Platform->GetConfigFileName());
   m_hyperlinkIniFile->SetURL(g_Platform->GetConfigFileName());
   m_hyperlinkLogFile->SetLabel(g_Platform->GetLogFileName());
@@ -65,14 +64,20 @@ AboutFrameImpl::AboutFrameImpl(wxWindow* parent, wxWindowID id,
                                  g_Platform->GetSharedDataDir().c_str()),
                 wxBITMAP_TYPE_ANY);
 
-  m_hyperlinkHelp->SetURL(wxString::Format(
-      "file://%sdoc/help_en_US.html", g_Platform->GetSharedDataDir().c_str()));
+  wxString target = wxString::Format("%sdoc/local/toc_flat.html",
+                                     g_Platform->GetSharedDataDir().c_str());
+
+  if (!::wxFileExists(target))
+    target = wxString::Format("%sdoc/help_web.html",
+                              g_Platform->GetSharedDataDir().c_str());
+
+  target.Prepend("file://");
+
+  m_hyperlinkHelp->SetURL(target);
 #if wxUSE_WEBVIEW && defined(HAVE_WEBVIEW)
-  m_htmlWinHelp->LoadURL(wxString::Format(
-      "file://%sdoc/help_en_US.html", g_Platform->GetSharedDataDir().c_str()));
+  m_htmlWinHelp->LoadURL(target);
 #else
-  m_htmlWinHelp->LoadFile(wxString::Format(
-      "%s/doc/help_en_US.html", g_Platform->GetSharedDataDir().c_str()));
+  m_htmlWinHelp->LoadFile(target);
 #endif
   m_bitmapLogo->SetBitmap(logo);
 
@@ -88,7 +93,7 @@ AboutFrameImpl::AboutFrameImpl(wxWindow* parent, wxWindowID id,
 
 void AboutFrameImpl::OnLinkHelp(wxHyperlinkEvent& event) {
 #ifdef __WXGTK__
-  wxString testFile = wxString::Format("/%s/doc/help_en_US.html",
+  wxString testFile = wxString::Format("/%s/doc/help_web.html",
                                        g_Platform->GetSharedDataDir().c_str());
   if (!::wxFileExists(testFile)) {
     wxString msg = _("OpenCPN Help documentation is not available locally.");

@@ -14,12 +14,13 @@ GRIBUICtrlBarBase::GRIBUICtrlBarBase(wxWindow* parent, wxWindowID id,
                                      const wxString& title, const wxPoint& pos,
                                      const wxSize& size, long style)
     : wxDialog(parent, id, title, pos, size, style) {
+  m_ProjectBoatPanel = NULL;
+
 #ifdef __OCPN__ANDROID__
   const bool m_bcompact = true;
 #else
   const bool m_bcompact = false;
 #endif
-
   if (m_bcompact) {
     this->SetSizeHints(wxDefaultSize, wxDefaultSize);
 
@@ -2170,6 +2171,15 @@ GribPreferencesDialogBase::GribPreferencesDialogBase(
   fgSizer47->Add(m_sIconSizeFactor, 0, wxALL | wxEXPAND, 5);
   bSizerPrefsMain->Add(fgSizer47, 0, wxALL | wxEXPAND, 5);
 #endif
+
+  wxButton* SetSaveButton =
+      new wxButton(scrollWin, wxID_ANY, _("Select GRIB download directory"));
+  bSizerPrefsMain->Add(SetSaveButton, 0, wxALL | wxEXPAND, 5);
+  SetSaveButton->Connect(
+      wxEVT_COMMAND_BUTTON_CLICKED,
+      wxCommandEventHandler(GribPreferencesDialogBase::OnDirSelClick), NULL,
+      this);
+
   Layout();
   Fit();
 
@@ -2306,6 +2316,16 @@ GribPreferencesDialogBase::~GribPreferencesDialogBase() {
       wxEVT_COMMAND_RADIOBOX_SELECTED,
       wxCommandEventHandler(GribPreferencesDialogBase::OnStartOptionChange),
       NULL, this);
+}
+
+void GribPreferencesDialogBase::OnDirSelClick(wxCommandEvent& event) {
+  wxString dir_spec;
+  int response = PlatformDirSelectorDialog(
+      this, &dir_spec, _("Choose GRIB File Directory"), m_grib_dir_sel);
+
+  if (response == wxID_OK) {
+    m_grib_dir_sel = dir_spec;
+  }
 }
 
 GribRequestSettingBase::GribRequestSettingBase(wxWindow* parent, wxWindowID id,
@@ -3118,56 +3138,56 @@ GribRequestSettingBase::GribRequestSettingBase(wxWindow* parent, wxWindowID id,
       NULL, this);
   m_xygribPanel->m_wind_cbox->Connect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_gust_cbox->Connect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_reflectivity_cbox->Connect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_precipitation_cbox->Connect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_cape_cbox->Connect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_pressure_cbox->Connect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_cloudcover_cbox->Connect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_temperature_cbox->Connect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_waveheight_cbox->Connect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_windwave_cbox->Connect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_resolution_choice->Connect(
       wxEVT_COMMAND_CHOICE_SELECTED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_duration_choice->Connect(
       wxEVT_COMMAND_CHOICE_SELECTED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_interval_choice->Connect(
       wxEVT_COMMAND_CHOICE_SELECTED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
 }
 
 GribRequestSettingBase::~GribRequestSettingBase() {
@@ -3329,56 +3349,56 @@ GribRequestSettingBase::~GribRequestSettingBase() {
       NULL, this);
   m_xygribPanel->m_wind_cbox->Disconnect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_gust_cbox->Disconnect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_reflectivity_cbox->Disconnect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_precipitation_cbox->Disconnect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_cape_cbox->Disconnect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_pressure_cbox->Disconnect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_cloudcover_cbox->Disconnect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_temperature_cbox->Disconnect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_waveheight_cbox->Disconnect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_windwave_cbox->Disconnect(
       wxEVT_COMMAND_CHECKBOX_CLICKED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_resolution_choice->Disconnect(
       wxEVT_COMMAND_CHOICE_SELECTED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_duration_choice->Disconnect(
       wxEVT_COMMAND_CHOICE_SELECTED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
   m_xygribPanel->m_interval_choice->Disconnect(
       wxEVT_COMMAND_CHOICE_SELECTED,
-      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange),
-      NULL, this);
+      wxCommandEventHandler(GribRequestSettingBase::OnXyGribConfigChange), NULL,
+      this);
 }
 
 GRIBTableBase::GRIBTableBase(wxWindow* parent, wxWindowID id,

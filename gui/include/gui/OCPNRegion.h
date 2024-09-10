@@ -37,14 +37,16 @@
 #include <wx/wx.h>
 #endif  // precompiled headers
 
-//#if defined(__WXOSX__)
+// #if defined(__WXOSX__)
 #define USE_NEW_REGION
-//#endif
+// #endif
 
-// ----------------------------------------------------------------------------
-// OCPNRegion
-// ----------------------------------------------------------------------------
-
+/**
+ * A wrapper class for wxRegion with additional functionality.
+ * Extends either wxObject or wxRegion (depending on compilation flags)
+ * to provide region-related operations for OpenCPN. Includes methods for
+ * creating, modifying, and querying regions.
+ */
 class OCPNRegion : public
 #ifdef USE_NEW_REGION
                    wxObject
@@ -148,9 +150,11 @@ private:
   DECLARE_DYNAMIC_CLASS(OCPNRegion)
 };
 
-// ----------------------------------------------------------------------------
-// OCPNRegionIterator: decomposes a region into rectangles
-// ----------------------------------------------------------------------------
+/**
+ * An iterator class for OCPNRegion.
+ * Provides methods to iterate over the rectangles
+ * that make up an OCPNRegion.
+ */
 
 class OCPNRegionIterator {
 public:

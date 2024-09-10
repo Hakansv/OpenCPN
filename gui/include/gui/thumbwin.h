@@ -38,7 +38,7 @@
 #include <wx/wx.h>
 #endif  // precompiled headers
 
-//#include "ocpn_pixel.h"
+// #include "ocpn_pixel.h"
 
 //----------------------------------------------------------------------------
 //   constants
@@ -50,9 +50,9 @@
 
 class ChartBase;
 
-//----------------------------------------------------------------------------
-// ThumbWin
-//----------------------------------------------------------------------------
+/**
+ * Window for displaying chart thumbnails.
+ */
 class ThumbWin : public wxWindow {
 public:
   ThumbWin();

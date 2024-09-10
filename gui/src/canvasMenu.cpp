@@ -44,6 +44,7 @@
 #include "model/config_vars.h"
 #include "model/cutil.h"
 #include "model/georef.h"
+#include "model/mdns_cache.h"
 #include "model/mDNS_query.h"
 #include "model/nav_object_database.h"
 #include "model/own_ship.h"
@@ -124,8 +125,6 @@ extern bool g_bBasicMenus;
 extern TrackPropDlg *pTrackPropDialog;
 extern bool g_FlushNavobjChanges;
 extern ColorScheme global_color_scheme;
-extern std::vector<std::shared_ptr<ocpn_DNS_record_t>> g_DNS_cache;
-extern wxDateTime g_DNS_cache_time;
 
 //    Constants for right click menus
 enum {
@@ -432,12 +431,15 @@ void CanvasMenuHandler::CanvasPopupMenu(int x, int y, int seltype) {
                 parent->GetCanvasPointPix(lat1, lon1, &target_point);
                 bbox.Expand(target_point);
                 for (int i = 0; i < 18; ++i) {
-                  ll_gc_ll(lat1, lon1, sa->left_bound_deg + i * (sa->right_bound_deg - sa->left_bound_deg) / 18 , sa->radius_m / 1852.0,
-                         &lat, &lon);
+                  ll_gc_ll(
+                      lat1, lon1,
+                      sa->left_bound_deg +
+                          i * (sa->right_bound_deg - sa->left_bound_deg) / 18,
+                      sa->radius_m / 1852.0, &lat, &lon);
                   parent->GetCanvasPointPix(lat, lon, &target_point);
                   bbox.Expand(target_point);
                 }
-                ll_gc_ll(lat1, lon1, sa->right_bound_deg , sa->radius_m / 1852.0,
+                ll_gc_ll(lat1, lon1, sa->right_bound_deg, sa->radius_m / 1852.0,
                          &lat, &lon);
                 parent->GetCanvasPointPix(lat, lon, &target_point);
                 bbox.Expand(target_point);
@@ -1407,7 +1409,7 @@ void CanvasMenuHandler::PopupMenuHandler(wxCommandEvent &event) {
 
     case ID_DEF_MENU_DEACTIVATE_MEASURE:
       parent->CancelMeasureRoute();
-      //gFrame->SurfaceAllCanvasToolbars();
+      // gFrame->SurfaceAllCanvasToolbars();
       parent->InvalidateGL();
       parent->Refresh(false);
       break;
@@ -1752,14 +1754,8 @@ void CanvasMenuHandler::PopupMenuHandler(wxCommandEvent &event) {
         // Perform initial scan, if necessary
 
         // Check for stale cache...
-        bool bDNScacheStale = true;
-        wxDateTime tnow = wxDateTime::Now();
-        if (g_DNS_cache_time.IsValid()) {
-          wxTimeSpan delta = tnow.Subtract(g_DNS_cache_time);
-          if (delta.GetMinutes() < 5) bDNScacheStale = false;
-        }
-
-        if ((g_DNS_cache.size() == 0) || bDNScacheStale)
+        MdnsCache::GetInstance().Validate();
+        if (MdnsCache::GetInstance().GetCache().empty())
           dlg.SetScanOnCreate(true);
 
         dlg.SetScanTime(5);  // seconds
@@ -1803,14 +1799,8 @@ void CanvasMenuHandler::PopupMenuHandler(wxCommandEvent &event) {
         // Perform initial scan, if necessary
 
         // Check for stale cache...
-        bool bDNScacheStale = true;
-        wxDateTime tnow = wxDateTime::Now();
-        if (g_DNS_cache_time.IsValid()) {
-          wxTimeSpan delta = tnow.Subtract(g_DNS_cache_time);
-          if (delta.GetMinutes() < 5) bDNScacheStale = false;
-        }
-
-        if ((g_DNS_cache.size() == 0) || bDNScacheStale)
+        MdnsCache::GetInstance().Validate();
+        if (MdnsCache::GetInstance().GetCache().empty())
           dlg.SetScanOnCreate(true);
 
         dlg.SetScanTime(5);  // seconds
@@ -1942,14 +1932,8 @@ void CanvasMenuHandler::PopupMenuHandler(wxCommandEvent &event) {
         // Perform initial scan, if necessary
 
         // Check for stale cache...
-        bool bDNScacheStale = true;
-        wxDateTime tnow = wxDateTime::Now();
-        if (g_DNS_cache_time.IsValid()) {
-          wxTimeSpan delta = tnow.Subtract(g_DNS_cache_time);
-          if (delta.GetMinutes() < 5) bDNScacheStale = false;
-        }
-
-        if ((g_DNS_cache.size() == 0) || bDNScacheStale)
+        MdnsCache::GetInstance().Validate();
+        if (MdnsCache::GetInstance().GetCache().empty())
           dlg.SetScanOnCreate(true);
 
         dlg.SetScanTime(5);  // seconds
@@ -1985,7 +1969,7 @@ void CanvasMenuHandler::PopupMenuHandler(wxCommandEvent &event) {
 
     case ID_RC_MENU_FINISH:
       parent->FinishRoute();
-      //gFrame->SurfaceAllCanvasToolbars();
+      // gFrame->SurfaceAllCanvasToolbars();
       parent->Refresh(false);
       g_FlushNavobjChanges = true;
       break;

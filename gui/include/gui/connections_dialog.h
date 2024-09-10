@@ -40,9 +40,10 @@
 class options;
 class ConnectionParamsPanel;
 
-//----------------------------------------------------------------------------
-// ConnectionsDialog
-//----------------------------------------------------------------------------
+/**
+ * Main dialog for managing data connections. Provides the main interface
+ * for viewing, adding, editing, and removing data connections in OpenCPN.
+ */
 class ConnectionsDialog : public wxEvtHandler {
 public:
   ConnectionsDialog();
@@ -58,7 +59,7 @@ public:
   void OnEditDatasourceClick(wxCommandEvent &event);
   void OnRemoveDatasourceClick(wxCommandEvent &event);
 
-  void OnShowGpsWindowCheckboxClick(wxCommandEvent& event);
+  void OnShowGpsWindowCheckboxClick(wxCommandEvent &event);
   void EnableConnection(ConnectionParams *conn, bool value);
   void OnPriorityDialog(wxCommandEvent &event);
 
@@ -69,7 +70,7 @@ public:
   void UpdateDatastreams();
   void OnSize(wxSizeEvent &ev);
 
-//private:
+  // private:
   wxScrolledWindow *m_container;
   options *m_parent;
   ConnectionParams *mSelectedConnection;
@@ -81,7 +82,7 @@ public:
   wxCheckBox *m_cbGarminUploadHost;
   wxCheckBox *m_cbFurunoGP3X, *m_cbNMEADebug, *m_cbFilterSogCog, *m_cbInput;
   wxCheckBox *m_cbAPBMagnetic;
-  wxButton  *m_ButtonPriorityDialog;
+  wxButton *m_ButtonPriorityDialog;
   wxBoxSizer *boxSizerConnections;
   wxBoxSizer *m_bSizerOuterContainer;
   wxStaticBoxSizer *m_sbSizerLB;
@@ -92,8 +93,6 @@ public:
 #else
   wxScrolledWindow *m_scrollWinConnections;
 #endif
-
 };
 
-
-#endif    //_CONNECT_DIALOG_H
+#endif  //_CONNECT_DIALOG_H

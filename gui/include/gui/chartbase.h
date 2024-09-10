@@ -110,10 +110,11 @@ public:
   float lnp;
 };
 
-// ----------------------------------------------------------------------------
-// ChartBase
-// ----------------------------------------------------------------------------
-
+/**
+ * Base class for all chart types. Defines the interface and common functionality
+ * for all chart types in OpenCPN. Provides methods for initialization, rendering, and querying
+ * chart properties and data.
+ */
 class ChartBase {
 public:
   ChartBase();
@@ -121,8 +122,8 @@ public:
 
   virtual InitReturn Init(const wxString &name, ChartInitFlag init_flags) = 0;
 
-  virtual void Activate(void){};
-  virtual void Deactivate(void){};
+  virtual void Activate(void) {};
+  virtual void Deactivate(void) {};
 
   //    Accessors
   virtual ThumbData *GetThumbData(int tnx, int tny, float lat, float lon) = 0;

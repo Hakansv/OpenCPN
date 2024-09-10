@@ -30,7 +30,7 @@
  * Includes
  */
 #include <wx/listctrl.h>
-#include "ocpn_frame.h"        //FIXME (dave ) // for ColorScheme
+#include "ocpn_frame.h"    //FIXME (dave ) // for ColorScheme
 #include <wx/hyperlink.h>  // toh, 2009.02.08
 #include <wx/choice.h>
 #include <wx/tglbtn.h>
@@ -145,10 +145,10 @@ WX_DECLARE_OBJARRAY(wxBitmap, ArrayOfBitmaps);
 
 class SaveDefaultsDialog;
 
-/*!
- * OCPNIconCombo class declaration
+/**
+ * Custom combobox for selecting waypoint icons. Extends wxOwnerDrawnComboBox to provide
+ * a combobox with custom-drawn items, specifically for selecting waypoint icons.
  */
-
 class OCPNIconCombo : public wxOwnerDrawnComboBox {
 public:
   OCPNIconCombo(wxWindow* parent, wxWindowID id, const wxString& value = _T(""),
@@ -197,9 +197,12 @@ public:
   wxEvtHandler* m_pParentEventHandler;
 };
 
-///////////////////////////////////////////////////////////////////////////////
-/// Class MarkInfoDef
-///////////////////////////////////////////////////////////////////////////////
+/**
+ * Dialog for displaying and editing waypoint properties.
+ * Provides a comprehensive interface for viewing and modifying
+ * waypoint properties in OpenCPN. Includes functionality for
+ * editing basic and extended properties, managing links, and setting defaults.
+ */
 class MarkInfoDlg : public DIALOG_PARENT {
   DECLARE_EVENT_TABLE()
   friend class SaveDefaultsDialog;
@@ -368,7 +371,7 @@ public:
   void RecalculateSize(void);
   RoutePoint* GetRoutePoint(void) { return m_pRoutePoint; }
   void SetColorScheme(ColorScheme cs);
-  void SetRoutePoints(const std::vector<RoutePoint*> &);
+  void SetRoutePoints(const std::vector<RoutePoint*>&);
   void ClearData();
   void SetBulkEdit(bool bBulkEdit);
   void UpdateHtmlList();
@@ -386,10 +389,10 @@ public:
   SaveDefaultsDialog* m_SaveDefaultDlg;
 };
 
-///////////////////////////////////////////////////////////////////////////////
-/// Class SaveDefaultsDialog
-///////////////////////////////////////////////////////////////////////////////
-
+/**
+ * Dialog for saving default waypoint properties. Allows users to select
+ * which properties of the current waypoint should be saved as defaults for future waypoints.
+ */
 class SaveDefaultsDialog : public wxDialog {
   friend class MarkInfoDlg;
 

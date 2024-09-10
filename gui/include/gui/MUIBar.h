@@ -35,15 +35,18 @@
 
 enum { ID_MUI_MENU = 21500 };
 
+/**
+ * Enumeration for animation types
+ */
 enum {
-  CO_ANIMATION_LINEAR = 0,
-  CO_ANIMATION_QUADRATIC,
-  CO_ANIMATION_CUBIC,
-  CO_ANIMATION_CUBIC_BOUNCE_IN,
-  CO_ANIMATION_CUBIC_BACK_IN,
-  CO_ANIMATION_CUBIC_REVERSE,
-  CO_PULL,
-  CO_PUSH
+  CO_ANIMATION_LINEAR = 0,          ///< Linear animation
+  CO_ANIMATION_QUADRATIC,           ///< Quadratic animation
+  CO_ANIMATION_CUBIC,               ///< Cubic animation
+  CO_ANIMATION_CUBIC_BOUNCE_IN,     ///< Cubic animation with bounce-in effect
+  CO_ANIMATION_CUBIC_BACK_IN,       ///< Cubic animation with back-in effect
+  CO_ANIMATION_CUBIC_REVERSE,       ///< Reversed cubic animation
+  CO_PULL,                          ///< Pull animation
+  CO_PUSH                           ///< Push animation
 };
 
 class MyFrame;
@@ -52,9 +55,10 @@ class MUIButton;
 class MUITextButton;
 class CanvasOptions;
 
-//----------------------------------------------------------------------------
-// MUIBar
-//----------------------------------------------------------------------------
+/**
+ * Modern User Interface Control Bar for OpenCPN. Provides a customizable control bar
+ * with various buttons and options for interacting with the chart canvas in OpenCPN.
+ */
 class MUIBar : public wxEvtHandler {
 public:
   MUIBar();
@@ -79,7 +83,7 @@ public:
   void OnScaleSelected(wxMouseEvent &event);
   void DrawGL(ocpnDC &gldc, double displayScale);
   void DrawDC(ocpnDC &dc, double displayScale);
-  wxRect GetRect(){ return wxRect(m_screenPos, m_size); }
+  wxRect GetRect() { return wxRect(m_screenPos, m_size); }
 
   bool MouseEvent(wxMouseEvent &event);
   void PushCanvasOptions();
@@ -94,7 +98,7 @@ private:
   void HandleMenuClick();
   wxBitmap &CreateBitmap(double displayScale);
   void InvalidateBitmap();
-
+  wxColor &GetBackgroundColor() { return m_backcolor; }
   void CaptureCanvasOptionsBitmap();
   void CaptureCanvasOptionsBitmapChain(wxTimerEvent &event);
 
@@ -123,7 +127,7 @@ private:
   int m_animationTotalTime;
   int m_pushPull;
 
-  wxString m_backcolorString;
+  wxColor m_backcolor;
   wxBitmap m_animateBitmap;
   wxBitmap m_backingBitmap;
   wxTimer CanvasOptionTimer;

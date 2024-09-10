@@ -25,14 +25,18 @@
 #include "observable.h"
 #include "OCPN_Sound.h"
 
-class AisInfoGui: public wxEvtHandler {
+/**
+ * Handles the AIS information GUI and sound alerts. Manages the display of AIS information and handles audio alerts
+ * related to AIS targets.
+ */
+class AisInfoGui : public wxEvtHandler {
 public:
   AisInfoGui();
 
   void ShowAisInfo(std::shared_ptr<const AisTargetData> palert_target);
   bool AIS_AlertPlaying(void) { return m_bAIS_AlertPlaying; };
 
-  void OnSoundFinishedAISAudio(wxCommandEvent &event);
+  void OnSoundFinishedAISAudio(wxCommandEvent& event);
 
   bool m_bAIS_Audio_Alert_On;
   bool m_bAIS_AlertPlaying;

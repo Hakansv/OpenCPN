@@ -4,7 +4,6 @@
 *~
 .DS_Store
 .idea
-.pre-commit-config.yaml
 .vs
 .vscode
 build
@@ -17,5 +16,6 @@ cache
 crowdin.yaml
 cscope.files
 cscope.out
+data/doc/local/*
 index.sh
 tags

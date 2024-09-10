@@ -25,13 +25,15 @@
 #ifndef __DETAILSLIDE_H
 #define __DETAILSLIDE_H
 
-
 #include <wx/dialog.h>
 #include <wx/frame.h>
 #include "chartdb.h"
 
-//#include "chcanv.h"
+// #include "chcanv.h"
 
+/**
+ * A popup frame containing a detail slider for chart display.
+ */
 class PopUpDSlide : public wxFrame {
 public:
   PopUpDSlide(wxWindow* parent, wxWindowID id, ChartTypeEnum ChartType,

@@ -66,7 +66,7 @@ wxString OpenCPNVersion("\n      Version ");
 
 const wxString AboutText =
     wxT("<br>OpenCPN<br>")
-    wxT("(c) 2000-2023  The OpenCPN Authors<br><br>");
+    wxT("(c) 2000-2024  The OpenCPN Authors<br><br>");
 
 const wxString OpenCPNInfo =
     wxT("<br><br>")
@@ -204,10 +204,10 @@ about::about(wxWindow* parent, wxString Data_Locn, wxWindowID id,
   pAuthorHTMLCtl = NULL;
   m_blicensePageSet = false;
 
-  if(strlen(DEBIAN_PPA_VERSION))
-   OpenCPNVersion += wxString(DEBIAN_PPA_VERSION);
+  if (strlen(DEBIAN_PPA_VERSION))
+    OpenCPNVersion += wxString(DEBIAN_PPA_VERSION);
   else
-   OpenCPNVersion += wxString(PACKAGE_VERSION);
+    OpenCPNVersion += wxString(PACKAGE_VERSION);
 
   Create(parent, id, caption, pos, size, style);
 }

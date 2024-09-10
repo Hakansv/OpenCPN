@@ -38,6 +38,10 @@
 
 class options;
 
+/**
+ * Panel for displaying and editing connection parameters. Shows the details of a specific connection
+ * and allows for enabling/disabling and editing of the connection parameters.
+ */
 class ConnectionParamsPanel : public wxPanel {
 public:
   ConnectionParamsPanel(wxWindow *parent, wxWindowID id, const wxPoint &pos,
@@ -53,7 +57,7 @@ public:
   void CreateControls(void);
   void OnEnableCBClick(wxCommandEvent &event);
   void Update(ConnectionParams *ConnectionParams);
-  void SetEnableCheckbox(bool value){ m_cbEnable->SetValue(value); }
+  void SetEnableCheckbox(bool value) { m_cbEnable->SetValue(value); }
 
   bool GetSelected() { return m_bSelected; }
   int GetUnselectedHeight() { return m_unselectedHeight; }
@@ -77,6 +81,5 @@ private:
 
   DECLARE_EVENT_TABLE()
 };
-
 
 #endif  // __CONN_PARAMS_PANEL_H__
