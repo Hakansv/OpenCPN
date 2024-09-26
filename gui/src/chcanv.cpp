@@ -70,6 +70,7 @@
 #include "compass.h"
 #include "concanv.h"
 #include "displays.h"
+#include "hotkeys_dlg.h"
 #include "FontMgr.h"
 #include "glTextureDescriptor.h"
 #include "gshhs.h"
@@ -2590,7 +2591,19 @@ void ChartCanvas::OnKeyChar(wxKeyEvent &event) {
                // anything else
 
   int key_char = event.GetKeyCode();
-
+  switch (key_char) {
+    case '?':
+      HotkeysDlg(wxWindow::FindWindowByName("MainWindow")).ShowModal();
+      break;
+    case '+':
+      ZoomCanvas(g_plus_minus_zoom_factor, false);
+      break;
+    case '-':
+      ZoomCanvas(1.0 / g_plus_minus_zoom_factor, false);
+      break;
+    default:
+      break;
+  }
   if (g_benable_rotate) {
     switch (key_char) {
       case ']':
@@ -2855,18 +2868,6 @@ void ChartCanvas::OnKeyDown(wxKeyEvent &event) {
     //      Handle both QWERTY and AZERTY keyboard separately for a few control
     //      codes
     if (!g_b_assume_azerty) {
-      switch (key_char) {
-        case '+':
-        case '=':
-          ZoomCanvas(g_plus_minus_zoom_factor, false);
-          break;
-
-        case '-':
-        case '_':
-          ZoomCanvas(1.0 / g_plus_minus_zoom_factor, false);
-          break;
-      }
-
 #ifdef __WXMAC__
       if (g_benable_rotate) {
         switch (key_char) {
@@ -11823,7 +11824,7 @@ emboss_data *ChartCanvas::EmbossOverzoomIndicator(ocpnDC &dc) {
       ChartTypeEnum current_type = (ChartTypeEnum)cte.GetChartType();
       if (current_type == CHART_TYPE_MBTILES) {
         ChartBase *pChart = m_pQuilt->GetRefChart();
-        ChartMBTiles *ptc = dynamic_cast<ChartMBTiles *>(pChart);
+        ChartMbTiles *ptc = dynamic_cast<ChartMbTiles *>(pChart);
         if (ptc) {
           zoom_factor = ptc->GetZoomFactor();
         }
