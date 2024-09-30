@@ -83,7 +83,7 @@ Select *pSelectAIS;
 bool g_bUseOnlyConfirmedAISName;
 wxString GetShipNameFromFile(int);
 wxString AISTargetNameFileName;
-bool b_IsBuoyMmsi(int);
+bool isBuoyMmsi(const int);
 extern Multiplexer *g_pMUX;
 
 wxDEFINE_EVENT(EVT_N0183_VDO, ObservedEvt);
@@ -1251,9 +1251,14 @@ void AisDecoder::updateItem(std::shared_ptr<AisTargetData> pTargetData,
       if (aisclass == _T("A")) {
         if (!pTargetData->b_isDSCtarget) pTargetData->Class = AIS_CLASS_A;
       } else if (aisclass == _T("B")) {
-        if (!pTargetData->b_isDSCtarget) pTargetData->Class = AIS_CLASS_B;
-        pTargetData->NavStatus =
-            UNDEFINED;  // Class B targets have no status.  Enforce this...
+        if (!pTargetData->b_isDSCtarget) {
+          if (!isBuoyMmsi(pTargetData->MMSI))
+            pTargetData->Class = AIS_CLASS_B;
+          else
+            pTargetData->Class = AIS_BUOY;
+          // Class B targets have no status.  Enforce this...
+          pTargetData->NavStatus = UNDEFINED;
+        }
       } else if (aisclass == _T("BASE")) {
         pTargetData->Class = AIS_BASE;
       } else if (aisclass == _T("ATON")) {
@@ -2889,7 +2894,7 @@ bool AisDecoder::Parse_VDXBitstring(AisBitstring *bstr,
       ptd->m_utc_sec = bstr->GetInt(134, 6);
 
       if (!ptd->b_isDSCtarget) {
-        if (b_IsBuoyMmsi(ptd->MMSI))
+        if (isBuoyMmsi(ptd->MMSI))
           ptd->Class = AIS_BUOY;
         else
           ptd->Class = AIS_CLASS_B;
@@ -2944,7 +2949,7 @@ bool AisDecoder::Parse_VDXBitstring(AisBitstring *bstr,
 
       if (!ptd->b_isDSCtarget) {
         // Although outdated, message 19 is used by many "ATON" for net buoys
-        if (b_IsBuoyMmsi(ptd->MMSI))
+        if (isBuoyMmsi(ptd->MMSI))
           ptd->Class = AIS_BUOY;
         else
           ptd->Class = AIS_CLASS_B;
@@ -4665,7 +4670,7 @@ int AisMeteoNewMmsi(int orig_mmsi, int m_lat, int m_lon, int lon_bits = 0,
   return new_mmsi;
 }
 
-bool b_IsBuoyMmsi(int msi) {
+bool isBuoyMmsi(const int msi) {
   // IMO standard is not yet(?) implemented for (net)buoys
   // This adaption, based on real-world outcomes, is used instead
   // Consider any not valid MMSI number for a class B target (message 18 or 19)
@@ -4674,15 +4679,6 @@ bool b_IsBuoyMmsi(int msi) {
   if ((mid > 200 && mid < 800) || mid >= 970) {
     return false;
   } else {
-    /*
-    if (mid / 10 == 94 || mid / 10 == 95 || mid / 10 == 87 || mid / 10 == 88 ||
-        mid == 106 || mid == 108 || mid == 109 || mid == 123) {
-      int i = 1;
-    } else {
-    wxString msg = "******** Extra BUOY: ";
-    msg << msi;
-    wxLogMessage(msg);
-    }*/
     return true;
   }
   return false;
