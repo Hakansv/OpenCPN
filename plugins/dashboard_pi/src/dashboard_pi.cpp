@@ -83,9 +83,9 @@ double g_dSOG, g_dCOG;
 int g_iDashTempUnit;
 int g_dashPrefWidth, g_dashPrefHeight;
 
-bool b_IsDeviation;         // For Momo deviation table
+bool b_IsDeviation;  // For Momo deviation table
 bool b_IsDevPrintSound;
-int devSOG, devCOG, ComCOG; // Dito
+int devSOG, devCOG, ComCOG;  // Dito
 
 wxColor g_BackgroundColor;
 bool g_ForceBackgroundColor;
@@ -1198,55 +1198,58 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
               SendSentenceToAllInstruments(OCPN_DBP_STC_HDM, mHdm,
                                            _T("\u00B0"));
 
-            //Print HDM, HDT and COG to file for deviation table when COG is stable
-            if (b_IsDeviation)  //When checked in preferences
-            {
+              // Print HDM, HDT and COG to file for deviation table when COG is
+              // stable
+              if (b_IsDeviation)  // When checked in preferences
+              {
                 static int printdelay = 1;
                 if (printdelay > 6) {
-                    wxStandardPathsBase& std_path = wxStandardPathsBase::Get();
-                    wxString s = wxFileName::GetPathSeparator();
-                    wxString stdPath = std_path.GetConfigDir();
-                    int mHdt = mHdm + mVar;
-                    wxString tid = wxDateTime::Now().Format(wxT("%Y-%m-%d %H:%M:%S"), wxDateTime::CET);
-                    wxString devdataPath = stdPath + s + wxT("devdata.txt");
+                  wxStandardPathsBase &std_path = wxStandardPathsBase::Get();
+                  wxString s = wxFileName::GetPathSeparator();
+                  wxString stdPath = std_path.GetConfigDir();
+                  int mHdt = mHdm + mVar;
+                  wxString tid = wxDateTime::Now().Format(
+                      wxT("%Y-%m-%d %H:%M:%S"), wxDateTime::CET);
+                  wxString devdataPath = stdPath + s + wxT("devdata.txt");
 
-                    std::ofstream outfile(devdataPath.mb_str(), std::ios_base::app); //wx_str()
-                    if (outfile.is_open()) {
-                        outfile << tid << ","
+                  std::ofstream outfile(devdataPath.mb_str(),
+                                        std::ios_base::app);  // wx_str()
+                  if (outfile.is_open()) {
+                    outfile << tid << ","
                             << "HDM:" << "," << mHdm << ","
                             << "HDT:" << "," << mHdt << ","
                             << "COG:" << "," << devCOG << ","
-                            << "Adjust:" << "," << (devCOG - mHdt)
-                            << "\n";
-                    }
-                    outfile.close();
+                            << "Adjust:" << "," << (devCOG - mHdt) << "\n";
+                  }
+                  outfile.close();
 #ifdef __WXMSW__
-                    if (b_IsDevPrintSound) Beep(400, 500);
+                  if (b_IsDevPrintSound) Beep(400, 500);
 #endif  //__WXMSW
-                        printdelay = 1;
-                    }
-                    else if (devCOG > 0 && devSOG > 3)  //Stable COG and enough speed.
-                    {
-                        switch (printdelay) {
-                        case 1:
-                            ComCOG = devCOG;
-                            printdelay++;
-                            return;
-                        case 2:
-                        case 3:
-                        case 4:
-                        case 5:
-                        case 6:
-                            if ((ComCOG == devCOG) ||
-                                (((devCOG > ComCOG) && (devCOG - ComCOG) < 1)) ||
-                                (((devCOG < ComCOG) && (ComCOG - devCOG) < 1))) {
-                                printdelay++;
-                                return;
-                            }
-                        default: printdelay = 1; //Back to scratch
-                        }
-                    }
+                  printdelay = 1;
+                } else if (devCOG > 0 &&
+                           devSOG > 3)  // Stable COG and enough speed.
+                {
+                  switch (printdelay) {
+                    case 1:
+                      ComCOG = devCOG;
+                      printdelay++;
+                      return;
+                    case 2:
+                    case 3:
+                    case 4:
+                    case 5:
+                    case 6:
+                      if ((ComCOG == devCOG) ||
+                          (((devCOG > ComCOG) && (devCOG - ComCOG) < 1)) ||
+                          (((devCOG < ComCOG) && (ComCOG - devCOG) < 1))) {
+                        printdelay++;
+                        return;
+                      }
+                    default:
+                      printdelay = 1;  // Back to scratch
+                  }
                 }
+              }
             }
           }
           if (!std::isnan(m_NMEA0183.Hdg.MagneticSensorHeadingDegrees))
@@ -1959,13 +1962,16 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
           }
           // XDR Windlass chain counter
           if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == _T("D"))) {
-            if(m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("WINDLASS") ||
-               m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == _T("WINDLASS#0")) {
-                 wxString unit = m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement;
-                 if (unit == wxEmptyString) unit = "m";
-                 unit.MakeLower();
-                 SendSentenceToAllInstruments(OCPN_DBP_STC_WCC, xdrdata, unit);
-                 mWCC_Watchdog = no_nav_watchdog_timeout_ticks;
+            if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
+                    _T("WINDLASS") ||
+                m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
+                    _T("WINDLASS#0")) {
+              wxString unit =
+                  m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement;
+              if (unit == wxEmptyString) unit = "m";
+              unit.MakeLower();
+              SendSentenceToAllInstruments(OCPN_DBP_STC_WCC, xdrdata, unit);
+              mWCC_Watchdog = no_nav_watchdog_timeout_ticks;
             }
           }
         }
@@ -3166,8 +3172,8 @@ void dashboard_pi::SetPositionFixEx(PlugIn_Position_Fix_Ex &pfix) {
 
     if (b_IsDeviation)  // For Momo deviation table
     {
-       devCOG = mCOGFilter.filter(pfix.Cog);
-       devSOG = mSOGFilter.filter(pfix.Sog);
+      devCOG = mCOGFilter.filter(pfix.Cog);
+      devSOG = mSOGFilter.filter(pfix.Sog);
     }
 
     dMagneticCOG = mCOGFilter.get() - pfix.Var;
@@ -3480,6 +3486,13 @@ void dashboard_pi::UpdateAuiStatus(void) {
     // Initialize visible state as perspective is loaded now
     cont->m_bIsVisible = (pane.IsOk() && pane.IsShown());
 
+    // Correct for incomplete AUIManager perspective when docked dashboard is
+    //  not visible at app close.
+    if (pane.IsDocked()) {
+      if ((cont->m_persist_size.x > 50) && (cont->m_persist_size.y > 50))
+        cont->m_pDashboardWindow->SetSize(cont->m_persist_size);
+    }
+
 #ifdef __WXQT__
     if (pane.IsShown()) {
       pane.Show(false);
@@ -3654,6 +3667,7 @@ bool dashboard_pi::LoadConfig(void) {
       m_config_version = 2;
       bool b_onePersisted = false;
       wxSize best_size;
+      wxSize persist_size;
       for (int k = 0; k < d_cnt; k++) {
         pConf->SetPath(
             wxString::Format(_T("/PlugIns/Dashboard/Dashboard%d"), k + 1));
@@ -3672,6 +3686,10 @@ bool dashboard_pi::LoadConfig(void) {
         best_size.x = val;
         pConf->Read(_T("BestSizeY"), &val, DefaultWidth);
         best_size.y = val;
+        pConf->Read(_T("PersistSizeX"), &val, DefaultWidth);
+        persist_size.x = val;
+        pConf->Read(_T("PersistSizeY"), &val, DefaultWidth);
+        persist_size.y = val;
 
         wxArrayInt ar;
         wxArrayOfInstrumentProperties Property;
@@ -3773,6 +3791,7 @@ bool dashboard_pi::LoadConfig(void) {
             NULL, name, caption, orient, ar, Property);
         cont->m_bPersVisible = b_persist;
         cont->m_conf_best_size = best_size;
+        cont->m_persist_size = persist_size;
 
         if (b_persist) b_onePersisted = true;
 
@@ -3860,6 +3879,8 @@ bool dashboard_pi::SaveConfig(void) {
                    (int)cont->m_aInstrumentList.GetCount());
       pConf->Write(_T("BestSizeX"), cont->m_best_size.x);
       pConf->Write(_T("BestSizeY"), cont->m_best_size.y);
+      pConf->Write(_T("PersistSizeX"), cont->m_pDashboardWindow->GetSize().x);
+      pConf->Write(_T("PersistSizeY"), cont->m_pDashboardWindow->GetSize().y);
 
       // Delete old Instruments
       for (size_t i = cont->m_aInstrumentList.GetCount(); i < 40; i++) {
@@ -4658,30 +4679,35 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
   itemFlexGridSizer04->Add(m_pUseTrueWinddata, 1, wxALIGN_LEFT, border_size);
 
   // Hakan Deviation help file
-  //Hack: Add a empty textbox to fill column 2 and move to next row
-    wxStaticText* movetonextrow = new wxStaticText(itemPanelNotebook02, wxID_ANY, _(""),
-        wxDefaultPosition, wxDefaultSize, 0);
-    itemFlexGridSizer04->Add(movetonextrow, 1, wxALIGN_RIGHT, border_size);
+  // Hack: Add a empty textbox to fill column 2 and move to next row
+  wxStaticText *movetonextrow =
+      new wxStaticText(itemPanelNotebook02, wxID_ANY, _(""), wxDefaultPosition,
+                       wxDefaultSize, 0);
+  itemFlexGridSizer04->Add(movetonextrow, 1, wxALIGN_RIGHT, border_size);
 
-    m_pSetDeviationBtn = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
-        wxT(" Spara deviationsdata till fil"), wxDefaultPosition, wxDefaultSize);
-    m_pSetDeviationBtn->SetValue(b_IsDeviation);
-    itemFlexGridSizer04->Add(m_pSetDeviationBtn, 0, wxEXPAND | wxALL, 0);
+  m_pSetDeviationBtn = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
+                                      wxT(" Spara deviationsdata till fil"),
+                                      wxDefaultPosition, wxDefaultSize);
+  m_pSetDeviationBtn->SetValue(b_IsDeviation);
+  itemFlexGridSizer04->Add(m_pSetDeviationBtn, 0, wxEXPAND | wxALL, 0);
 #ifdef __WXMSW__
-    m_pSetDevSoundBtn = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
-        wxT(" Beep at print"), wxDefaultPosition, wxDefaultSize);
-    m_pSetDevSoundBtn->SetValue(b_IsDevPrintSound);
-    itemFlexGridSizer04->Add(m_pSetDevSoundBtn, 0, wxEXPAND | wxALL, 0);
+  m_pSetDevSoundBtn =
+      new wxCheckBox(itemPanelNotebook02, wxID_ANY, wxT(" Beep at print"),
+                     wxDefaultPosition, wxDefaultSize);
+  m_pSetDevSoundBtn->SetValue(b_IsDevPrintSound);
+  itemFlexGridSizer04->Add(m_pSetDevSoundBtn, 0, wxEXPAND | wxALL, 0);
 #else
-    //Hack: Add a empty textbox to fill column 2 and move to next row
-    wxStaticText* movetonextrow2 = new wxStaticText(itemPanelNotebook02, wxID_ANY, _(""),
-        wxDefaultPosition, wxDefaultSize, 0);
-    itemFlexGridSizer04->Add(movetonextrow2, 1, wxALIGN_RIGHT, border_size);
+  // Hack: Add a empty textbox to fill column 2 and move to next row
+  wxStaticText *movetonextrow2 =
+      new wxStaticText(itemPanelNotebook02, wxID_ANY, _(""), wxDefaultPosition,
+                       wxDefaultSize, 0);
+  itemFlexGridSizer04->Add(movetonextrow2, 1, wxALIGN_RIGHT, border_size);
 #endif
-    m_pDevfilename = new wxStaticText(itemPanelNotebook02, wxID_ANY,
-        _T("      in Log Directory - devdata.txt"), wxDefaultPosition, wxDefaultSize);
-    itemFlexGridSizer04->Add(m_pDevfilename, 0, wxALIGN_LEFT | wxALL, 0);
-  //End Hakan Dev.
+  m_pDevfilename = new wxStaticText(itemPanelNotebook02, wxID_ANY,
+                                    _T("      in Log Directory - devdata.txt"),
+                                    wxDefaultPosition, wxDefaultSize);
+  itemFlexGridSizer04->Add(m_pDevfilename, 0, wxALIGN_LEFT | wxALL, 0);
+  // End Hakan Dev.
 
   curSel = -1;
   for (size_t i = 0; i < m_Config.GetCount(); i++) {
@@ -4771,7 +4797,7 @@ void DashboardPreferencesDialog::SaveDashboardConfig() {
   g_iDashDistanceUnit = m_pChoiceDistanceUnit->GetSelection() - 1;
   g_iDashWindSpeedUnit = m_pChoiceWindSpeedUnit->GetSelection();
 
-  b_IsDeviation = m_pSetDeviationBtn->IsChecked(); // Momo Dev table
+  b_IsDeviation = m_pSetDeviationBtn->IsChecked();  // Momo Dev table
 #ifdef __WXMSW__
   b_IsDevPrintSound = m_pSetDevSoundBtn->IsChecked();
 #endif
@@ -6099,8 +6125,7 @@ void DashboardWindow::SetInstrumentList(
       case ID_DBP_I_WCC:
         instrument = new DashboardInstrument_Single(
             this, wxID_ANY, getInstrumentCaption(id), Properties,
-            OCPN_DBP_STC_WCC,
-            _T("%5.1f"));
+            OCPN_DBP_STC_WCC, _T("%5.1f"));
         break;
       case ID_DBP_I_HUM:
         instrument = new DashboardInstrument_Single(
