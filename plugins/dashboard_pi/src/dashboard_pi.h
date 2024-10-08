@@ -539,9 +539,6 @@ protected:
   wxFontData m_data;
 
   wxFont m_selectedFont;
-
-private:
-  DECLARE_DYNAMIC_CLASS(OCPNFontButton)
 };
 
 #endif
