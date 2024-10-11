@@ -539,8 +539,10 @@ bool AisDecoder::HandleN2K_129039(std::shared_ptr<const Nmea2000Msg> n2k_msg) {
     // Populate the target_data
     pTargetData->MMSI = mmsi;
     pTargetData->MID = MessageID;
-    pTargetData->MMSI = mmsi;
-    pTargetData->Class = AIS_CLASS_B;
+    if (!isBuoyMmsi(mmsi))
+      pTargetData->Class = AIS_CLASS_B;
+    else
+      pTargetData->Class = AIS_BUOY;
     pTargetData->NavStatus = (ais_nav_status)NavStat;
     if (!N2kIsNA(SOG)) pTargetData->SOG = MS2KNOTS(SOG);
     if (!N2kIsNA(COG)) pTargetData->COG = GeodesicRadToDeg(COG);
