@@ -543,6 +543,7 @@ bool AisDecoder::HandleN2K_129039(std::shared_ptr<const Nmea2000Msg> n2k_msg) {
       pTargetData->Class = AIS_CLASS_B;
     else
       pTargetData->Class = AIS_BUOY;
+
     pTargetData->NavStatus = (ais_nav_status)NavStat;
     if (!N2kIsNA(SOG)) pTargetData->SOG = MS2KNOTS(SOG);
     if (!N2kIsNA(COG)) pTargetData->COG = GeodesicRadToDeg(COG);
@@ -1258,6 +1259,7 @@ void AisDecoder::updateItem(std::shared_ptr<AisTargetData> pTargetData,
             pTargetData->Class = AIS_CLASS_B;
           else
             pTargetData->Class = AIS_BUOY;
+
           // Class B targets have no status.  Enforce this...
           pTargetData->NavStatus = UNDEFINED;
         }
@@ -2896,12 +2898,11 @@ bool AisDecoder::Parse_VDXBitstring(AisBitstring *bstr,
       ptd->m_utc_sec = bstr->GetInt(134, 6);
 
       if (!ptd->b_isDSCtarget) {
-        if (isBuoyMmsi(ptd->MMSI))
-          ptd->Class = AIS_BUOY;
-        else
+        if (!isBuoyMmsi(ptd->MMSI))
           ptd->Class = AIS_CLASS_B;
+        else
+          ptd->Class = AIS_BUOY;
       }
-
       parse_result = true;  // so far so good
       b_posn_report = true;
 
@@ -2951,10 +2952,10 @@ bool AisDecoder::Parse_VDXBitstring(AisBitstring *bstr,
 
       if (!ptd->b_isDSCtarget) {
         // Although outdated, message 19 is used by many "ATON" for net buoys
-        if (isBuoyMmsi(ptd->MMSI))
-          ptd->Class = AIS_BUOY;
-        else
+        if (!isBuoyMmsi(ptd->MMSI))
           ptd->Class = AIS_CLASS_B;
+        else
+          ptd->Class = AIS_BUOY;
       }
       parse_result = true;  // so far so good
       b_posn_report = true;
