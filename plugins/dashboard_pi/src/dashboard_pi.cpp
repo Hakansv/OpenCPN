@@ -1929,15 +1929,15 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
           }
           // Depth sounding and Windlass rode count
           if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == "D")) {
-            bool goodvalue = false;
+            bool good_depth = false;
             if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == "XDHI" &&
                 mPriDepth >= 6) {
-              goodvalue = true;
+              good_depth = true;
               mPriDepth = 6;
             } else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
                            "XDLO" &&
                        mPriDepth >= 7) {
-              goodvalue = true;
+              good_depth = true;
               mPriDepth = 7;
             }
             // XDR Windlass chain counter
@@ -1953,7 +1953,7 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
               mWCC_Watchdog = no_nav_watchdog_timeout_ticks;
             }
 
-            if (goodvalue) {
+            if (good_depth) {
               wxString unit = m_NMEA0183.Xdr.TransducerInfo[i]
                                   .UnitOfMeasurement.MakeLower();
               if (unit == "m") {
