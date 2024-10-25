@@ -240,6 +240,7 @@ enum {
   ID_DBP_I_VMGW,
   ID_DBP_I_HUM,
   ID_DBP_D_STW,
+  ID_DBP_I_WCC,
   ID_DBP_LAST_ENTRY  // this has a reference in one of the routines; defining a
                      // "LAST_ENTRY" and setting the reference to it, is one
                      // codeline less to change (and find) when adding new
@@ -360,6 +361,8 @@ wxString getInstrumentCaption(unsigned int id) {
       return _("Local Sunrise/Sunset");
     case ID_DBP_I_HUM:
       return _("Humidity");
+    case ID_DBP_I_WCC:
+      return _("Windlass");
   }
   return _T("");
 }
@@ -401,6 +404,7 @@ void getListItemForInstrument(wxListItem &item, unsigned int id) {
     case ID_DBP_I_HEEL:
     case ID_DBP_I_ALTI:
     case ID_DBP_I_HUM:
+    case ID_DBP_I_WCC:
       item.SetImage(0);
       break;
     case ID_DBP_D_SOG:
@@ -547,6 +551,7 @@ int dashboard_pi::Init(void) {
   mLOG_Watchdog = 2;
   mTrLOG_Watchdog = 2;
   mHUM_Watchdog = 2;
+  mWCC_Watchdog = 2;
 
   g_pFontTitle = new wxFontData();
   g_pFontTitle->SetChosenFont(
@@ -646,6 +651,12 @@ int dashboard_pi::Init(void) {
   NMEA2000Id id_128275 = NMEA2000Id(128275);
   listener_128275 = GetListener(id_128275, EVT_N2K_128275, this);
   Bind(EVT_N2K_128275, [&](ObservedEvt ev) { HandleN2K_128275(ev); });
+
+  // Windlass count
+  wxDEFINE_EVENT(EVT_N2K_128777, ObservedEvt);
+  NMEA2000Id id_128777 = NMEA2000Id(128777);
+  listener_128777 = GetListener(id_128777, EVT_N2K_128777, this);
+  Bind(EVT_N2K_128777, [&](ObservedEvt ev) { HandleN2K_128777(ev); });
 
   // GNSS Position Data   PGN 129029
   wxDEFINE_EVENT(EVT_N2K_129029, ObservedEvt);
@@ -918,6 +929,11 @@ void dashboard_pi::Notify() {
     mPriHUM = 99;
     SendSentenceToAllInstruments(OCPN_DBP_STC_HUM, NAN, _T("-"));
     mHUM_Watchdog = no_nav_watchdog_timeout_ticks;
+  }
+  mWCC_Watchdog--;
+  if (mWCC_Watchdog <= 0) {
+    SendSentenceToAllInstruments(OCPN_DBP_STC_WCC, NAN, _T("-"));
+    mWCC_Watchdog = no_nav_watchdog_timeout_ticks;
   }
 }
 
@@ -1851,20 +1867,33 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
               }
             }
           }
-          // Depth sounding
+          // Depth sounding and Windlass rode count
           if ((m_NMEA0183.Xdr.TransducerInfo[i].TransducerType == "D")) {
-            bool goodvalue = false;
+            bool good_depth = false;
             if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName == "XDHI" &&
                 mPriDepth >= 6) {
-              goodvalue = true;
+              good_depth = true;
               mPriDepth = 6;
             } else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
                            "XDLO" &&
                        mPriDepth >= 7) {
-              goodvalue = true;
+              good_depth = true;
               mPriDepth = 7;
             }
-            if (goodvalue) {
+            // XDR Windlass chain counter
+            else if (m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
+                         _T("WINDLASS") ||
+                     m_NMEA0183.Xdr.TransducerInfo[i].TransducerName ==
+                         _T("WINDLASS#0")) {
+              wxString unit =
+                  m_NMEA0183.Xdr.TransducerInfo[i].UnitOfMeasurement;
+              if (unit == wxEmptyString) unit = "m";
+              unit.MakeLower();
+              SendSentenceToAllInstruments(OCPN_DBP_STC_WCC, xdrdata, unit);
+              mWCC_Watchdog = no_nav_watchdog_timeout_ticks;
+            }
+
+            if (good_depth) {
               wxString unit = m_NMEA0183.Xdr.TransducerInfo[i]
                                   .UnitOfMeasurement.MakeLower();
               if (unit == "m") {
@@ -2191,6 +2220,29 @@ void dashboard_pi::HandleN2K_128259(ObservedEvt ev) {
         mPriSTW = 1;
         mSTW_Watchdog = gps_watchdog_timeout_ticks;
       }
+    }
+  }
+}
+
+void dashboard_pi::HandleN2K_128777(ObservedEvt ev) {
+  NMEA2000Id id_128777(128777);
+  std::vector<uint8_t> v = GetN2000Payload(id_128777, ev);
+  // Get Windlass rode count
+  unsigned char SID;
+  unsigned char WindlassIdentifier;
+  double RodeCounterValue;
+  double WindlassLineSpeed;
+  tN2kWindlassMotionStates WindlassMotionStatus;
+  tN2kRodeTypeStates RodeTypeStatus;
+  tN2kAnchorDockingStates AnchorDockingStatus;
+  tN2kWindlassOperatingEvents WindlassOperatingEvents;
+
+  if (ParseN2kPGN128777(v, SID, WindlassIdentifier, RodeCounterValue,
+                        WindlassLineSpeed, WindlassMotionStatus, RodeTypeStatus,
+                        AnchorDockingStatus, WindlassOperatingEvents)) {
+    if (!N2kIsNA(RodeCounterValue)) {
+      SendSentenceToAllInstruments(OCPN_DBP_STC_WCC, RodeCounterValue, "m");
+      mWCC_Watchdog = no_nav_watchdog_timeout_ticks;
     }
   }
 }
@@ -3396,6 +3448,13 @@ void dashboard_pi::UpdateAuiStatus(void) {
     // Initialize visible state as perspective is loaded now
     cont->m_bIsVisible = (pane.IsOk() && pane.IsShown());
 
+    // Correct for incomplete AUIManager perspective when docked dashboard is
+    //  not visible at app close.
+    if (pane.IsDocked()) {
+      if ((cont->m_persist_size.x > 50) && (cont->m_persist_size.y > 50))
+        cont->m_pDashboardWindow->SetSize(cont->m_persist_size);
+    }
+
 #ifdef __WXQT__
     if (pane.IsShown()) {
       pane.Show(false);
@@ -3454,7 +3513,7 @@ bool dashboard_pi::LoadConfig(void) {
     LoadFont(&pDF, config);
     pConf->Read(_T("ColorTitle"), &config, "#000000");
     wxColour DummyColor(config);
-    g_pUSFontTitle->SetChosenFont(DummyFont);
+    g_pUSFontTitle->SetChosenFont(*pDF);
     g_pUSFontTitle->SetColour(DummyColor);
     g_FontTitle = *g_pUSFontTitle;
     g_FontTitle.SetChosenFont(g_pUSFontTitle->GetChosenFont().Scaled(scaler));
@@ -3465,7 +3524,7 @@ bool dashboard_pi::LoadConfig(void) {
     LoadFont(&pDF, config);
     pConf->Read(_T("ColorData"), &config, "#000000");
     DummyColor.Set(config);
-    g_pUSFontData->SetChosenFont(DummyFont);
+    g_pUSFontData->SetChosenFont(*pDF);
     g_pUSFontData->SetColour(DummyColor);
     g_FontData = *g_pUSFontData;
     g_FontData.SetChosenFont(g_pUSFontData->GetChosenFont().Scaled(scaler));
@@ -3493,7 +3552,7 @@ bool dashboard_pi::LoadConfig(void) {
     LoadFont(&pDF, config);
     pConf->Read(_T("ColorLabel"), &config, "#000000");
     DummyColor.Set(config);
-    g_pUSFontLabel->SetChosenFont(DummyFont);
+    g_pUSFontLabel->SetChosenFont(*pDF);
     g_pUSFontLabel->SetColour(DummyColor);
     g_FontLabel = *g_pUSFontLabel;
     g_FontLabel.SetChosenFont(g_pUSFontLabel->GetChosenFont().Scaled(scaler));
@@ -3504,7 +3563,7 @@ bool dashboard_pi::LoadConfig(void) {
     LoadFont(&pDF, config);
     pConf->Read(_T("ColorSmall"), &config, "#000000");
     DummyColor.Set(config);
-    g_pUSFontSmall->SetChosenFont(DummyFont);
+    g_pUSFontSmall->SetChosenFont(*pDF);
     g_pUSFontSmall->SetColour(DummyColor);
     g_FontSmall = *g_pUSFontSmall;
     g_FontSmall.SetChosenFont(g_pUSFontSmall->GetChosenFont().Scaled(scaler));
@@ -3570,6 +3629,7 @@ bool dashboard_pi::LoadConfig(void) {
       m_config_version = 2;
       bool b_onePersisted = false;
       wxSize best_size;
+      wxSize persist_size;
       for (int k = 0; k < d_cnt; k++) {
         pConf->SetPath(
             wxString::Format(_T("/PlugIns/Dashboard/Dashboard%d"), k + 1));
@@ -3588,6 +3648,10 @@ bool dashboard_pi::LoadConfig(void) {
         best_size.x = val;
         pConf->Read(_T("BestSizeY"), &val, DefaultWidth);
         best_size.y = val;
+        pConf->Read(_T("PersistSizeX"), &val, DefaultWidth);
+        persist_size.x = val;
+        pConf->Read(_T("PersistSizeY"), &val, DefaultWidth);
+        persist_size.y = val;
 
         wxArrayInt ar;
         wxArrayOfInstrumentProperties Property;
@@ -3689,6 +3753,7 @@ bool dashboard_pi::LoadConfig(void) {
             NULL, name, caption, orient, ar, Property);
         cont->m_bPersVisible = b_persist;
         cont->m_conf_best_size = best_size;
+        cont->m_persist_size = persist_size;
 
         if (b_persist) b_onePersisted = true;
 
@@ -3776,6 +3841,8 @@ bool dashboard_pi::SaveConfig(void) {
                    (int)cont->m_aInstrumentList.GetCount());
       pConf->Write(_T("BestSizeX"), cont->m_best_size.x);
       pConf->Write(_T("BestSizeY"), cont->m_best_size.y);
+      pConf->Write(_T("PersistSizeX"), cont->m_pDashboardWindow->GetSize().x);
+      pConf->Write(_T("PersistSizeY"), cont->m_pDashboardWindow->GetSize().y);
 
       // Delete old Instruments
       for (size_t i = cont->m_aInstrumentList.GetCount(); i < 40; i++) {
@@ -5985,6 +6052,12 @@ void DashboardWindow::SetInstrumentList(
         instrument = new DashboardInstrument_Single(
             this, wxID_ANY, getInstrumentCaption(id), Properties,
             OCPN_DBP_STC_HUM, "%3.0f");
+        break;
+      case ID_DBP_I_WCC:
+        instrument = new DashboardInstrument_Single(
+            this, wxID_ANY, getInstrumentCaption(id), Properties,
+            OCPN_DBP_STC_WCC, _T("%5.1f"));
+        break;
     }
     if (instrument) {
       instrument->instrumentTypeId = id;
@@ -6029,8 +6102,8 @@ void DashboardWindow::SendSatInfoToAllInstruments(int cnt, int seq,
                                                   SAT_INFO sats[4]) {
   for (size_t i = 0; i < m_ArrayOfInstrument.GetCount(); i++) {
     if ((m_ArrayOfInstrument.Item(i)->m_cap_flag.test(OCPN_DBP_STC_GPS)) &&
-        m_ArrayOfInstrument.Item(i)->m_pInstrument->IsKindOf(
-            CLASSINFO(DashboardInstrument_GPS)))
+        dynamic_cast<DashboardInstrument_GPS *>(
+            m_ArrayOfInstrument.Item(i)->m_pInstrument))
       ((DashboardInstrument_GPS *)m_ArrayOfInstrument.Item(i)->m_pInstrument)
           ->SetSatInfo(cnt, seq, talk, sats);
   }
@@ -6039,8 +6112,8 @@ void DashboardWindow::SendSatInfoToAllInstruments(int cnt, int seq,
 void DashboardWindow::SendUtcTimeToAllInstruments(wxDateTime value) {
   for (size_t i = 0; i < m_ArrayOfInstrument.GetCount(); i++) {
     if ((m_ArrayOfInstrument.Item(i)->m_cap_flag.test(OCPN_DBP_STC_CLK)) &&
-        m_ArrayOfInstrument.Item(i)->m_pInstrument->IsKindOf(
-            CLASSINFO(DashboardInstrument_Clock)))
+        dynamic_cast<DashboardInstrument_Clock *>(
+            m_ArrayOfInstrument.Item(i)->m_pInstrument))
       //                  || m_ArrayOfInstrument.Item( i
       //                  )->m_pInstrument->IsKindOf( CLASSINFO(
       //                  DashboardInstrument_Sun ) )
@@ -6059,8 +6132,6 @@ void DashboardWindow::SendUtcTimeToAllInstruments(wxDateTime value) {
 // ============================================================================
 // implementation
 // ============================================================================
-
-IMPLEMENT_DYNAMIC_CLASS(OCPNFontButton, wxButton)
 
 // ----------------------------------------------------------------------------
 // OCPNFontButton

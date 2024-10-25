@@ -45,6 +45,13 @@ set(OpenGL_GL_PREFERENCE "LEGACY")
 
 if ("${OCPN_TARGET_TUPLE}" MATCHES "Android")
   message(STATUS "Building for wxQt-Android")
+
+  # Specific NDK setting, avoiding "Unwind" linkage problems with
+  # managed plugins found in later NDK versions.
+  #set( tool_base /home/dsr/Android/Sdk/ndk/22.1.7171670/toolchains/llvm/prebuilt/linux-x86_64)
+  #cmake -DOCPN_TARGET_TUPLE:STRING="Android-arm64;16;arm64"   -Dtool_base="$HOME/Android/Sdk/ndk/22.1.7171670/toolchains/llvm/prebuilt/linux-x86_64" ..
+  #cmake -DOCPN_TARGET_TUPLE:STRING="Android-armhf;16;armhf"   -Dtool_base="$HOME/Android/Sdk/ndk/22.1.7171670/toolchains/llvm/prebuilt/linux-x86_64" ..
+
   set(CMAKE_TOOLCHAIN_FILE buildandroid/build_android.cmake)
   set(QT_ANDROID "ON")
   if ("${OCPN_TARGET_TUPLE}" MATCHES "Android-arm64")
@@ -433,13 +440,13 @@ if (MSVC)
 endif ()
 
 if (QT_ANDROID)
-  set(CMAKE_BUILD_TYPE Debug)
+  set(CMAKE_BUILD_TYPE RelWithDebInfo)
   add_definitions(-D__WXQT__)
   add_definitions(-D__OCPN__ANDROID__)
   add_definitions(-DANDROID)
   add_definitions(-DNOASSERT)
-  set(CMAKE_CXX_FLAGS "-pthread -fPIC -g")
-  set(CMAKE_C_FLAGS "-pthread -fPIC -g")
+  set(CMAKE_CXX_FLAGS "-pthread -fPIC -g -O2")
+  set(CMAKE_C_FLAGS "-pthread -fPIC -g -O2")
 
   add_compile_options(
     "-Wno-inconsistent-missing-override"

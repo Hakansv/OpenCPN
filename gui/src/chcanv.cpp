@@ -760,23 +760,26 @@ ChartCanvas::ChartCanvas(wxFrame *frame, int canvasIndex)
 #endif
 
 #ifdef HAVE_WX_GESTURE_EVENTS
-  if (!EnableTouchEvents(wxTOUCH_ZOOM_GESTURE | wxTOUCH_PRESS_GESTURES)) {
-    wxLogError("Failed to enable touch events");
+  // if (!m_glcc)
+  {
+    if (!EnableTouchEvents(wxTOUCH_ZOOM_GESTURE | wxTOUCH_PRESS_GESTURES)) {
+      wxLogError("Failed to enable touch events");
+    }
+
+    // Bind(wxEVT_GESTURE_ZOOM, &ChartCanvas::OnZoom, this);
+
+    Bind(wxEVT_LONG_PRESS, &ChartCanvas::OnLongPress, this);
+    Bind(wxEVT_PRESS_AND_TAP, &ChartCanvas::OnPressAndTap, this);
+
+    Bind(wxEVT_RIGHT_UP, &ChartCanvas::OnRightUp, this);
+    Bind(wxEVT_RIGHT_DOWN, &ChartCanvas::OnRightDown, this);
+
+    Bind(wxEVT_LEFT_UP, &ChartCanvas::OnLeftUp, this);
+    Bind(wxEVT_LEFT_DOWN, &ChartCanvas::OnLeftDown, this);
+
+    Bind(wxEVT_MOUSEWHEEL, &ChartCanvas::OnWheel, this);
+    Bind(wxEVT_MOTION, &ChartCanvas::OnMotion, this);
   }
-
-  Bind(wxEVT_GESTURE_ZOOM, &ChartCanvas::OnZoom, this);
-
-  Bind(wxEVT_LONG_PRESS, &ChartCanvas::OnLongPress, this);
-  Bind(wxEVT_PRESS_AND_TAP, &ChartCanvas::OnPressAndTap, this);
-
-  Bind(wxEVT_RIGHT_UP, &ChartCanvas::OnRightUp, this);
-  Bind(wxEVT_RIGHT_DOWN, &ChartCanvas::OnRightDown, this);
-
-  Bind(wxEVT_LEFT_UP, &ChartCanvas::OnLeftUp, this);
-  Bind(wxEVT_LEFT_DOWN, &ChartCanvas::OnLeftDown, this);
-
-  Bind(wxEVT_MOUSEWHEEL, &ChartCanvas::OnWheel, this);
-  Bind(wxEVT_MOTION, &ChartCanvas::OnMotion, this);
 #endif
 }
 
@@ -2878,14 +2881,17 @@ void ChartCanvas::OnKeyDown(wxKeyEvent &event) {
             // from working.
           case ']':
             RotateCanvas(1);
+            b_handled = true;
             break;
 
           case '[':
             RotateCanvas(-1);
+            b_handled = true;
             break;
 
           case '\\':
             DoRotateCanvas(0);
+            b_handled = true;
             break;
         }
       }
@@ -3189,11 +3195,10 @@ void ChartCanvas::OnKeyDown(wxKeyEvent &event) {
       }  // switch
   }
 
-#ifndef __WXMAC__
   // Allow OnKeyChar to catch the key events too.
-  // On OS X this is unnecessary since we handle all key events here.
-  if (!b_handled) event.Skip();
-#endif
+  if (!b_handled) {
+    event.Skip();
+  }
 }
 
 void ChartCanvas::OnKeyUp(wxKeyEvent &event) {
@@ -7675,8 +7680,7 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
       if (pFindAIS) {
         m_FoundAIS_MMSI = pFindAIS->GetUserData();
         if (g_pAIS->Get_Target_Data_From_MMSI(m_FoundAIS_MMSI)) {
-          wxWindow *pwin = wxDynamicCast(this, wxWindow);
-          ShowAISTargetQueryDialog(pwin, m_FoundAIS_MMSI);
+          ShowAISTargetQueryDialog(this, m_FoundAIS_MMSI);
         }
         return true;
       }
@@ -7844,14 +7848,32 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
             brp_viz = pNearbyPoint->IsVisible();  // isolated point
 
           if (brp_viz) {
-            m_FinishRouteOnKillFocus =
-                false;  // Avoid route finish on focus change for message dialog
-            int dlg_return = OCPNMessageBox(
-                this, _("Use nearby waypoint?"), _("OpenCPN Route Create"),
-                (long)wxYES_NO | wxCANCEL | wxYES_DEFAULT);
+            wxString msg = _("Use nearby waypoint?");
+            // Don't add a mark without name to the route. Name it if needed
+            const bool noname(pNearbyPoint->GetName() == "");
+            if (noname) {
+              msg =
+                  _("Use nearby nameless waypoint and name it M with"
+                    " a unique number?");
+            }
+            // Avoid route finish on focus change for message dialog
+            m_FinishRouteOnKillFocus = false;
+            int dlg_return =
+                OCPNMessageBox(this, msg, _("OpenCPN Route Create"),
+                               (long)wxYES_NO | wxCANCEL | wxYES_DEFAULT);
             m_FinishRouteOnKillFocus = true;
-
             if (dlg_return == wxID_YES) {
+              if (noname) {
+                if (m_pMouseRoute) {
+                  int last_wp_num = m_pMouseRoute->GetnPoints();
+                  // AP-ECRMB will truncate to 6 characters
+                  wxString guid_short = m_pMouseRoute->GetGUID().Left(2);
+                  wxString wp_name = wxString::Format(
+                      "M%002i-%s", last_wp_num + 1, guid_short);
+                  pNearbyPoint->SetName(wp_name);
+                } else
+                  pNearbyPoint->SetName("WPXX");
+              }
               pMousePoint = pNearbyPoint;
 
               // Using existing waypoint, so nothing to delete for undo.
