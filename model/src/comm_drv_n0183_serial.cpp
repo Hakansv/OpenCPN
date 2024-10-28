@@ -45,15 +45,9 @@
 
 using namespace std::literals::chrono_literals;
 
-typedef enum DS_ENUM_BUFFER_STATE {
-  DS_RX_BUFFER_EMPTY,
-  DS_RX_BUFFER_FULL
-} _DS_ENUM_BUFFER_STATE;
-
 CommDriverN0183Serial::CommDriverN0183Serial(const ConnectionParams* params,
                                              DriverListener& listener)
-    : CommDriverN0183(NavAddr::Bus::N0183,
-                      ((ConnectionParams*)params)->GetStrippedDSPort()),
+    : CommDriverN0183(NavAddr::Bus::N0183, params->GetStrippedDSPort()),
       m_portstring(params->GetDSPort()),
       m_baudrate(params->Baudrate),
       m_serial_io(SerialIo::Create(
