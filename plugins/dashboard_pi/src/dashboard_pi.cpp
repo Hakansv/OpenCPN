@@ -4714,9 +4714,8 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
 
   // Hakan Deviation help file
   // Hack: Add a empty textbox to fill column 2 and move to next row
-  wxStaticText *movetonextrow =
-      new wxStaticText(itemPanelNotebook02, wxID_ANY, _(""), wxDefaultPosition,
-                       wxDefaultSize, 0);
+  wxStaticText *movetonextrow = new wxStaticText(
+      itemPanelNotebook02, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, 0);
   itemFlexGridSizer04->Add(movetonextrow, 1, wxALIGN_RIGHT, border_size);
 
   m_pSetDeviationBtn = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
@@ -4732,9 +4731,8 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
   itemFlexGridSizer04->Add(m_pSetDevSoundBtn, 0, wxEXPAND | wxALL, 0);
 #else
   // Hack: Add a empty textbox to fill column 2 and move to next row
-  wxStaticText *movetonextrow2 =
-      new wxStaticText(itemPanelNotebook02, wxID_ANY, _(""), wxDefaultPosition,
-                       wxDefaultSize, 0);
+  wxStaticText *movetonextrow2 = new wxStaticText(
+      itemPanelNotebook02, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, 0);
   itemFlexGridSizer04->Add(movetonextrow2, 1, wxALIGN_RIGHT, border_size);
 #endif
   m_pDevfilename = new wxStaticText(itemPanelNotebook02, wxID_ANY,
