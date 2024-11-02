@@ -23,6 +23,7 @@
 #ifndef COMMDRIVERN0183NET_H_
 #define COMMDRIVERN0183NET_H_
 
+#include <chrono>
 #include <memory>
 #include <string>
 
@@ -32,7 +33,6 @@
 #include <wx/wx.h>
 #endif
 
-#include <wx/datetime.h>
 #include <wx/string.h>
 #include <wx/timer.h>
 
@@ -56,6 +56,7 @@
 #include "model/comm_buffers.h"
 #include "model/comm_drv_n0183.h"
 #include "model/conn_params.h"
+#include "model/ocpn_utils.h"
 #include "observable.h"
 
 class MrqContainer;
@@ -66,11 +67,9 @@ public:
 
   ~CommDriverN0183Net() override;
 
-  void Open();
-  void Close();
   ConnectionParams GetParams() const { return m_params; }
 
-  wxSocketBase* GetSock() const { return m_sock; }
+  const wxSocketBase* GetSock() const { return m_sock; }
 
   bool SendMessage(std::shared_ptr<const NavMsg> msg,
                    std::shared_ptr<const NavAddr> addr) override;
@@ -95,9 +94,8 @@ private:
     CommDriverN0183Net& m_owner;
   };
 
-  const ConnectionParams m_params;
-  DriverListener& m_listener;
-
+  void Open();
+  void Close();
   void HandleResume();
   void OnServerSocketEvent(wxSocketEvent& event);  // The listener
   void OnTimerSocket();
@@ -109,6 +107,8 @@ private:
   void HandleN0183Msg(const std::string& sentence);
   bool SendSentenceNetwork(const wxString& payload);
 
+  const ConnectionParams m_params;
+  DriverListener& m_listener;
   N0183Buffer n0183_buffer;
   wxIPV4address m_addr;
   wxSocketBase* m_sock;
@@ -119,13 +119,14 @@ private:
 
   int m_txenter;
   int m_dog_value;
-  wxDateTime m_connect_time;
+  std::chrono::time_point<std::chrono::steady_clock> m_connect_time;
   bool m_rx_connect_event;
 
   SocketTimer m_socket_timer;
   SocketReadWatchdogTimer m_socketread_watchdog_timer;
 
   bool m_ok;
+  bool m_is_conn_err_reported;
 
   ObsListener resume_listener;
 };
