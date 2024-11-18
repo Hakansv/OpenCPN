@@ -6940,7 +6940,7 @@ void MyFrame::OnResume(wxPowerEvent &WXUNUSED(event)) {
 // FIXME (dave)
 #if 0
     if (g_pMUX) {
-      g_endWinsuspend = true; //Hakan
+      g_endWinsuspend = true; //Hakan not used
       //g_pMUX->ClearStreams();
 
       //g_pMUX->StartAllStreams();
