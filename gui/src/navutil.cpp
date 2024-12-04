@@ -232,8 +232,8 @@ extern double g_n_gps_antenna_offset_x;
 extern int g_n_ownship_min_mm;
 extern int g_maxzoomin;
 
-extern bool g_bXTE_multiply; //Hakan
-extern double g_dXTE_multiplier; //Hakan
+extern bool g_bXTE_multiply;      // Hakan
+extern double g_dXTE_multiplier;  // Hakan
 
 extern bool g_bShowShipToActive;
 extern int g_shipToActiveStyle;
@@ -588,12 +588,12 @@ int MyConfig::LoadMyConfig() {
   g_bPreserveScaleOnX = 1;
   g_navobjbackups = 5;
   g_benableAISNameCache = true;
-  g_n_arrival_circle_radius = 0.01; //Hakan
+  g_n_arrival_circle_radius = 0.01;  // Hakan
   g_plus_minus_zoom_factor = 2.0;
   g_mouse_zoom_sensitivity = 1.5;
 
-  g_bXTE_multiply = 0; //Hakan
-  g_dXTE_multiplier = 1.5; //Hakan
+  g_bXTE_multiply = 0;      // Hakan
+  g_dXTE_multiplier = 1.5;  // Hakan
 
   g_AISShowTracks_Mins = 20;
   g_AISShowTracks_Limit = 300.0;
@@ -790,8 +790,8 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   Read(_T ( "MaxZoomScale" ), &g_maxzoomin);
   g_maxzoomin = wxMax(g_maxzoomin, 50);
 
-  Read(_T( "XTE_Multiply" ), &g_bXTE_multiply); //Hakan
-  Read(_T( "XTE_multiplyer" ), &g_dXTE_multiplier); //Hakan
+  Read(_T( "XTE_Multiply" ), &g_bXTE_multiply);      // Hakan
+  Read(_T( "XTE_multiplyer" ), &g_dXTE_multiplier);  //  Hakan
 
   Read(_T ( "DefaultFontSize"), &g_default_font_size);
   Read(_T ( "DefaultFontFacename"), &g_default_font_facename);
@@ -2530,8 +2530,8 @@ void MyConfig::UpdateSettings() {
   Write(_T ( "TrackRotateTimeType" ), g_track_rotate_time_type);
   Write(_T ( "HighlightTracks" ), g_bHighliteTracks);
 
-  Write( _T ( "XTE_Multiply" ), g_bXTE_multiply ); //Hakan
-  Write( _T ( "XTE_multiplyer" ), g_dXTE_multiplier ); //Hakan
+  Write(_T ( "XTE_Multiply" ), g_bXTE_multiply);      // Hakan
+  Write(_T ( "XTE_multiplyer" ), g_dXTE_multiplier);  //  Hakan
 
   Write(_T ( "InitialStackIndex" ), g_restore_stackindex);
   Write(_T ( "InitialdBIndex" ), g_restore_dbindex);

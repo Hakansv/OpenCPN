@@ -96,8 +96,8 @@ extern bool g_bShowStatusBar;
 extern bool g_bUIexpert;
 extern bool g_bFullscreen;
 
-extern bool g_bXTE_multiply; //hakan
-extern double g_dXTE_multiplier; //hakan
+extern bool g_bXTE_multiply;      // hakan
+extern double g_dXTE_multiplier;  // hakan
 
 extern wxString g_SENCPrefix;
 extern wxString g_UserPresLibData;
@@ -901,8 +901,8 @@ bool ConfigMgr::SaveTemplate(wxString fileName) {
   conf->Write(_T ( "iENCToolbarX" ), g_iENCToolbarPosX);
   conf->Write(_T ( "iENCToolbarY" ), g_iENCToolbarPosY);
 
-  conf->Write( _T ( "XTE_Multiply" ), g_bXTE_multiply ); //Hakan
-  conf->Write( _T ( "XTE_multiplyer" ), g_dXTE_multiplier ); //Hakan
+  conf->Write(_T ( "XTE_Multiply" ), g_bXTE_multiply);      // Hakan
+  conf->Write(_T ( "XTE_multiplyer" ), g_dXTE_multiplier);  // Hakan
 
   if (!g_bInlandEcdis) {
     conf->Write(_T ( "GlobalToolbarConfig" ), g_toolbarConfig);
