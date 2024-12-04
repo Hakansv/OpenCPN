@@ -37,7 +37,7 @@
 #include <wx/listimpl.cpp>
 #include <wx/tokenzr.h>
 
-#include <wx/textfile.h> // Hakan
+#include <wx/textfile.h>  // Hakan
 
 #include "model/ais_decoder.h"
 #include "model/base_platform.h"
@@ -67,9 +67,9 @@ bool g_bXTE_multiply;
 double g_dXTE_multiplier;
 int wp30DevData[361];
 bool devfileNotfound;
-    // Hakan
+// Hakan
 
-Routeman* g_pRouteMan;
+Routeman *g_pRouteMan;
 Route *pAISMOBRoute;
 
 RoutePoint *pAnchorWatchPoint1;
@@ -484,29 +484,28 @@ bool Routeman::UpdateAutopilot() {
   if (!bGPSValid) return false;
 
   // Send all known Autopilot messages upstream
-  //Hakan
+  // Hakan
   double f_brg = CurrentBrgToActivePoint;
-   //If active multiply XTE with given factor.
-   if (g_bXTE_multiply) {
-     // Fetch Momo AP wp30 deviation table once
-     if (!devfileNotfound && wp30DevData[0] == 0)
-       UpdateWP30DevData();
-     if (wp30DevData[0] != 0) { // flag: updated file
-       int brg = CurrentBrgToActivePoint;
-       if (brg < 361 && brg >= 0) {
-         CurrentBrgToActivePoint += wp30DevData[brg];
-       }
-     }
-      static bool b_arrived;
-      if (b_arrived) { // zero XTE once at first turn after arrival
-          CurrentXTEToActivePoint = 0.0;
-          b_arrived = false;
+  // If active multiply XTE with given factor.
+  if (g_bXTE_multiply) {
+    // Fetch Momo AP wp30 deviation table once
+    if (!devfileNotfound && wp30DevData[0] == 0) UpdateWP30DevData();
+    if (wp30DevData[0] != 0) {  // flag: updated file
+      int brg = CurrentBrgToActivePoint;
+      if (brg < 361 && brg >= 0) {
+        CurrentBrgToActivePoint += wp30DevData[brg];
       }
-      if ((CurrentXTEToActivePoint *= g_dXTE_multiplier) > 1.2)
-          CurrentXTEToActivePoint = 1.2;
-      if (m_bArrival) b_arrived = true;
-   }
-   //Hakan
+    }
+    static bool b_arrived;
+    if (b_arrived) {  // zero XTE once at first turn after arrival
+      CurrentXTEToActivePoint = 0.0;
+      b_arrived = false;
+    }
+    if ((CurrentXTEToActivePoint *= g_dXTE_multiplier) > 1.2)
+      CurrentXTEToActivePoint = 1.2;
+    if (m_bArrival) b_arrived = true;
+  }
+  // Hakan
 
   // Set max WP name length
   int maxName = 6;
@@ -723,7 +722,8 @@ bool Routeman::UpdateAutopilot() {
     m_NMEA0183.Xte.Write(snt);
     BroadcastNMEA0183Message(snt.Sentence, m_nmea_log, on_message_sent);
   }
-  if (g_bXTE_multiply) CurrentBrgToActivePoint = f_brg; // Hakan reset to origin
+  if (g_bXTE_multiply) CurrentBrgToActivePoint = f_brg;
+  // Hakan reset to origin
   return true;
 }
 
