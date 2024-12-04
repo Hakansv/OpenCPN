@@ -583,7 +583,7 @@ public:
   wxCheckBox *pTrackDaily, *pTrackHighlite;
   wxCheckBox *pXTEmultplyCheckbox;
   wxTextCtrl *m_pXTEMultiplicator;
-  wxStaticText* pStatic_CallSign;
+  wxStaticText *pStatic_CallSign;
 
 #if wxCHECK_VERSION(2, 9, 0)
 #if wxUSE_TIMEPICKCTRL
