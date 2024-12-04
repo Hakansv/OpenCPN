@@ -161,7 +161,7 @@ extern int g_chart_zoom_modifier_vector;
 extern bool g_bUIexpert;
 
 // Hakan
-extern bool   g_bXTE_multiply;
+extern bool g_bXTE_multiply;
 extern double g_dXTE_multiplier;
 
 extern wxString* pInit_Chart_Dir;
@@ -2145,16 +2145,16 @@ void options::CreatePanel_Ownship(size_t parent, int border_size,
 
   dispOwnShipCalcOptionsGrid->AddGrowableCol(1);
 
-  //Hakan
+  // Hakan
   pXTEmultplyCheckbox =
       new wxCheckBox(itemPanelShip, wxID_ANY,
-	  _(" Use XTE multiplicator when send to Autopilot"));
+                     _(" Use XTE multiplicator when send to Autopilot"));
   dispOwnShipCalcOptionsGrid->Add(pXTEmultplyCheckbox, 1, wxALL, 5);
   dispOwnShipCalcOptionsGrid->AddSpacer(0);
 
   dispOwnShipCalcOptionsGrid->Add(
-      new wxStaticText(itemPanelShip, wxID_ANY,
-	  _(" XTE multiplicator.  ")), 1, wxALIGN_LEFT);
+      new wxStaticText(itemPanelShip, wxID_ANY, _(" XTE multiplicator.  ")), 1,
+      wxALIGN_LEFT);
   m_pXTEMultiplicator = new wxTextCtrl(itemPanelShip, wxID_ANY);
   dispOwnShipCalcOptionsGrid->Add(m_pXTEMultiplicator, 1, wxALIGN_RIGHT | wxALL,
                                   group_item_spacing);
@@ -6140,7 +6140,8 @@ void options::SetInitialSettings(void) {
   pConfirmObjectDeletion->SetValue(g_bConfirmObjectDelete);
 
   pXTEmultplyCheckbox->SetValue(g_bXTE_multiply);
-  m_pXTEMultiplicator->SetValue(wxString::Format(_T("%.1f"), g_dXTE_multiplier));
+  m_pXTEMultiplicator->SetValue(
+      wxString::Format(_T("%.1f"), g_dXTE_multiplier));
 
   pSogCogFromLLCheckBox->SetValue(g_own_ship_sog_cog_calc);
   pSogCogFromLLDampInterval->SetValue(g_own_ship_sog_cog_calc_damp_sec);
