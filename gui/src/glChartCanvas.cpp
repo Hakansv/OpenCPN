@@ -4995,14 +4995,9 @@ void glChartCanvas::onZoomTimerEvent(wxTimerEvent &event) {
     ZoomProject(m_runoffsetx, m_runoffsety, m_runswidth, m_runsheight);
 
   } else {
-    // qDebug() << "onZoomTimerEvent DONE" << m_nRun << m_nTotal;
-
     zoomTimer.Stop();
     if (m_zoomFinal) {
-      // qDebug() << "onZoomTimerEvent FINALZOOM" << m_zoomFinalZoom;
-
-      m_pParentCanvas->ZoomCanvas(m_zoomFinalZoom, false);
-
+      m_pParentCanvas->ZoomCanvasSimple(m_zoomFinalZoom);
       if (m_zoomFinaldx || m_zoomFinaldy) {
         m_pParentCanvas->PanCanvas(m_zoomFinaldx, m_zoomFinaldy);
       }
@@ -5486,6 +5481,9 @@ void glChartCanvas::OnEvtZoomGesture(wxZoomGestureEvent &event) {
     // printf("End--------------\n");
     //             qDebug() << "finish totalzoom" << total_zoom_val <<
     //             projected_scale;
+
+    // Some ptaforms generate spurious gestureEnd events. Guard for this.
+    if (!m_binGesture) return;
 
     float cc_x = m_fbo_offsetx + (m_fbo_swidth / 2);
     float cc_y = m_fbo_offsety + (m_fbo_sheight / 2);

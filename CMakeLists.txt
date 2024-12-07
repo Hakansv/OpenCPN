@@ -931,6 +931,7 @@ set(GUI_SRC
     ${GUI_SRC_DIR}/NMEALogWindow.cpp
     ${GUI_SRC_DIR}/ocpCursor.cpp
     ${GUI_SRC_DIR}/ocpn_app.cpp
+    ${GUI_SRC_DIR}/ocpn_plugin_gui.cpp
     ${GUI_SRC_DIR}/OCPN_AUIManager.cpp
     ${GUI_SRC_DIR}/ocpndc.cpp
     ${GUI_SRC_DIR}/ocpn_frame.cpp
@@ -1874,6 +1875,7 @@ if (APPLE)
   set_target_properties(
     ${PACKAGE_NAME} PROPERTIES MACOSX_BUNDLE_INFO_PLIST
                                "${CMAKE_SOURCE_DIR}/buildosx/Info.plist.in"
+                               XCODE_ATTRIBUTE_ENABLE_HARDENED_RUNTIME YES
   )
 endif ()
 

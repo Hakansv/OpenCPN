@@ -1622,14 +1622,19 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
               mHDx_Watchdog = gps_watchdog_timeout_ticks;
             }
           }
-          if (!std::isnan(m_NMEA0183.Vhw.Knots)) {
-            if (mPriSTW >= 3) {
-              mPriSTW = 3;
+          if (mPriSTW >= 3) {
+            double stw_kn = NAN;
+            if (!std::isnan(m_NMEA0183.Vhw.Knots))
+              stw_kn = m_NMEA0183.Vhw.Knots;
+            else if (!std::isnan(m_NMEA0183.Vhw.KilometersPerHour))
+              stw_kn = m_NMEA0183.Vhw.KilometersPerHour * 0.53995;
+
+            if (!std::isnan(stw_kn)) {
               SendSentenceToAllInstruments(
-                  OCPN_DBP_STC_STW,
-                  toUsrSpeed_Plugin(m_NMEA0183.Vhw.Knots, g_iDashSpeedUnit),
+                  OCPN_DBP_STC_STW, toUsrSpeed_Plugin(stw_kn, g_iDashSpeedUnit),
                   getUsrSpeedUnit_Plugin(g_iDashSpeedUnit));
               mSTW_Watchdog = gps_watchdog_timeout_ticks;
+              mPriSTW = 3;
             }
           }
         }
@@ -5591,7 +5596,12 @@ void DashboardWindow::OnContextMenuSelect(wxCommandEvent &event) {
 
   switch (event.GetId()) {
     case ID_DASH_PREFS: {
+      // Capture the dashboard's floating_pos before update.
+      wxPoint fp = m_pauimgr->GetPane(this).floating_pos;
       m_plugin->ShowPreferencesDialog(this);
+      // This method sets the correct size of the edited dashboard,
+      // but if it's not specified, also a default floating_pos.
+      ChangePaneOrientation(GetSizerOrientation(), true, fp.x, fp.y);
       return;  // Does it's own save.
     }
     case ID_DASH_RESIZE: {
@@ -5635,7 +5645,8 @@ void DashboardWindow::SetColorScheme(PI_ColorScheme cs) {
   Refresh(false);
 }
 
-void DashboardWindow::ChangePaneOrientation(int orient, bool updateAUImgr) {
+void DashboardWindow::ChangePaneOrientation(int orient, bool updateAUImgr,
+                                            int fpx, int fpy) {
   m_pauimgr->DetachPane(this);
   SetSizerOrientation(orient);
   bool vertical = orient == wxVERTICAL;
@@ -5654,7 +5665,7 @@ void DashboardWindow::ChangePaneOrientation(int orient, bool updateAUImgr) {
                                .MinSize(sz)
                                .BestSize(sz)
                                .FloatingSize(sz)
-                               .FloatingPosition(100, 100)
+                               .FloatingPosition(fpx, fpy)
                                .Float()
                                .Show(m_Container->m_bIsVisible));
 

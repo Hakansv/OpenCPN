@@ -123,7 +123,8 @@ enum ActionVerb {
   REINSTALL_MANAGED_VERSION,
   DOWNGRADE_INSTALLED_MANAGED_VERSION,
   UNINSTALL_MANAGED_VERSION,
-  INSTALL_MANAGED_VERSION
+  INSTALL_MANAGED_VERSION,
+  UPDATE_IMPORTED_VERSION
 };
 
 class PlugInMenuItemContainer {
@@ -256,6 +257,7 @@ public:
 
   bool SendMouseEventToPlugins(wxMouseEvent& event);
   bool SendKeyEventToPlugins(wxKeyEvent& event);
+  void SendPreShutdownHookToPlugins();
 
   void SendBaseConfigToAllPlugIns();
   void SendS52ConfigToAllPlugIns(bool bReconfig = false);

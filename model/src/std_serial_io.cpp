@@ -19,9 +19,9 @@
  **************************************************************************/
 
 /**
- * \file std_serial_io.cpp SerialIo asynchronous implementation
- *          based on the serial/serial.h header. Used on all platforms
- *          besides Android.
+ * \file
+ * SerialIo asynchronous implementation based on the serial/serial.h header.
+ * Used on all platforms besides Android.
  */
 
 #include <memory>
@@ -67,7 +67,7 @@ private:
   bool OpenComPortPhysical(const wxString& com_name, unsigned baud_rate);
   void CloseComPortPhysical();
   ssize_t WriteComPortPhysical(const char* msg);
-  void RequestStop() { ThreadCtrl::RequestStop(); }
+  void RequestStop() override { ThreadCtrl::RequestStop(); }
 };
 
 std::unique_ptr<SerialIo> SerialIo::Create(SendMsgFunc send_msg_func,
@@ -159,8 +159,8 @@ bool StdSerialIo::OpenComPortPhysical(const wxString& com_name,
     m_serial.open();
     m_serial.setTimeout(250, 250, 0, 250, 0);
   } catch (std::exception& e) {
-    MESSAGE_LOG << "Unhandled Exception while opening serial port: "
-                << e.what();
+    auto msg = std::string("Unhandled Exception while opening serial port: ");
+    m_open_log_filter.Log(msg + e.what());
   }
   return m_serial.isOpen();
 }

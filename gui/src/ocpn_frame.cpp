@@ -631,7 +631,7 @@ static void onBellsFinishedCB(void *ptr) {
 
 static void OnDriverMsg(const ObservedEvt &ev) {
   auto msg = ev.GetString().ToStdString();
-  OCPNMessageBox(GetTopWindow(), msg, _("Communication Error"), 0, 15);
+  OCPNMessageBox(GetTopWindow(), msg, _("Communication Error"));
 }
 
 // My frame constructor
@@ -1561,6 +1561,9 @@ void MyFrame::OnCloseWindow(wxCloseEvent &event) {
       cc->CancelMeasureRoute();
     }
   }
+
+  //  Give any requesting plugins a PreShutdownHook call
+  g_pi_manager->SendPreShutdownHookToPlugins();
 
   // We save perspective before closing to restore position next time
   // Pane is not closed so the child is not notified (OnPaneClose)
@@ -3379,7 +3382,7 @@ void MyFrame::SetToolbarItemSVG(int tool_id, wxString normalSVGfile,
   }
 }
 
-void MyFrame::ApplyGlobalSettings(bool bnewtoolbar) {
+void MyFrame::ConfigureStatusBar() {
   //             ShowDebugWindow as a wxStatusBar
   m_StatusBarFieldCount = g_Platform->GetStatusBarFieldCount();
 
@@ -3401,6 +3404,10 @@ void MyFrame::ApplyGlobalSettings(bool bnewtoolbar) {
       SetStatusBar(NULL);
     }
   }
+}
+
+void MyFrame::ApplyGlobalSettings(bool bnewtoolbar) {
+  ConfigureStatusBar();
 
   wxSize lastOptSize = options_lastWindowSize;
   SendSizeEvent();
