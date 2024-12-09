@@ -1,26 +1,3 @@
-/***************************************************************************
- *
- * Project:  OpenCPN
- * Purpose:  mDNS Utilities.
- * Author:   Mattias Jansson, David Register
- */
-
-/* mDNS/DNS-SD library  -  Public Domain  -  2017 Mattias Jansson
- *   Copyright (C) 2022 by David Register                                  *
- *
- * This library provides a cross-platform mDNS and DNS-SD library in C.
- * The implementation is based on RFC 6762 and RFC 6763.
- *
- * The latest source code is always available at
- *
- * https://github.com/mjansson/mdns
- *
- * This library is put in the public domain; you can redistribute it and/or modify it without any
- * restrictions.
- *
- * mdns_util.h was adapted in part from mdns.c
- */
-
 
 #ifdef _WIN32
 #define _CRT_SECURE_NO_WARNINGS 1
@@ -37,19 +14,10 @@
 #define sleep(x) Sleep(x * 1000)
 #else
 #include <netdb.h>
- #ifdef __ANDROID__
-    #include "ifaddrs-android.h"
-  #else
-    #include <ifaddrs.h>
- #endif
+#include <ifaddrs.h>
 #include <net/if.h>
+#include <sys/time.h>
 #endif
-
-#ifdef HAVE_WXWIDGETS
-#include <wx/log.h>
-#define printf(...) wxLogDebug(__VA_ARGS__)
-#endif
-
 
 // Alias some things to simulate recieving data to fuzz library
 #if defined(MDNS_FUZZING)
@@ -63,13 +31,20 @@
 #undef recvfrom
 #endif
 
+static char addrbuffer[64];
+static char entrybuffer[256];
+static char namebuffer[256];
+static char sendbuffer[1024];
+static mdns_record_txt_t txtbuffer[128];
+
 static struct sockaddr_in service_address_ipv4;
 static struct sockaddr_in6 service_address_ipv6;
 
 static int has_ipv4;
 static int has_ipv6;
 
-#if 0
+volatile sig_atomic_t running = 1;
+
 // Data for our service including the mDNS records
 typedef struct {
 	mdns_string_t service;
@@ -85,9 +60,8 @@ typedef struct {
 	mdns_record_t record_aaaa;
 	mdns_record_t txt_record[2];
 } service_t;
-#endif
 
-mdns_string_t
+static mdns_string_t
 ipv4_address_to_string(char* buffer, size_t capacity, const struct sockaddr_in* addr,
                        size_t addrlen) {
 	char host[NI_MAXHOST] = {0};
@@ -109,7 +83,7 @@ ipv4_address_to_string(char* buffer, size_t capacity, const struct sockaddr_in* 
 	return str;
 }
 
-mdns_string_t
+static mdns_string_t
 ipv6_address_to_string(char* buffer, size_t capacity, const struct sockaddr_in6* addr,
                        size_t addrlen) {
 	char host[NI_MAXHOST] = {0};
@@ -131,14 +105,13 @@ ipv6_address_to_string(char* buffer, size_t capacity, const struct sockaddr_in6*
 	return str;
 }
 
-mdns_string_t
+static mdns_string_t
 ip_address_to_string(char* buffer, size_t capacity, const struct sockaddr* addr, size_t addrlen) {
 	if (addr->sa_family == AF_INET6)
 		return ipv6_address_to_string(buffer, capacity, (const struct sockaddr_in6*)addr, addrlen);
 	return ipv4_address_to_string(buffer, capacity, (const struct sockaddr_in*)addr, addrlen);
 }
 
-#if 0
 // Callback handling parsing answers to queries sent
 static int
 query_callback(int sock, const struct sockaddr* from, size_t addrlen, mdns_entry_type_t entry,
@@ -475,10 +448,9 @@ dump_callback(int sock, const struct sockaddr* from, size_t addrlen, mdns_entry_
 
 	return 0;
 }
-#endif
 
 // Open sockets for sending one-shot multicast queries from an ephemeral port
-int
+static int
 open_client_sockets(int* sockets, int max_sockets, int port) {
 	// When sending, each socket can only send to one network interface
 	// Thus we need to open one socket for each interface and address family
@@ -682,7 +654,7 @@ open_client_sockets(int* sockets, int max_sockets, int port) {
 }
 
 // Open sockets to listen to incoming mDNS queries on port 5353
-int
+static int
 open_service_sockets(int* sockets, int max_sockets) {
 	// When recieving, each socket can recieve data from all network interfaces
 	// Thus we only need to open one socket for each address family
@@ -727,7 +699,6 @@ open_service_sockets(int* sockets, int max_sockets) {
 	return num_sockets;
 }
 
-#if 0
 // Send a DNS-SD query
 static int
 send_dns_sd(void) {
@@ -787,9 +758,7 @@ send_dns_sd(void) {
 
 	return 0;
 }
-#endif
 
-#if 0
 // Send a mDNS query
 static int
 send_mdns_query(mdns_query_t* query, size_t count) {
@@ -849,8 +818,8 @@ send_mdns_query(mdns_query_t* query, size_t count) {
 		if (res > 0) {
 			for (int isock = 0; isock < num_sockets; ++isock) {
 				if (FD_ISSET(sockets[isock], &readfs)) {
-					int rec = mdns_query_recv(sockets[isock], buffer, capacity, query_callback,
-					                          user_data, query_id[isock]);
+					size_t rec = mdns_query_recv(sockets[isock], buffer, capacity, query_callback,
+					                             user_data, query_id[isock]);
 					if (rec > 0)
 						records += rec;
 				}
@@ -869,9 +838,7 @@ send_mdns_query(mdns_query_t* query, size_t count) {
 
 	return 0;
 }
-#endif
 
-#if 0
 // Provide a mDNS service, answering incoming DNS-SD and mDNS queries
 static int
 service_mdns(const char* hostname, const char* service_name, int service_port) {
@@ -1050,6 +1017,7 @@ service_mdns(const char* hostname, const char* service_name, int service_port) {
 
 	return 0;
 }
+
 
 // Dump all incoming mDNS queries and answers
 static int
@@ -1294,4 +1262,3 @@ main(int argc, const char* const* argv) {
 
 	return 0;
 }
-#endif
