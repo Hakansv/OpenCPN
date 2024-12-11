@@ -55,6 +55,7 @@
 #include "toolbar.h"
 #include "options.h"
 #include "s52plib.h"
+#include "model/plugin_comm.h"
 #include "model/route.h"
 #include "model/track.h"
 #include "routemanagerdialog.h"
@@ -124,7 +125,6 @@ extern unsigned int g_canvasConfig;
 extern wxString g_CmdSoundString;
 
 unsigned int gs_plib_flags;
-wxString g_lastPluginMessage;
 extern ChartCanvas* g_focusCanvas;
 extern ChartCanvas* g_overlayCanvas;
 extern bool g_bquiting;
@@ -401,7 +401,7 @@ ArrayOfPlugIn_AIS_Targets* GetAISTargetArray(void) {
 wxAuiManager* GetFrameAuiManager(void) { return g_pauimgr; }
 
 void SendPluginMessage(wxString message_id, wxString message_body) {
-  s_ppim->SendMessageToAllPlugins(message_id, message_body);
+  SendMessageToAllPlugins(message_id, message_body);
 
   //  We will send an event to the main application frame (gFrame)
   //  for informational purposes.

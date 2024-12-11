@@ -49,6 +49,7 @@ set(
   ${MODEL_HDR_DIR}/comm_driver.h
   ${MODEL_HDR_DIR}/comm_drv_factory.h
   ${MODEL_HDR_DIR}/comm_drv_file.h
+  ${MODEL_HDR_DIR}/comm_drv_internal.h
   ${MODEL_HDR_DIR}/comm_drv_n0183_android_bt.h
   ${MODEL_HDR_DIR}/comm_drv_n0183_android_int.h
   ${MODEL_HDR_DIR}/comm_drv_n0183.h
@@ -100,6 +101,7 @@ set(
   ${MODEL_HDR_DIR}/pincode.h
   ${MODEL_HDR_DIR}/plugin_blacklist.h
   ${MODEL_HDR_DIR}/plugin_cache.h
+  ${MODEL_HDR_DIR}/plugin_comm.h
   ${MODEL_HDR_DIR}/plugin_handler.h
   ${MODEL_HDR_DIR}/plugin_loader.h
   ${MODEL_HDR_DIR}/plugin_paths.h
@@ -146,6 +148,7 @@ set(SRC
   #${MODEL_SRC_DIR}/comm_driver.cpp
   ${MODEL_SRC_DIR}/comm_drv_factory.cpp
   ${MODEL_SRC_DIR}/comm_drv_file.cpp
+  ${MODEL_SRC_DIR}/comm_drv_internal.cpp
   ${MODEL_SRC_DIR}/comm_drv_n0183.cpp
   ${MODEL_SRC_DIR}/comm_drv_n0183_net.cpp
   ${MODEL_SRC_DIR}/comm_drv_n0183_serial.cpp
@@ -191,6 +194,7 @@ set(SRC
   ${MODEL_SRC_DIR}/plugin_api.cpp
   ${MODEL_SRC_DIR}/plugin_blacklist.cpp
   ${MODEL_SRC_DIR}/plugin_cache.cpp
+  ${MODEL_SRC_DIR}/plugin_comm.cpp
   ${MODEL_SRC_DIR}/plugin_handler.cpp
   ${MODEL_SRC_DIR}/plugin_loader.cpp
   ${MODEL_SRC_DIR}/plugin_paths.cpp
