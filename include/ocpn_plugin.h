@@ -1828,11 +1828,9 @@ GetAttributes(DriverHandle handle);
 
 /* Writing to a specific driver  */
 /**
- * Send a non-NMEA2000 message.
- * port * using  a simple call.  The physical write operation will be queued,
- * and executed in order as bandwidth allows.
+ * Send a non-NMEA2000 message. The call is not blocking.
  * @param handle Obtained from GetActiveDrivers()
- * @param payload Message data, for eaxample a complete Nmea0183 message.
+ * @param payload Message data, for example a complete Nmea0183 message.
  *        From 1.19: if the handle "protocol" attribute is "internal" it is
  *        parsed as <id><space><message> where the id is used when listening/
  *        subscribing to message.
@@ -1874,11 +1872,17 @@ struct PluginMsgId {
   PluginMsgId(const std::string &s) : id(s) {};
 };
 
-/** Return listener for plugin messages received on the REST interface. */
+/**
+ *  Return listener for plugin messages, internal or received on the REST
+ *  interface.
+ */
 extern DECL_EXP std::shared_ptr<ObservableListener> GetListener(
     PluginMsgId id, wxEventType ev, wxEvtHandler *handler);
 
-/** Retrieve the string in a plugin message received on the REST insterface. */
+/**
+ *  Retrieve the string in a plugin message, internal or received on the
+ *  REST insterface.
+ */
 extern DECL_EXP std::string GetPluginMsgPayload(PluginMsgId id, ObservedEvt ev);
 
 //  Assorted GUI utility functions
