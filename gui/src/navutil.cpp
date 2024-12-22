@@ -97,6 +97,7 @@
 
 #ifdef ocpnUSE_GL
 #include "glChartCanvas.h"
+#include "model/plugin_comm.h"
 #endif
 
 #ifdef __ANDROID__
@@ -2927,6 +2928,7 @@ void MyConfig::UpdateSettings() {
   SaveCanvasConfigs();
 
   Flush();
+  SendMessageToAllPlugins("GLOBAL_SETTINGS_UPDATED", wxEmptyString);
 }
 
 void MyConfig::UpdateNavObjOnly() {
