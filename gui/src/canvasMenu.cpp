@@ -45,10 +45,11 @@
 #include "model/cutil.h"
 #include "model/georef.h"
 #include "model/mdns_cache.h"
-#include "model/mDNS_query.h"
+#include "model/mdns_query.h"
 #include "model/nav_object_database.h"
 #include "model/own_ship.h"
 #include "model/own_ship.h"
+#include "model/plugin_comm.h"
 #include "model/route.h"
 #include "model/routeman.h"
 #include "model/select.h"
@@ -75,6 +76,7 @@
 #include "route_point_gui.h"
 #include "RoutePropDlgImpl.h"
 #include "s52plib.h"
+#include "s52s57.h"
 #include "s57chart.h"  // for ArrayOfS57Obj
 #include "SendToGpsDlg.h"
 #include "SendToPeerDlg.h"
@@ -1366,7 +1368,7 @@ void CanvasMenuHandler::PopupMenuHandler(wxCommandEvent &event) {
         wxJSONValue v;
         v[_T("GUID")] = guid;
         wxString msg_id(_T("OCPN_ANCHOR_WATCH_CLEARED"));
-        g_pi_manager->SendJSONMessageToAllPlugins(msg_id, v);
+        SendJSONMessageToAllPlugins(msg_id, v);
       }
       break;
     }
@@ -1398,7 +1400,7 @@ void CanvasMenuHandler::PopupMenuHandler(wxCommandEvent &event) {
         wxJSONValue v;
         v[_T("GUID")] = guid;
         wxString msg_id(_T("OCPN_ANCHOR_WATCH_SET"));
-        g_pi_manager->SendJSONMessageToAllPlugins(msg_id, v);
+        SendJSONMessageToAllPlugins(msg_id, v);
       }
       break;
     }

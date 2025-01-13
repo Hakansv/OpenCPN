@@ -44,6 +44,7 @@
 #include "observable_evtvar.h"
 #include "ocpn_print.h"
 #include "s52s57.h"
+#include "s57registrar_mgr.h"
 #include "SencManager.h"
 #include "displays.h"
 
@@ -153,6 +154,7 @@ public:
   void OnSENCEvtThread(OCPN_BUILDSENC_ThreadEvent& event);
   void OnIconize(wxIconizeEvent& event);
   void OnBellsFinished(wxCommandEvent& event);
+  void OnFrameTenHzTimer(wxTimerEvent& event);
 
 #ifdef wxHAS_POWER_EVENTS
   void OnSuspending(wxPowerEvent& event);
@@ -288,6 +290,7 @@ public:
   wxTimer FrameCOGTimer;
   wxTimer MemFootTimer;
   wxTimer m_resizeTimer;
+  wxTimer FrameTenHzTimer;
 
   int m_BellsToPlay;
   wxTimer BellsTimer;
@@ -374,6 +377,13 @@ private:
 
   wxString prev_locale;
 
+  /**
+   * The last time basic navigational data was received, or 0 if no data
+   * has been received.
+   *
+   * @todo Change time_t to wxLongLong, as time_t is susceptible to the
+   * year 2038 problem on 32-bit builds.
+   */
   time_t m_fixtime;
   bool b_autofind;
 

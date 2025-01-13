@@ -108,8 +108,8 @@ using namespace std::literals::chrono_literals;
 #include "model/instance_check.h"
 #include "model/local_api.h"
 #include "model/logger.h"
-#include "model/mDNS_query.h"
-#include "model/mDNS_service.h"
+#include "model/mdns_query.h"
+#include "model/mdns_service.h"
 #include "model/multiplexer.h"
 #include "model/nav_object_database.h"
 #include "model/navutil_base.h"
@@ -194,7 +194,7 @@ void RedirectIOToConsole();
 #include "wiz_ui.h"
 
 const char *const kUsage =
-    R"""(Usage:
+    R"(Usage:
   opencpn -h | --help
   opencpn [-p] [-f] [-G] [-g] [-P] [-l <str>] [-u <num>] [-U] [-s] [GPX file ...]
   opencpn --remote [-R] | -q] | -e] |-o <str>]
@@ -225,7 +225,7 @@ Options manipulating already started opencpn
 
 Arguments:
   GPX  file                     GPX-formatted file with waypoints or routes.
-)""";
+)";
 
 //  comm event definitions
 wxDEFINE_EVENT(EVT_N2K_129029, wxCommandEvent);
@@ -386,10 +386,6 @@ int gHDx_Watchdog;
 bool g_bDebugCM93;
 bool g_bDebugS57;
 
-bool g_bfilter_cogsog;
-int g_COGFilterSec = 1;
-int g_SOGFilterSec;
-
 int g_ChartUpdatePeriod;
 int g_SkewCompUpdatePeriod;
 
@@ -397,6 +393,9 @@ int g_lastClientRectx;
 int g_lastClientRecty;
 int g_lastClientRectw;
 int g_lastClientRecth;
+/**
+ * The width of the physical screen in millimeters.
+ */
 double g_display_size_mm;
 std::vector<size_t> g_config_display_size_mm;
 bool g_config_display_size_manual;
@@ -567,6 +566,14 @@ about *g_pAboutDlgLegacy;
 wxLocale *plocale_def_lang = 0;
 #endif
 
+/**
+ * Global locale setting for OpenCPN UI.
+ *
+ * If not set in config (empty string), uses system default locale.
+ * Stores the language/locale name in format "en_US", "fr_FR", etc.
+ * A valid setting triggers loading the corresponding .mo translation files
+ * from the appropriate locale directory.
+ */
 wxString g_locale;
 wxString g_localeOverride;
 bool g_b_assume_azerty;
@@ -625,7 +632,20 @@ wxString g_config_version_string;
 
 wxString g_CmdSoundString;
 
+/**
+ * Flag to control adaptive UI scaling.
+ *
+ * When true, OpenCPN will automatically maximize the application window
+ * if the pixel density suggests a touch-friendly device.
+ *
+ * This helps ensure better usability on mobile and tablet devices by
+ * providing a full-screen interface optimized for touch interaction.
+ *
+ * @note For the most part, the use of this feature is conditionally compiled
+ * for Android builds only.
+ */
 bool g_bresponsive;
+/** Flag to enable or disable mouse rollover effects in the user interface. */
 bool g_bRollover;
 
 bool b_inCompressAllCharts;
@@ -662,6 +682,8 @@ ChartCanvas *g_overlayCanvas;
 
 bool b_inCloseWindow;
 extern int ShowNavWarning();
+bool g_disable_main_toolbar;
+bool g_btenhertz;
 
 #ifdef LINUX_CRASHRPT
 wxCrashPrint g_crashprint;
@@ -677,12 +699,8 @@ DEFINE_GUID(GARMIN_DETECT_GUID, 0x2c9c45c2L, 0x8e7d, 0x4c08, 0xa1, 0x2d, 0x81,
             0x6b, 0xba, 0xe7, 0x22, 0xc0);
 #endif
 
-#ifdef __MSVC__
-#define _CRTDBG_MAP_ALLOC
-#include <stdlib.h>
-#include <crtdbg.h>
-#define DEBUG_NEW new (_NORMAL_BLOCK, __FILE__, __LINE__)
-#define new DEBUG_NEW
+#ifdef __VISUALC__
+#include <wx/msw/msvcrt.h>
 #endif
 
 #if !defined(NAN)
@@ -1407,7 +1425,7 @@ bool MyApp::OnInit() {
   if (!g_Platform->GetLargeLogMessage().IsEmpty())
     wxLogMessage(g_Platform->GetLargeLogMessage());
 
-    //  Validate OpenGL functionality, if selected
+    // Validate OpenGL functionality, if selected
 #ifndef ocpnUSE_GL
   g_bdisable_opengl = true;
   ;
@@ -1845,6 +1863,9 @@ bool MyApp::OnInit() {
   //      Start up the ViewPort Rotation angle Averaging Timer....
   gFrame->FrameCOGTimer.Start(2000, wxTIMER_CONTINUOUS);
 
+  //      Start up the Ten Hz timer....
+  gFrame->FrameTenHzTimer.Start(100, wxTIMER_CONTINUOUS);
+
   //    wxLogMessage( wxString::Format(_T("OpenCPN Initialized in %ld ms."),
   //    init_sw.Time() ) );
 
@@ -1911,8 +1932,7 @@ bool MyApp::OnInit() {
 
   g_pauimgr->Update();
 
-  for (size_t i = 0; i < TheConnectionParams()->Count(); i++) {
-    ConnectionParams *cp = TheConnectionParams()->Item(i);
+  for (auto *cp : TheConnectionParams()) {
     if (cp->bEnabled) {
       if (cp->GetDSPort().Contains("Serial")) {
         std::string port(cp->Port.ToStdString());
@@ -2047,7 +2067,7 @@ int MyApp::OnExit() {
 #endif
 #endif
 
-    //      Restore any changed system colors
+    // Restore any changed system colors
 
 #ifdef __WXMSW__
   void RestoreSystemColors(void);

@@ -48,6 +48,7 @@
 #include "model/georef.h"
 #include "navutil.h"  // for LogMessageOnce
 #include "model/navutil_base.h"
+#include "model/plugin_comm.h"
 #include "ocpn_pixel.h"
 #include "ocpndc.h"
 #include "s52utils.h"
@@ -69,12 +70,8 @@
 #include "Quilt.h"
 #include "ocpn_frame.h"
 
-#ifdef __MSVC__
-#define _CRTDBG_MAP_ALLOC
-#include <stdlib.h>
-#include <crtdbg.h>
-#define DEBUG_NEW new (_NORMAL_BLOCK, __FILE__, __LINE__)
-#define new DEBUG_NEW
+#ifdef __VISUALC__
+#include <wx/msw/msvcrt.h>
 #endif
 
 #ifdef ocpnUSE_GL
@@ -271,7 +268,6 @@ s57chart::s57chart() {
   m_this_chart_context = 0;
   m_Chart_Skew = 0;
   m_vbo_byte_length = 0;
-  m_SENCthreadStatus = THREAD_INACTIVE;
   bReadyToRender = false;
   m_RAZBuilt = false;
   m_disableBackgroundSENC = false;
@@ -4068,7 +4064,7 @@ int s57chart::BuildSENCFile(const wxString &FullPath000,
       ticket->m_SENCFileName = SENCFileName;
       ticket->m_chart = this;
 
-      m_SENCthreadStatus = g_SencThreadManager->ScheduleJob(ticket);
+      g_SencThreadManager->ScheduleJob(ticket);
       bReadyToRender = true;
       return BUILD_SENC_PENDING;
 
@@ -4188,18 +4184,16 @@ int s57chart::BuildRAZFromSENCFile(const wxString &FullPath) {
     const wxString objnam = obj->GetAttrValueAsString("OBJNAM");
     if (objnam.Len() > 0) {
       const wxString fe_name = wxString(obj->FeatureName, wxConvUTF8);
-      g_pi_manager->SendVectorChartObjectInfo(FullPath, fe_name, objnam,
-                                              obj->m_lat, obj->m_lon, scale,
-                                              nativescale);
+      SendVectorChartObjectInfo(FullPath, fe_name, objnam, obj->m_lat,
+                                obj->m_lon, scale, nativescale);
     }
     // If there is a localized object name and it actually is different from the
     // object name, send it as well...
     const wxString nobjnam = obj->GetAttrValueAsString("NOBJNM");
     if (nobjnam.Len() > 0 && nobjnam != objnam) {
       const wxString fe_name = wxString(obj->FeatureName, wxConvUTF8);
-      g_pi_manager->SendVectorChartObjectInfo(FullPath, fe_name, nobjnam,
-                                              obj->m_lat, obj->m_lon, scale,
-                                              nativescale);
+      SendVectorChartObjectInfo(FullPath, fe_name, nobjnam, obj->m_lat,
+                                obj->m_lon, scale, nativescale);
     }
 
     switch (obj->Primitive_type) {

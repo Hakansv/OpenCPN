@@ -49,6 +49,7 @@ set(
   ${MODEL_HDR_DIR}/comm_driver.h
   ${MODEL_HDR_DIR}/comm_drv_factory.h
   ${MODEL_HDR_DIR}/comm_drv_file.h
+  ${MODEL_HDR_DIR}/comm_drv_internal.h
   ${MODEL_HDR_DIR}/comm_drv_n0183_android_bt.h
   ${MODEL_HDR_DIR}/comm_drv_n0183_android_int.h
   ${MODEL_HDR_DIR}/comm_drv_n0183.h
@@ -84,9 +85,9 @@ set(
   ${MODEL_HDR_DIR}/local_api.h
   ${MODEL_HDR_DIR}/logger.h
   ${MODEL_HDR_DIR}/MarkIcon.h
-  ${MODEL_HDR_DIR}/mDNS_query.h
+  ${MODEL_HDR_DIR}/mdns_query.h
   ${MODEL_HDR_DIR}/mdns_cache.h
-  ${MODEL_HDR_DIR}/mDNS_service.h
+  ${MODEL_HDR_DIR}/mdns_service.h
   ${MODEL_HDR_DIR}/meteo_points.h
   ${MODEL_HDR_DIR}/multiplexer.h
   ${MODEL_HDR_DIR}/nav_object_database.h
@@ -100,6 +101,7 @@ set(
   ${MODEL_HDR_DIR}/pincode.h
   ${MODEL_HDR_DIR}/plugin_blacklist.h
   ${MODEL_HDR_DIR}/plugin_cache.h
+  ${MODEL_HDR_DIR}/plugin_comm.h
   ${MODEL_HDR_DIR}/plugin_handler.h
   ${MODEL_HDR_DIR}/plugin_loader.h
   ${MODEL_HDR_DIR}/plugin_paths.h
@@ -146,6 +148,7 @@ set(SRC
   #${MODEL_SRC_DIR}/comm_driver.cpp
   ${MODEL_SRC_DIR}/comm_drv_factory.cpp
   ${MODEL_SRC_DIR}/comm_drv_file.cpp
+  ${MODEL_SRC_DIR}/comm_drv_internal.cpp
   ${MODEL_SRC_DIR}/comm_drv_n0183.cpp
   ${MODEL_SRC_DIR}/comm_drv_n0183_net.cpp
   ${MODEL_SRC_DIR}/comm_drv_n0183_serial.cpp
@@ -177,9 +180,9 @@ set(SRC
   ${MODEL_SRC_DIR}/ipc_factories.cpp
   ${MODEL_SRC_DIR}/local_api.cpp
   ${MODEL_SRC_DIR}/logger.cpp
-  ${MODEL_SRC_DIR}/mDNS_query.cpp
+  ${MODEL_SRC_DIR}/mdns_query.cpp
   ${MODEL_SRC_DIR}/mdns_cache.cpp
-  ${MODEL_SRC_DIR}/mDNS_service.cpp
+  ${MODEL_SRC_DIR}/mdns_service.cpp
   ${MODEL_SRC_DIR}/multiplexer.cpp
   ${MODEL_SRC_DIR}/nav_object_database.cpp
   ${MODEL_SRC_DIR}/navutil_base.cpp
@@ -191,6 +194,7 @@ set(SRC
   ${MODEL_SRC_DIR}/plugin_api.cpp
   ${MODEL_SRC_DIR}/plugin_blacklist.cpp
   ${MODEL_SRC_DIR}/plugin_cache.cpp
+  ${MODEL_SRC_DIR}/plugin_comm.cpp
   ${MODEL_SRC_DIR}/plugin_handler.cpp
   ${MODEL_SRC_DIR}/plugin_loader.cpp
   ${MODEL_SRC_DIR}/plugin_paths.cpp
@@ -445,7 +449,7 @@ target_link_libraries(
     ocpn::geoprim
     ocpn::iso8211
     ocpn::libarchive
-    ocpn::mDNS
+    ocpn::mdns
     ocpn::mongoose
     ocpn::N2KParser
     ocpn::nmea0183

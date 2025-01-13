@@ -8,7 +8,7 @@
 # See README.CMake
 
 # Version 3.7 or above of cmake is currently required for all platforms.
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.10)
 project(shapelib C CXX)
 
 message(STATUS "CMake version = ${CMAKE_VERSION}")
@@ -18,7 +18,7 @@ set(PROJECT_VERSION_MAJOR 1)
 set(PROJECT_VERSION_MINOR 6)
 set(PROJECT_VERSION_PATCH 0)
 set(shp_LIB_VERSIONINFO "4:0:0")
-set(PROJECT_VERSION 
+set(PROJECT_VERSION
   "${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}.${PROJECT_VERSION_PATCH}")
 
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
@@ -170,7 +170,7 @@ if(MSVC)
   set(BUILD_TESTING OFF CACHE BOOL "")
 else()
   # TODO(schwehr): Temporary work around.
-  cmake_policy(SET CMP0026 OLD)
+  ## cmake_policy(SET CMP0026 OLD)   we don't build tests anyway
 endif()
 
 find_program(BASH_EXECUTABLE bash)
@@ -181,7 +181,8 @@ else()
   message(STATUS "WARNING: sed or bash not available so disabling testing")
 endif()
 
-set(BUILD_TESTING OFF)
+set(BUILD_TESTING OFF)           ## Quick hack to avoid building test code
+cmake_policy(SET CMP0026 NEW)    ## Test code need  needs OLD
 
 # For the first series of tests, the user needs to have downloaded
 # from http://dl.maptools.org/dl/shapelib/shape_eg_data.zip, unpacked

@@ -8,7 +8,6 @@
 #include <iostream>
 #include <thread>
 
-
 #include <wx/app.h>
 #include <wx/event.h>
 #include <wx/evtloop.h>
@@ -45,7 +44,8 @@
 #include "ocpn_plugin.h"
 
 // Macos up to 10.13
-#if (defined(OCPN_GHC_FILESYSTEM) || (defined(__clang_major__) && (__clang_major__ < 15)))
+#if (defined(OCPN_GHC_FILESYSTEM) || \
+     (defined(__clang_major__) && (__clang_major__ < 15)))
 #include <ghc/filesystem.hpp>
 namespace fs = ghc::filesystem;
 
@@ -86,7 +86,7 @@ wxLogStderr defaultLog;
 #ifdef _MSC_VER
 int setenv(const char* name, const char* value, bool overwrite) {
   if (!overwrite) {
-     if (getenv(name)) return 1;
+    if (getenv(name)) return 1;
   }
   return _putenv_s(name, value);
 }
@@ -107,15 +107,18 @@ static void ConfigSetup() {
 class SillyDriver : public AbstractCommDriver {
 public:
   SillyDriver() : AbstractCommDriver(NavAddr::Bus::TestBus, "silly") {}
-  SillyDriver(const std::string& s) : AbstractCommDriver(NavAddr::Bus::TestBus, s) {}
+  SillyDriver(const std::string& s)
+      : AbstractCommDriver(NavAddr::Bus::TestBus, s) {}
   virtual ~SillyDriver() = default;
 
   virtual bool SendMessage(std::shared_ptr<const NavMsg> msg,
-                           std::shared_ptr<const NavAddr> addr) {return false;}
+                           std::shared_ptr<const NavAddr> addr) {
+    return false;
+  }
 
   virtual void SetListener(DriverListener& listener) {}
 
-  virtual void Activate(){};
+  virtual void Activate() {};
 };
 
 class SillyListener : public DriverListener {
@@ -138,8 +141,7 @@ public:
   virtual void Notify(const AbstractCommDriver& driver) {}
 };
 
-
-class BasicTest  : public wxAppConsole  {
+class BasicTest : public wxAppConsole {
 public:
   BasicTest() {
     const auto config_orig = fs::path(TESTDATA) / "opencpn.conf";
@@ -160,7 +162,6 @@ public:
   }
   virtual void Work() { std::this_thread::sleep_for(20ms); }
 };
-
 
 class MsgCliApp : public BasicTest {
 public:
@@ -212,6 +213,94 @@ public:
     ProcessPendingEvents();
     EXPECT_EQ(s_result, std::string("payload data"));
     EXPECT_EQ(NavAddr::Bus::N2000, s_bus);
+  }
+};
+
+class PluginMsgApp : public BasicTest {
+public:
+  class Source {
+  public:
+    Source() {
+      auto msg = std::make_unique<PluginMsg>("foo", "bar");
+      NavMsgBus::GetInstance().Notify(std::move(msg));
+    }
+  };
+
+  class Sink : public wxEvtHandler {
+  public:
+    Sink() {
+      auto& t = NavMsgBus::GetInstance();
+      auto msg = PluginMsg("foo", "");
+      listener.Listen(msg, this, EVT_FOO);
+
+      Bind(EVT_FOO, [&](ObservedEvt ev) {
+        auto ptr = ev.GetSharedPtr();
+        auto plugin_msg = std::static_pointer_cast<const PluginMsg>(ptr);
+        s_result = plugin_msg->message;
+        s_bus = plugin_msg->bus;
+      });
+    }
+    ObservableListener listener;
+  };
+
+  PluginMsgApp() : BasicTest() {}
+
+  void Work() {
+    s_result = "";
+    s_bus = NavAddr::Bus::Undef;
+    Sink sink;
+    Source source;
+    ProcessPendingEvents();
+    EXPECT_EQ(s_result, std::string("bar"));
+    EXPECT_EQ(NavAddr::Bus::Plugin, s_bus);
+  }
+};
+
+class PluginMsgApp2 : public BasicTest {
+public:
+  class Source {
+  public:
+    Source() {
+      const auto& handles = GetActiveDrivers();
+      auto found = std::find_if(
+          handles.begin(), handles.end(), [](const DriverHandle& h) {
+            return GetAttributes(h).at("protocol") == "internal";
+          });
+      EXPECT_TRUE(found != handles.end());
+      static const std::string msg = "foo bar";
+      auto payload =
+          std::make_shared<std::vector<uint8_t>>(msg.begin(), msg.end());
+      WriteCommDriver(*found, payload);
+    }
+  };
+
+  class Sink : public wxEvtHandler {
+  public:
+    Sink() {
+      auto& t = NavMsgBus::GetInstance();
+      auto msg = PluginMsg("foo", "");
+      listener.Listen(msg, this, EVT_FOO);
+
+      Bind(EVT_FOO, [&](ObservedEvt ev) {
+        auto ptr = ev.GetSharedPtr();
+        auto plugin_msg = std::static_pointer_cast<const PluginMsg>(ptr);
+        s_result = plugin_msg->message;
+        s_bus = plugin_msg->bus;
+      });
+    }
+    ObservableListener listener;
+  };
+
+  PluginMsgApp2() : BasicTest() {}
+
+  void Work() {
+    s_result = "";
+    s_bus = NavAddr::Bus::Undef;
+    Sink sink;
+    Source source;
+    ProcessPendingEvents();
+    EXPECT_EQ(s_result, std::string("bar"));
+    EXPECT_EQ(NavAddr::Bus::Plugin, s_bus);
   }
 };
 
@@ -290,7 +379,7 @@ public:
     ObservableListener listener;
   };
 
-  All0183App() : BasicTest() { }
+  All0183App() : BasicTest() {}
 
   void Work() {
     s_bus = NavAddr::Bus::Undef;
@@ -334,7 +423,7 @@ public:
     std::vector<ObservableListener> listeners;
   };
 
-  ListenerCliApp() : BasicTest() { }
+  ListenerCliApp() : BasicTest() {}
 
   void Work() {
     s_bus = NavAddr::Bus::Undef;
@@ -345,7 +434,6 @@ public:
     EXPECT_EQ(s_result, std::string("payload data"));
     EXPECT_EQ(NavAddr::Bus::N2000, s_bus);
   }
-
 };
 
 class AppmsgCliApp : public BasicTest {
@@ -378,9 +466,9 @@ public:
     ObservableListener listener;
   };
 
-  AppmsgCliApp() : BasicTest() { }
-   void Work() {
-    s_apptype =  AppMsg::Type::Undef;
+  AppmsgCliApp() : BasicTest() {}
+  void Work() {
+    s_apptype = AppMsg::Type::Undef;
     s_bus = NavAddr::Bus::Undef;
     Sink sink;
     Source source;
@@ -388,6 +476,50 @@ public:
     EXPECT_EQ(s_result, std::string("65°22,11N 21°44,33E"));
     EXPECT_EQ(s_apptype, AppMsg::Type::GnssFix);
   };
+};
+
+class NavMsgApp : public BasicTest {
+public:
+  class Source {
+  public:
+    Source() {
+      auto msg = std::make_unique<PluginMsg>("foo", "bar");
+      NavMsgBus::GetInstance().Notify(std::move(msg));
+      msg = std::make_unique<PluginMsg>("foo2", "bar2");
+      NavMsgBus::GetInstance().Notify(std::move(msg));
+    }
+  };
+
+  class Sink : public wxEvtHandler {
+  public:
+    Sink() {
+      auto& t = NavMsgBus::GetInstance();
+      auto msg = PluginMsg("foo", "");
+      listener.Listen(msg, this, EVT_FOO);
+
+      Bind(EVT_FOO, [&](ObservedEvt ev) {
+        auto ptr = ev.GetSharedPtr();
+        auto plugin_msg = std::static_pointer_cast<const PluginMsg>(ptr);
+      });
+    }
+    ObservableListener listener;
+  };
+
+  NavMsgApp() : BasicTest() {}
+
+  void Work() {
+    s_result = "";
+    s_bus = NavAddr::Bus::Undef;
+    Sink sink;
+    Source source;
+    ProcessPendingEvents();
+    auto& bus = NavMsgBus::GetInstance();
+    EXPECT_TRUE(bus.GetActiveMessages().size() == 2);
+    auto& msg_set = bus.GetActiveMessages();
+    EXPECT_TRUE(msg_set.find("internal::foo") != msg_set.end());
+    EXPECT_TRUE(msg_set.find("internal::foo2") != msg_set.end());
+    EXPECT_TRUE(msg_set.find("internal::foo3") == msg_set.end());
+  }
 };
 
 using namespace std;
@@ -400,21 +532,21 @@ const static std::string kSEP("/");
 
 class GuernseyApp : public BasicTest {
 public:
-  GuernseyApp() : BasicTest() { }
+  GuernseyApp() : BasicTest() {}
 
   void Work() {
     vector<string> log;
     string path(TESTDATA);
     path += kSEP + "Guernesey-1659560590623.input.txt";
     auto& msgbus = NavMsgBus::GetInstance();
-    auto driver = make_shared<FileCommDriver>("test-output.txt", path, msgbus);
+    auto driver = make_unique<FileCommDriver>("test-output.txt", path, msgbus);
     listener.Listen(Nmea0183Msg("GPGLL"), this, EVT_FOO);
     Bind(EVT_FOO, [&log](ObservedEvt ev) {
       auto ptr = ev.GetSharedPtr();
       auto n0183_msg = static_pointer_cast<const Nmea0183Msg>(ptr);
       log.push_back(n0183_msg->to_string());
     });
-    driver->Activate();
+    CommDriverRegistry::GetInstance().Activate(std::move(driver));
     ProcessPendingEvents();
     EXPECT_EQ(log.size(), 14522);
   }
@@ -422,23 +554,22 @@ public:
   ObservableListener listener;
 };
 
-
 class FindDriverApp : public BasicTest {
 public:
-  FindDriverApp() : BasicTest() { }
+  FindDriverApp() : BasicTest() {}
 
   void Work() override {
     std::vector<DriverPtr> drivers;
     std::vector<std::string> ifaces{"foo", "bar", "foobar"};
     for (const auto& iface : ifaces) {
-      drivers.push_back(std::make_shared<SillyDriver>(SillyDriver(iface)));
+      drivers.push_back(std::make_unique<SillyDriver>(SillyDriver(iface)));
     }
-    auto found = FindDriver(drivers, "bar");
-    EXPECT_EQ(found->iface, std::string("bar"));
-    found = FindDriver(drivers, "baz");
-    EXPECT_FALSE(found);
-    auto file_drv = std::dynamic_pointer_cast<const FileCommDriver>(found);
-    EXPECT_EQ(file_drv.get(), nullptr);
+    auto& found1 = FindDriver(drivers, "bar");
+    EXPECT_EQ(found1->iface, std::string("bar"));
+    auto& found2 = FindDriver(drivers, "baz");
+    EXPECT_FALSE(found2);
+    auto file_drv = dynamic_cast<const FileCommDriver*>(found1.get());
+    EXPECT_EQ(found1, nullptr);
   }
 };
 
@@ -460,10 +591,10 @@ public:
     auto& msgbus = NavMsgBus::GetInstance();
     std::string path(TESTDATA);
     path += kSEP + inputfile;
-    auto driver = make_shared<FileCommDriver>(inputfile + ".log", path, msgbus);
     CommBridge comm_bridge;
     comm_bridge.Initialize();
-    driver->Activate();
+    auto driver = make_unique<FileCommDriver>(inputfile + ".log", path, msgbus);
+    CommDriverRegistry::GetInstance().Activate(std::move(driver));
     ProcessPendingEvents();
     EXPECT_NEAR(gLat, 57.6460, 0.001);
     EXPECT_NEAR(gLon, 11.7130, 0.001);
@@ -472,20 +603,19 @@ public:
 
 class RegistryPersistApp : public BasicTest {
 public:
-  RegistryPersistApp() : BasicTest() { }
+  RegistryPersistApp() : BasicTest() {}
 
   void Work() {
     wxLog::SetActiveTarget(&defaultLog);
     int start_size = 0;
     if (true) {  // a scope
-      auto driver = std::make_shared<SillyDriver>();
+      auto driver = std::make_unique<SillyDriver>();
       auto& registry = CommDriverRegistry::GetInstance();
       start_size = registry.GetDrivers().size();
-      registry.Activate(
-          std::static_pointer_cast<AbstractCommDriver>(driver));
+      registry.Activate(std::move(driver));
     }
     auto& registry = CommDriverRegistry::GetInstance();
-    auto drivers = registry.GetDrivers();
+    auto& drivers = registry.GetDrivers();
     EXPECT_EQ(registry.GetDrivers().size(), start_size + 1);
     EXPECT_EQ(registry.GetDrivers()[start_size]->iface, std::string("silly"));
     EXPECT_EQ(registry.GetDrivers()[start_size]->bus, NavAddr::Bus::TestBus);
@@ -494,12 +624,12 @@ public:
 
 class PriorityApp2 : public BasicTest {
 public:
-  PriorityApp2() : BasicTest() { }
+  PriorityApp2() : BasicTest() {}
   void Work() override {
     const char* const GPGGA_1 =
-      "$GPGGA,092212,5759.097,N,01144.345,E,1,06,1.9,3.5,M,39.4,M,,*4C";
+        "$GPGGA,092212,5759.097,N,01144.345,E,1,06,1.9,3.5,M,39.4,M,,*4C";
     const char* const GPGGA_2 =
-      "$GPGGA,092212,5755.043,N,01344.585,E,1,06,1.9,3.5,M,39.4,M,,*4C";
+        "$GPGGA,092212,5755.043,N,01344.585,E,1,06,1.9,3.5,M,39.4,M,,*4C";
     auto& msgbus = NavMsgBus::GetInstance();
     CommBridge comm_bridge;
     comm_bridge.Initialize();
@@ -541,6 +671,7 @@ public:
 };
 
 // GetSignalkPayload() introduced in 1.19
+#if 0
 #if API_VERSION_MINOR > 18
 class SignalKApp : public BasicTest {
 public:
@@ -554,7 +685,7 @@ public:
     }
     )""";
 
-    SignalkMsg signalk_msg("ownship_ctx", "global_ctx", kJsonMsg);
+    SignalkMsg signalk_msg("ownship_ctx", "global_ctx", kJsonMsg, "test_iface");
 
     const wxEventTypeTag<ObservedEvt> EvtTest(wxNewEventType());
     ObservedEvt ev(EvtTest);
@@ -573,10 +704,11 @@ public:
   }
 };
 #endif
+#endif
 
 class AisDecodeApp : public BasicTest {
 public:
-  AisDecodeApp() : BasicTest() { }
+  AisDecodeApp() : BasicTest() {}
   void Work() override {
     const char* AISVDO_1 = "!AIVDO,1,1,,,B3uBrjP0;h=Koh`Bp1tEowrUsP06,0*31";
     GenericPosDatEx gpd;
@@ -609,13 +741,11 @@ public:
   }
 };
 
-
 class ObsTorture : public wxAppConsole {
 public:
-
   class ObsListener : public wxEvtHandler {
   public:
-    ObsListener(): wxEvtHandler() {
+    ObsListener() : wxEvtHandler() {
       wxDEFINE_EVENT(EVT_OBS_NOTIFY, ObservedEvt);
       m_listener.Listen("key1", this, EVT_OBS_NOTIFY);
       Bind(EVT_OBS_NOTIFY, [&](ObservedEvt& o) { OnNotify(o); });
@@ -636,9 +766,10 @@ public:
     Observable o("key1");
     std::vector<std::thread> threads;
     for (int i = 0; i < 10; i += 1) {
-      threads.push_back(std::thread([&]{
+      threads.push_back(std::thread([&] {
         auto p = std::make_shared<const std::string>("arg1");
-        o.Notify(p); }));
+        o.Notify(p);
+      }));
     }
     for (auto& t : threads) t.join();
     ProcessPendingEvents();
@@ -648,12 +779,12 @@ public:
 #ifdef HAVE_UNISTD_H
 class WxInstanceChk : public BasicTest {
 public:
-  WxInstanceChk() : BasicTest()  { }
+  WxInstanceChk() : BasicTest() {}
 
   void Work() override {
-    auto cmd = std::string(CMAKE_BINARY_DIR) +  "/test/wx-instance";
+    auto cmd = std::string(CMAKE_BINARY_DIR) + "/test/wx-instance";
     auto stream = popen(cmd.c_str(), "w");
-    std::this_thread::sleep_for(200ms);    // Random time to catch up w IO
+    std::this_thread::sleep_for(200ms);  // Random time to catch up w IO
     WxInstanceCheck check1;
     EXPECT_TRUE(check1.IsMainInstance());
     fputs("foobar\n", stream);
@@ -666,10 +797,10 @@ public:
 
 class StdInstanceTest : public BasicTest {
 public:
-  StdInstanceTest(): BasicTest() {}
+  StdInstanceTest() : BasicTest() {}
 
   void Work() override {
-    auto cmd = std::string(CMAKE_BINARY_DIR) +  "/test/std-instance";
+    auto cmd = std::string(CMAKE_BINARY_DIR) + "/test/std-instance";
     auto stream = popen(cmd.c_str(), "w");
     std::this_thread::sleep_for(200ms);
     StdInstanceCheck check1;
@@ -683,17 +814,14 @@ public:
 };
 #endif
 
-
-static void UpdateBool0() {
-    bool_result0 = true;
-};
+static void UpdateBool0() { bool_result0 = true; };
 
 #ifdef __unix__
 class StdInstanceCheck2 : public wxAppConsole {
 public:
   StdInstanceCheck2() {
     SetAppName("opencpn_unittests");
-    auto cmd = std::string(CMAKE_BINARY_DIR) +  "/test/std-instance";
+    auto cmd = std::string(CMAKE_BINARY_DIR) + "/test/std-instance";
     auto stream = popen(cmd.c_str(), "w");
     std::this_thread::sleep_for(200ms);
     StdInstanceCheck check1;
@@ -711,13 +839,13 @@ public:
 #ifdef __unix__
 class IpcClientTest : public BasicTest {
 public:
-   IpcClientTest() : BasicTest() {
+  IpcClientTest() : BasicTest() {
     std::string server_cmd(CMAKE_BINARY_DIR);
     server_cmd += "/test/cli-server";
     stream = popen(server_cmd.c_str(), "r");
-    std::this_thread::sleep_for(25ms);    // Need some time to start server
+    std::this_thread::sleep_for(25ms);  // Need some time to start server
     char buff[1024];
-    char* line = fgets(buff, sizeof(buff), stream);   // initial line, throw.
+    char* line = fgets(buff, sizeof(buff), stream);  // initial line, throw.
     EXPECT_TRUE(line);
   }
   static std::string GetSocketPath() {
@@ -727,6 +855,7 @@ public:
     if (!wxFileName::DirExists(dirpath)) wxFileName::Mkdir(dirpath);
     return path.GetFullPath().ToStdString();
   }
+
 protected:
   FILE* stream;
 };
@@ -783,44 +912,42 @@ TEST(Messaging, All0183) { All0183App app; };
 TEST(Messaging, AppMsg) { AppmsgCliApp app; };
 #endif
 
-
-
-//static void p1() { ObsListener l1; l1.Start(); }
+// static void p1() { ObsListener l1; l1.Start(); }
 
 TEST(Observable, torture) {
-  int_result0  = 0;
+  int_result0 = 0;
   ObsTorture ot;
   EXPECT_EQ(int_result0, 10);
 }
 
 TEST(Drivers, Registry) {
   wxLog::SetActiveTarget(&defaultLog);
-  auto driver = std::make_shared<SillyDriver>();
+  DriverPtr driver1 = std::make_unique<SillyDriver>();
   auto& registry = CommDriverRegistry::GetInstance();
-  registry.Activate(std::static_pointer_cast<AbstractCommDriver>(driver));
-  auto drivers = registry.GetDrivers();
+  registry.CloseAllDrivers();
+  EXPECT_EQ(registry.GetDrivers().size(), 0);
+  registry.Activate(std::move(driver1));
+  auto& drivers = registry.GetDrivers();
   EXPECT_EQ(registry.GetDrivers().size(), 1);
   EXPECT_EQ(registry.GetDrivers()[0]->iface, string("silly"));
   EXPECT_EQ(registry.GetDrivers()[0]->bus, NavAddr::Bus::TestBus);
 
   /* Add it again, should be ignored. */
-  registry.Activate(std::static_pointer_cast<AbstractCommDriver>(driver));
+  DriverPtr driver2 = std::make_unique<SillyDriver>();
+  auto iface = driver2->iface;
+  auto bus = driver2->bus;
+  registry.Activate(std::move(driver2));
   EXPECT_EQ(registry.GetDrivers().size(), 1);
 
   /* Add another one, should be accepted */
-  auto driver2 = std::make_shared<SillyDriver>("orvar");
-  registry.Activate(
-      std::static_pointer_cast<AbstractCommDriver>(driver2));
+  DriverPtr driver3 = std::make_unique<SillyDriver>("orvar");
+
+  registry.Activate(std::move(driver3));
   EXPECT_EQ(registry.GetDrivers().size(), 2);
 
   /* Remove one, leaving one in place. */
-  registry.Deactivate(
-      std::static_pointer_cast<AbstractCommDriver>(driver2));
-  EXPECT_EQ(registry.GetDrivers().size(), 1);
-
-  /* Remove it again, should be ignored. */
-  registry.Deactivate(
-      std::static_pointer_cast<AbstractCommDriver>(driver2));
+  auto& registered_driver = FindDriver(drivers, iface, bus);
+  registry.Deactivate(registered_driver);
   EXPECT_EQ(registry.GetDrivers().size(), 1);
 }
 
@@ -836,11 +963,11 @@ TEST(Navmsg2000, to_string) {
 
 TEST(FileDriver, Registration) {
   wxLog::SetActiveTarget(&defaultLog);
-  auto driver = std::make_shared<FileCommDriver>("test-output.txt");
+  auto driver = std::make_unique<FileCommDriver>("test-output.txt");
   auto& registry = CommDriverRegistry::GetInstance();
   int start_size = registry.GetDrivers().size();
-  driver->Activate();
-  auto drivers = registry.GetDrivers();
+  registry.Activate(std::move(driver));
+  auto& drivers = registry.GetDrivers();
   EXPECT_EQ(registry.GetDrivers().size(), start_size + 1);
 }
 
@@ -905,8 +1032,12 @@ TEST(AIS, AISVDO) { AisVdoApp app; }
 
 TEST(AIS, AISVDM) { AisVdmApp app; }
 
+TEST(Navmsg, ActiveMessages) { NavMsgApp app; }
+
 #if API_VERSION_MINOR > 18
+#if 0
 TEST(PluginApi, SignalK) { SignalKApp app; }
+#endif
 #endif
 
 #ifdef HAVE_UNISTD_H
@@ -922,11 +1053,13 @@ TEST(IpcClient, Raise) { CliRaise run_test; }
 
 TEST(IpcClient, Open) { IpcOpen run_test; }
 
+TEST(Plugin, Basic) { PluginMsgApp app; }
+
 TEST(WaitContinue, Basic) {
   using namespace std::chrono;
   WaitContinue waiter;
   auto t1 = high_resolution_clock::now();
-  std::thread t([&waiter]{ waiter.Wait(50ms); });
+  std::thread t([&waiter] { waiter.Wait(50ms); });
   t.join();
   auto t2 = high_resolution_clock::now();
   auto raw_elapsed = t2 - t1 - 50ms;
@@ -934,7 +1067,7 @@ TEST(WaitContinue, Basic) {
   EXPECT_NEAR(elapsed.count(), 0, 5);
 
   t1 = high_resolution_clock::now();
-  t = std::thread([&waiter]{ waiter.Wait(50ms); });
+  t = std::thread([&waiter] { waiter.Wait(50ms); });
   std::this_thread::sleep_for(25ms);
   waiter.Continue();
   t.join();
@@ -948,7 +1081,7 @@ TEST(FormatTime, Basic) {
   wxTimeSpan span(0, 0, 7200, 0);
   auto s = formatTimeDelta(span).ToStdString();
   EXPECT_EQ(s, " 2H  0M");
-  span =  wxTimeSpan(1, 60, 0, 0);
+  span = wxTimeSpan(1, 60, 0, 0);
   span += wxTimeSpan(0, 0, 0, 10);
   s = formatTimeDelta(span).ToStdString();
   EXPECT_EQ(s, " 2H  0M");

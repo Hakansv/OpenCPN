@@ -65,6 +65,7 @@
 #include "chartdb.h"
 #include "chcanv.h"
 #include "cm93.h"
+#include "ocpn_plugin.h"
 #include "FontMgr.h"
 #include "Layer.h"
 #include "navutil.h"
@@ -206,9 +207,6 @@ extern wxString g_config_version_string;
 extern wxString g_config_version_string;
 
 extern bool g_bDebugGPSD;
-
-extern bool g_bfilter_cogsog;
-extern int g_COGFilterSec;
 
 extern int g_navobjbackups;
 
