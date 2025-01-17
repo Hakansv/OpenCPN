@@ -5157,8 +5157,20 @@ void MyFrame::HandleBasicNavMsg(std::shared_ptr<const BasicNavDataMsg> msg) {
       ((msg->vflag & POS_VALID) == POS_VALID)) {
     // Save the reported fix as the best available "ground truth"
     uint64_t fix_time_gt_last = fix_time_gt;
-    fix_time_gt = msg->set_time.tv_sec * 1e9 + msg->set_time.tv_nsec;
-    fix_time_interval = (fix_time_gt - fix_time_gt_last) / (double)1e9;
+    uint64_t fix_time_gt_now =
+        msg->set_time.tv_sec * 1e9 + msg->set_time.tv_nsec;
+    fix_time_interval = (fix_time_gt_now - fix_time_gt_last) / (double)1e9;
+
+    // Calculate an implied SOG from the position change and time interval
+    double dist, brg;
+    DistanceBearingMercator(gLat, gLon, gLat_gt, gLon_gt, &brg, &dist);
+    double implied_sog = dist / (fix_time_interval / 3600);
+
+    // printf("-------------- SOG: %g  %g   %g\n", fix_time_interval, gSog,
+    // implied_sog);
+    if (dist < .001) {
+      return;  // probably a duplicate message, ignore it
+    }
 
     // shuffle history data
     gLat_gt_m2 = gLat_gt_m1;
@@ -5171,8 +5183,19 @@ void MyFrame::HandleBasicNavMsg(std::shared_ptr<const BasicNavDataMsg> msg) {
     gLon_gt = gLon;
     gCog_gt = gCog;
     gSog_gt = gSog;
+    fix_time_gt = fix_time_gt_now;
 
     if (std::isnan(gCog_gt_m1)) return;  // Startup
+
+    if ((fabs(gSog - implied_sog) / gSog) > 0.5) {
+      // Probably a synthetic data stream, with multiple position sources.
+      // Do not try to interpolate position at 10 Hz.
+      gSog_gt = 0;
+      cog_rate_gt = 0;
+      // printf("---Skip SOG\n");
+      return;
+    }
+
     // Calculate an estimated Rate-of-turn
     double diff = gCog_gt - gCog_gt_m1;
     double tentative_cog_rate_gt = diff / (fix_time_gt - fix_time_gt_last);
@@ -5510,58 +5533,7 @@ void MyFrame::CheckToolbarPosition() {
 #endif
 }
 
-void MyFrame::OnFrameTenHzTimer(wxTimerEvent &event) {
-  if (!g_btenhertz) return;
-
-  if (std::isnan(gCog)) return;
-  if (std::isnan(gSog)) return;
-
-  // Estimate current state by extrapolating from last "ground truth" state
-
-  struct timespec now;
-  clock_gettime(CLOCK_MONOTONIC, &now);
-  uint64_t diff = 1e9 * (now.tv_sec) + now.tv_nsec - fix_time_gt;
-  double diffc = diff / 1e9;  // sec
-
-  // Set gCog as estimated from last two ground truth fixes
-  gCog = gCog_gt + (cog_rate_gt * diffc);
-
-  // And the same for gHdt
-  if (!std::isnan(gHdt_gt)) {
-    uint64_t diff = 1e9 * (now.tv_sec) + now.tv_nsec - hdt_time_gt;
-    double diffc = diff / 1e9;  // sec
-    gHdt = gHdt_gt + (hdt_rate_gt * diffc);
-  }
-
-  // Estimate lat/lon position
-  double delta_t = diffc / 3600;        // hours
-  double distance = gSog_gt * delta_t;  // NMi
-
-  // spherical (close enough)
-  double angr = gCog_gt / 180 * M_PI;
-  double latr = gLat_gt * M_PI / 180;
-  double D = distance / 3443;  // earth radius in nm
-  double sD = sin(D), cD = cos(D);
-  double sy = sin(latr), cy = cos(latr);
-  double sa = sin(angr), ca = cos(angr);
-
-  gLon = gLon_gt + asin(sa * sD / cy) * 180 / M_PI;
-  gLat = asin(sy * cD + cy * sD * ca) * 180 / M_PI;
-
-  for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
-    ChartCanvas *cc = g_canvasArray.Item(i);
-    if (cc) {
-      if (g_bopengl) {
-        cc->Refresh(false);
-      }
-    }
-  }
-  FrameTenHzTimer.Start(100, wxTIMER_CONTINUOUS);
-}
-
-void MyFrame::OnFrameTimer1(wxTimerEvent &event) {
-  CheckToolbarPosition();
-
+void MyFrame::ProcessUnitTest() {
   if (!g_bPauseTest && (g_unit_test_1 || g_unit_test_2)) {
     //            if((0 == ut_index) && GetQuiltMode())
     //                  ToggleQuiltMode();
@@ -5633,8 +5605,86 @@ void MyFrame::OnFrameTimer1(wxTimerEvent &event) {
       }
     }
   }
-  g_tick++;
+}
 
+void MyFrame::OnFrameTenHzTimer(wxTimerEvent &event) {
+  // Check to see if in non-North-Up mode
+  bool b_rotate = false;
+  for (ChartCanvas *cc : g_canvasArray) {
+    if (cc) b_rotate |= (cc->GetUpMode() != NORTH_UP_MODE);
+  }
+
+  if (!b_rotate && !g_btenhertz) return;  // Nothing to do
+
+  bool b_update = false;
+  if (g_btenhertz) {
+    if (std::isnan(gCog)) return;
+    if (std::isnan(gSog)) return;
+
+    // Estimate current state by extrapolating from last "ground truth" state
+
+    struct timespec now;
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    uint64_t diff = 1e9 * (now.tv_sec) + now.tv_nsec - fix_time_gt;
+    double diffc = diff / 1e9;  // sec
+
+    // Set gCog as estimated from last two ground truth fixes
+    gCog = gCog_gt + (cog_rate_gt * diffc);
+
+    // And the same for gHdt
+    if (!std::isnan(gHdt_gt)) {
+      uint64_t diff = 1e9 * (now.tv_sec) + now.tv_nsec - hdt_time_gt;
+      double diffc = diff / 1e9;  // sec
+      gHdt = gHdt_gt + (hdt_rate_gt * diffc);
+    }
+
+    // Estimate lat/lon position
+    if (gSog_gt) {
+      double delta_t = diffc / 3600;        // hours
+      double distance = gSog_gt * delta_t;  // NMi
+
+      // spherical (close enough)
+      double angr = gCog_gt / 180 * M_PI;
+      double latr = gLat_gt * M_PI / 180;
+      double D = distance / 3443;  // earth radius in nm
+      double sD = sin(D), cD = cos(D);
+      double sy = sin(latr), cy = cos(latr);
+      double sa = sin(angr), ca = cos(angr);
+
+      gLon = gLon_gt + asin(sa * sD / cy) * 180 / M_PI;
+      gLat = asin(sy * cD + cy * sD * ca) * 180 / M_PI;
+    }
+
+    b_update = true;
+  }
+
+  // In a valid rotation mode ?
+  if (b_rotate) {
+    for (ChartCanvas *cc : g_canvasArray) {
+      if (cc) cc->DoCanvasCOGSet();
+    }
+    b_update = true;
+  }
+
+  if (b_update) {
+    // printf("10 Hz update\n");
+
+    for (ChartCanvas *cc : g_canvasArray) {
+      if (cc) {
+        if (g_bopengl) {
+          if (b_rotate || cc->m_bFollow)
+            cc->DoCanvasUpdate();
+          else
+            cc->Refresh();
+        }
+      }
+    }
+  }
+
+  FrameTenHzTimer.Start(100, wxTIMER_CONTINUOUS);
+}
+
+void MyFrame::ProcessQuitFlag() {
   //      Listen for quitflag to be set, requesting application close
   if (quitflag) {
     wxLogMessage(_T("Got quitflag from SIGNAL"));
@@ -5644,12 +5694,9 @@ void MyFrame::OnFrameTimer1(wxTimerEvent &event) {
     Close();
     return;
   }
+}
 
-  if (bDBUpdateInProgress) return;
-
-  FrameTimer1.Stop();
-  FrameTenHzTimer.Stop();
-
+void MyFrame::ProcessDeferredTrackOn() {
   //  If tracking carryover was found in config file, enable tracking as soon as
   //  GPS become valid
   if (g_bDeferredStartTrack) {
@@ -5662,35 +5709,9 @@ void MyFrame::OnFrameTimer1(wxTimerEvent &event) {
       g_bDeferredStartTrack = false;
     }
   }
+}
 
-  //    Build and send a Position Fix event to PlugIns
-  if (g_pi_manager) {
-    GenericPosDatEx GPSData;
-    GPSData.kLat = gLat;
-    GPSData.kLon = gLon;
-    GPSData.kCog = gCog;
-    GPSData.kSog = gSog;
-    GPSData.kVar = gVar;
-    GPSData.kHdm = gHdm;
-    GPSData.kHdt = gHdt;
-    GPSData.nSats = g_SatsInView;
-
-    wxDateTime tCheck((time_t)m_fixtime);
-    if (tCheck.IsValid()) {
-      // As a special case, when no GNSS data is available, m_fixtime is set to
-      // zero. Note wxDateTime(0) is valid, so the zero value is passed to the
-      // plugins. The plugins should check for zero and not use the time in that
-      // case.
-      GPSData.FixTime = m_fixtime;
-    } else {
-      // Note: I don't think this is ever reached, as m_fixtime can never be set
-      // to wxLongLong(wxINT64_MIN), which is the only way to get here.
-      GPSData.FixTime = wxDateTime::Now().GetTicks();
-    }
-
-    SendPositionFixToAllPlugIns(&GPSData);
-  }
-
+void MyFrame::ProcessAnchorWatch() {
   //   Check for anchorwatch alarms                                 // pjotrc
   //   2010.02.15
   if (pAnchorWatchPoint1) {
@@ -5736,10 +5757,41 @@ void MyFrame::OnFrameTimer1(wxTimerEvent &event) {
 
   if ((pAnchorWatchPoint1 || pAnchorWatchPoint2) && !bGPSValid)
     AnchorAlertOn1 = true;
+}
 
+void MyFrame::SendFixToPlugins() {
+  //    Build and send a Position Fix event to PlugIns
+  if (g_pi_manager) {
+    GenericPosDatEx GPSData;
+    GPSData.kLat = gLat;
+    GPSData.kLon = gLon;
+    GPSData.kCog = gCog;
+    GPSData.kSog = gSog;
+    GPSData.kVar = gVar;
+    GPSData.kHdm = gHdm;
+    GPSData.kHdt = gHdt;
+    GPSData.nSats = g_SatsInView;
+
+    wxDateTime tCheck((time_t)m_fixtime);
+    if (tCheck.IsValid()) {
+      // As a special case, when no GNSS data is available, m_fixtime is set to
+      // zero. Note wxDateTime(0) is valid, so the zero value is passed to the
+      // plugins. The plugins should check for zero and not use the time in that
+      // case.
+      GPSData.FixTime = m_fixtime;
+    } else {
+      // Note: I don't think this is ever reached, as m_fixtime can never be set
+      // to wxLongLong(wxINT64_MIN), which is the only way to get here.
+      GPSData.FixTime = wxDateTime::Now().GetTicks();
+    }
+
+    SendPositionFixToAllPlugIns(&GPSData);
+  }
+}
+
+void MyFrame::ProcessLogAndBells() {
   //  Send current nav status data to log file on every half hour   // pjotrc
   //  2010.02.09
-
   wxDateTime lognow = wxDateTime::Now();  // pjotrc 2010.02.09
   int hourLOC = lognow.GetHour();
   int minuteLOC = lognow.GetMinute();
@@ -5797,6 +5849,24 @@ void MyFrame::OnFrameTimer1(wxTimerEvent &event) {
       }
     }
   }
+}
+
+void MyFrame::OnFrameTimer1(wxTimerEvent &event) {
+  CheckToolbarPosition();
+
+  ProcessUnitTest();
+  g_tick++;
+  ProcessQuitFlag();
+
+  if (bDBUpdateInProgress) return;
+
+  FrameTimer1.Stop();
+  FrameTenHzTimer.Stop();
+
+  ProcessDeferredTrackOn();
+  SendFixToPlugins();
+  ProcessAnchorWatch();
+  ProcessLogAndBells();
 
   if (ShouldRestartTrack()) TrackDailyRestart();
 
@@ -5817,18 +5887,6 @@ void MyFrame::OnFrameTimer1(wxTimerEvent &event) {
 
     gCog = 0.0;  // say speed is zero to kill ownship predictor
   }
-
-// TODO
-//  Not needed?
-#if 0
-#if !defined(__WXGTK__) && !defined(__WXQT__)
-    {
-        double cursor_lat, cursor_lon;
-        GetPrimaryCanvas()->GetCursorLatLon( &cursor_lat, &cursor_lon );
-        GetPrimaryCanvas()->SetCursorStatus(cursor_lat, cursor_lon);
-    }
-#endif
-#endif
 
   //      Update the chart database and displayed chart
   bool bnew_view = false;
@@ -5916,7 +5974,14 @@ void MyFrame::OnFrameTimer1(wxTimerEvent &event) {
       if (g_bopengl) {
 #ifdef ocpnUSE_GL
         if (cc->GetglCanvas()) {
-          cc->Refresh(false);
+          bool b_rotate = cc->GetUpMode() != NORTH_UP_MODE;
+          if (!b_rotate && !g_btenhertz) {
+            // printf("...........1 Hz update\n");
+            if (cc->m_bFollow)
+              cc->DoCanvasUpdate();
+            else
+              cc->Refresh(false);
+          }
         }
 #endif
       } else {
@@ -6066,6 +6131,8 @@ void MyFrame::OnFrameTCTimer(wxTimerEvent &event) {
 //    Keep and update the Viewport rotation angle according to average COG for
 //    COGUP mode
 void MyFrame::OnFrameCOGTimer(wxTimerEvent &event) {
+  return;
+
   // ..For each canvas...
   bool b_rotate = false;
   for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
