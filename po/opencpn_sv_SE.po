@@ -2599,7 +2599,7 @@ msgstr "Hjälp"
 
 #: gui/src/about.cpp:501 gui/src/AISTargetListDialog.cpp:794
 msgid "Close"
-msgstr "Avsluta"
+msgstr "Stäng"
 
 #: gui/src/AboutFrame.cpp:36
 msgid "< Back"
