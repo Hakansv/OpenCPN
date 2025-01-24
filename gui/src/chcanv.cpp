@@ -89,6 +89,7 @@
 #include "ocpn_frame.h"
 #include "ocpn_pixel.h"
 #include "OCPNRegion.h"
+#include "options.h"
 #include "piano.h"
 #include "pluginmanager.h"
 #include "Quilt.h"
@@ -202,6 +203,7 @@ extern bool g_bShowMenuBar;
 extern bool g_bShowCompassWin;
 
 extern MyFrame *gFrame;
+extern options *g_options;
 
 extern int g_iNavAidRadarRingsNumberVisible;
 extern bool g_bNavAidRadarRingsShown;
@@ -291,7 +293,6 @@ extern int g_nAutoHideToolbar;
 extern bool g_bDeferredInitDone;
 
 extern wxString g_CmdSoundString;
-extern bool g_boptionsactive;
 ShapeBaseChartSet gShapeBasemap;
 
 //  TODO why are these static?
@@ -3373,7 +3374,7 @@ bool ChartCanvas::DoCanvasCOGSet(void) {
   if (GetUpMode() == NORTH_UP_MODE) return false;
 
   double cog_use = g_COGAvg;
-  if (g_btenhertz) cog_use - gCog;
+  if (g_btenhertz) cog_use = gCog;
 
   if (std::isnan(cog_use)) return true;
 
@@ -3384,7 +3385,8 @@ bool ChartCanvas::DoCanvasCOGSet(void) {
   } else if (GetUpMode() == COURSE_UP_MODE)
     m_VPRotate = -cog_use * PI / 180.;
 
-  SetVPRotation(m_VPRotate);
+  // SetVPRotation(m_VPRotate);
+  VPoint.rotation = m_VPRotate;
   // bool bnew_chart = DoCanvasUpdate();
 
   // if ((bnew_chart) || (old_VPRotate != m_VPRotate)) ReloadVP();
@@ -3450,11 +3452,15 @@ void ChartCanvas::StartTimedMovementVP(double target_lat, double target_lon) {
 }
 void ChartCanvas::DoTimedMovementVP() {
   if (!m_timed_move_vp_active) return;  // not active
-
+  if (stvpc++ > 10) {                   // Backstop
+    StopMovement();
+    return;
+  }
   // Stop condition
   double one_pix = (1. / (1852 * 60)) / GetVP().view_scale_ppm;
   double d2 =
       pow(m_run_lat - m_target_lat, 2) + pow(m_run_lon - m_target_lon, 2);
+  d2 = pow(d2, 0.5);
 
   if (d2 < one_pix) {
     SetViewPoint(m_target_lat, m_target_lon);  // Embeds a refresh
@@ -3474,10 +3480,14 @@ void ChartCanvas::DoTimedMovementVP() {
   m_run_lat = new_lat;
   m_run_lon = new_lon;
 
+  // printf(" Timed\n");
   SetViewPoint(new_lat, new_lon);  // Embeds a refresh
 }
 
-void ChartCanvas::StopMovementVP() { m_timed_move_vp_active = false; }
+void ChartCanvas::StopMovementVP() {
+  // printf("Stop\n");
+  m_timed_move_vp_active = false;
+}
 
 void ChartCanvas::MovementVPTimerEvent(wxTimerEvent &) { DoTimedMovementVP(); }
 
@@ -13584,7 +13594,7 @@ void ChartCanvas::AddTileOverlayIndexToNoShow(int index) {
 
 void ChartCanvas::HandlePianoClick(
     int selected_index, const std::vector<int> &selected_dbIndex_array) {
-  if (g_boptionsactive)
+  if (g_options && g_options->IsShown())
     return;  // Piano might be invalid due to chartset updates.
   if (!m_pCurrentStack) return;
   if (!ChartData) return;
@@ -13725,7 +13735,7 @@ void ChartCanvas::HandlePianoClick(
 void ChartCanvas::HandlePianoRClick(
     int x, int y, int selected_index,
     const std::vector<int> &selected_dbIndex_array) {
-  if (g_boptionsactive)
+  if (g_options && g_options->IsShown())
     return;  // Piano might be invalid due to chartset updates.
   if (!GetpCurrentStack()) return;
 
@@ -13738,7 +13748,7 @@ void ChartCanvas::HandlePianoRClick(
 void ChartCanvas::HandlePianoRollover(
     int selected_index, const std::vector<int> &selected_dbIndex_array,
     int n_charts, int scale) {
-  if (g_boptionsactive)
+  if (g_options && g_options->IsShown())
     return;  // Piano might be invalid due to chartset updates.
   if (!GetpCurrentStack()) return;
   if (!ChartData) return;

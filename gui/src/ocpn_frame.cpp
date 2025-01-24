@@ -251,7 +251,6 @@ extern bool bDBUpdateInProgress;
 extern int quitflag;
 extern int g_tick;
 extern ChartDB *ChartData;
-extern bool g_boptionsactive;
 extern bool g_bDeferredInitDone;
 extern int options_lastPage;
 extern int options_subpage;
@@ -2513,6 +2512,11 @@ void MyFrame::OnToolLeftClick(wxCommandEvent &event) {
       break;
     }
 
+    case ID_SETTINGS_NEW: {
+      DoSettingsNew();
+      break;
+    }
+
     case ID_MENU_SETTINGS_BASIC: {
 #ifdef __ANDROID__
       /// LoadS57();
@@ -2798,8 +2802,38 @@ bool MyFrame::SetGlobalToolbarViz(bool viz) {
 
 void MyFrame::ScheduleSettingsDialog() {
   wxCommandEvent evt(wxEVT_COMMAND_MENU_SELECTED);
-  evt.SetId(ID_SETTINGS /*ID_MENU_SETTINGS_BASIC*/);
+  evt.SetId(ID_SETTINGS);
   GetEventHandler()->AddPendingEvent(evt);
+}
+
+void MyFrame::ScheduleSettingsDialogNew() {
+  wxCommandEvent evt(wxEVT_COMMAND_MENU_SELECTED);
+  evt.SetId(ID_SETTINGS_NEW);
+  GetEventHandler()->AddPendingEvent(evt);
+}
+
+void MyFrame::ScheduleReconfigAndSettingsReload(bool bnew_dialog) {
+  UpdateCanvasConfigDescriptors();
+
+  if ((g_canvasConfig > 0) && (last_canvasConfig == 0))
+    CreateCanvasLayout(true);
+  else
+    CreateCanvasLayout();
+  SendSizeEvent();
+  g_pauimgr->Update();
+
+  ConfigureStatusBar();
+  wxSize lastOptSize = options_lastWindowSize;
+  SendSizeEvent();
+
+  BuildMenuBar();
+  SendSizeEvent();
+  options_lastWindowSize = lastOptSize;
+
+  if (bnew_dialog)
+    ScheduleSettingsDialogNew();
+  else
+    ScheduleSettingsDialog();
 }
 
 ChartCanvas *MyFrame::GetFocusCanvas() {
@@ -2892,13 +2926,18 @@ void MyFrame::setStringVP(wxString VPS) {
   cc->SetViewPoint(lat, lon, scale_ppm, 0, cc->GetVPRotation());
 }
 
-void MyFrame::DoSettings() {
-  if (g_boptionsactive) return;
+void MyFrame::DoSettingsNew() {
+  delete g_options;
+  g_options = nullptr;
 
-  bool bnewtoolbar = !(DoOptionsDialog() == 0);
+  DoSettings();
+}
+
+void MyFrame::DoSettings() {
+  DoOptionsDialog();
 
   //              Apply various system settings
-  ApplyGlobalSettings(bnewtoolbar);
+  ApplyGlobalSettings(true);
 
   // ..For each canvas...
   bool b_loadHarmonics = false;
@@ -3909,12 +3948,48 @@ void MyFrame::CenterView(ChartCanvas *cc, const LLBBox &RBBox) {
   JumpToPosition(cc, clat, clon, ppm);
 }
 
-int MyFrame::DoOptionsDialog() {
-  if (g_boptionsactive) return 0;
+void MyFrame::PrepareOptionsClose(options *settings,
+                                  int settings_return_value) {
+  // Capture som values from options dialog before closure
+  options_lastPage = settings->lastPage;
+#ifdef __ANDROID__
+  //  This is necessary to force a manual change to charts page,
+  //  in order to properly refresh the chart directory list.
+  //  Root cause:  In Android, trouble with clearing the wxScrolledWindow
+  if (options_lastPage == 1) options_lastPage = 0;
+#endif
+  options_subpage = settings->lastSubPage;
+  options_lastWindowPos = settings->lastWindowPos;
+  options_lastWindowSize = settings->lastWindowSize;
 
-  g_boptionsactive = true;
-  g_last_ChartScaleFactor = g_ChartScaleFactor;
+#ifdef __ANDROID__
+  androidEnableBackButton(true);
+  androidEnableOptionsMenu(true);
+  androidRestoreFullScreen();
+  androidEnableRotation();
+#endif
 
+#if 0  // Maybe, TODO
+  // If needed, refresh each canvas,
+  // trying to reload the previously displayed chart by name as saved in
+  // pathArray Also, restoring the previous chart VPScale, if possible
+  if (b_refresh) {
+    // ..For each canvas...
+    for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
+      ChartCanvas *cc = g_canvasArray.Item(i);
+      if (cc) {
+        int index_hint = -1;
+        if (i < pathArray.GetCount())
+          index_hint = ChartData->FinddbIndex(pathArray.Item(i));
+        cc->canvasChartsRefresh(index_hint);
+        if (index_hint != -1) cc->SetVPScale(restoreScale[i]);
+      }
+    }
+  }
+#endif
+}
+
+void MyFrame::DoOptionsDialog() {
   if (NULL == g_options) {
     AbstractPlatform::ShowBusySpinner();
 
@@ -3943,36 +4018,9 @@ int MyFrame::DoOptionsDialog() {
 
   //      Pass a ptr to MyConfig, for updates
   g_options->SetConfigPtr(pConfig);
-
   g_options->SetInitialSettings();
 
   prev_locale = g_locale;
-
-  bool b_sub = false;
-#if 0
-  if (g_MainToolbar && g_MainToolbar->IsShown()) {
-    wxRect bx_rect = g_options->GetScreenRect();
-    wxRect tb_rect = g_MainToolbar->GetScreenRect();
-    if (tb_rect.Intersects(bx_rect)) b_sub = true;
-
-    if (b_sub) g_MainToolbar->Submerge();
-  }
-#endif
-
-#if defined(__WXOSX__) || defined(__WXQT__)
-  bool b_restoreAIS = false;
-  if (g_pAISTargetList && g_pAISTargetList->IsShown()) {
-    b_restoreAIS = true;
-    g_pAISTargetList->Shutdown();
-    g_pAISTargetList = NULL;
-  }
-#endif
-
-#ifdef __WXOSX__
-  // SubmergeAllCanvasToolbars();
-  g_MainToolbar->Submerge();
-#endif
-
   g_options->SetInitialPage(options_lastPage, options_subpage);
 
 #ifndef __ANDROID__  //    if(!g_bresponsive){
@@ -3986,17 +4034,7 @@ int MyFrame::DoOptionsDialog() {
   if (options_lastWindowSize != wxSize(0, 0)) {
     g_options->SetSize(options_lastWindowSize);
   }
-
-  // Correct some fault in Options dialog layout logic on GTK3 by forcing a
-  // re-layout to new slightly reduced size.
-#ifdef __WXGTK3__
-  if (options_lastWindowSize != wxSize(0, 0))
-    g_options->SetSize(options_lastWindowSize.x - 1, options_lastWindowSize.y);
 #endif
-
-#endif
-
-  if (g_MainToolbar) g_MainToolbar->DisableTooltips();
 
 #ifdef __ANDROID__
   androidEnableBackButton(false);
@@ -4004,19 +4042,9 @@ int MyFrame::DoOptionsDialog() {
   androidDisableFullScreen();
 #endif
 
-  // Record current canvas config
-  unsigned int last_canvasConfig = g_canvasConfig;
-  wxSize cc1SizeBefore;
-  if (g_canvasConfig > 0) {
-    canvasConfig *cc = ConfigMgr::Get().GetCanvasConfigArray().Item(0);
-    if (cc) cc1SizeBefore = g_canvasArray.Item(0)->GetSize();
-  }
-
   //  Capture the full path names and VPScale of charts currently shown in all
   //  canvases
-  wxArrayString pathArray;
-  double restoreScale[4];
-
+  pathArray.Clear();
   // ..For each canvas...
   for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
     ChartCanvas *cc = g_canvasArray.Item(i);
@@ -4035,260 +4063,14 @@ int MyFrame::DoOptionsDialog() {
     }
   }
 
-  int rr = g_options->ShowModal();
+  // Record current canvas config
+  last_canvasConfig = g_canvasConfig;
 
-#ifdef __ANDROID__
-  androidEnableBackButton(true);
-  androidEnableOptionsMenu(true);
-  androidRestoreFullScreen();
-  androidEnableRotation();
-#endif
+  // Record current chart scale factor
+  g_last_ChartScaleFactor = g_ChartScaleFactor;
 
-  if (g_MainToolbar) g_MainToolbar->EnableTooltips();
-
-  options_lastPage = g_options->lastPage;
-#ifdef __ANDROID__
-  //  This is necessary to force a manual change to charts page,
-  //  in order to properly refresh the chart directory list.
-  //  Root cause:  In Android, trouble with clearing the wxScrolledWindow
-  if (options_lastPage == 1) options_lastPage = 0;
-#endif
-
-  options_subpage = g_options->lastSubPage;
-
-  options_lastWindowPos = g_options->lastWindowPos;
-  options_lastWindowSize = g_options->lastWindowSize;
-
-  if (1 /*b_sub*/) {  // always surface toolbar, and restart the timer if needed
-#ifdef __ANDROID__
-    g_MainToolbar->SetDockX(-1);
-    g_MainToolbar->SetDockY(-1);
-#endif
-    // g_MainToolbar->Surface();
-    // SurfaceAllCanvasToolbars();
-    GetPrimaryCanvas()->SetFocus();
-  }
-
-#ifdef __WXGTK__
-  Raise();  // I dunno why...
-#endif
-
-  bool ret_val = false;
-  rr = g_options->GetReturnCode();
-
-  if (g_last_ChartScaleFactor != g_ChartScaleFactor) rr |= S52_CHANGED;
-
-  bool b_refresh = true;
-
-#if 0
-    bool ccRightSizeChanged = false;
-    if( g_canvasConfig > 0 ){
-        canvasConfig *cc = g_canvasConfigArray.Item(0);
-        if(cc ){
-            wxSize cc1Size = cc->canvasSize;
-            if(cc1Size.x != cc1SizeBefore.x)
-                ccRightSizeChanged = true;
-        }
-    }
-#endif
-
-  if ((g_canvasConfig != last_canvasConfig) || (rr & GL_CHANGED)) {
-    DestroyPersistentDialogs();
-
-    UpdateCanvasConfigDescriptors();
-
-    if ((g_canvasConfig > 0) && (last_canvasConfig == 0))
-      CreateCanvasLayout(true);
-    else
-      CreateCanvasLayout();
-
-    SendSizeEvent();
-
-    g_pauimgr->Update();
-
-    // We need a yield() here to pick up the size event
-    // so that the toolbars will be sized correctly
-    wxYield();
-
-    // ..For each canvas...
-    for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
-      ChartCanvas *cc = g_canvasArray.Item(i);
-      if (cc) cc->CreateMUIBar();
-    }
-
-    rr |= GENERIC_CHANGED;
-
-    if (g_bopengl)  // Force mark/waypoint icon reload
-      rr |= S52_CHANGED;
-
-    b_refresh = true;
-  }
-
-  // Here check for the case wherein the relative sizes of a multicanvas layout
-  // have been changed. We do not need to reqbuild the canvases, we just need to
-  // resize whichever one is docked.
-
-  //     if( (g_canvasConfig > 0)  && ccRightSizeChanged ){
-  //         canvasConfig *cc = g_canvasConfigArray.Item(1);
-  //         if(cc ){
-  //             wxAuiPaneInfo& p = g_pauimgr->GetPane(g_canvasArray.Item(1));
-  //             wxAuiDockInfo *dockRight = g_pauimgr->FindDock(p);
-  //             if(dockRight)
-  //                 g_pauimgr->SetDockSize(dockRight, cc->canvasSize.x);
-  //         }
-  //     }
-
-  if (rr & CONFIG_CHANGED) {
-    // Apply the changed canvas configs to each canvas
-    // ..For each canvas...
-    for (unsigned int i = 0;
-         i < ConfigMgr::Get().GetCanvasConfigArray().GetCount(); i++) {
-      canvasConfig *cc = ConfigMgr::Get().GetCanvasConfigArray().Item(i);
-      if (cc) {
-        ChartCanvas *chartCanvas = cc->canvas;
-        if (chartCanvas) {
-          chartCanvas->ApplyCanvasConfig(cc);
-        }
-      }
-    }
-  }
-
-  if (rr) {
-    bDBUpdateInProgress = true;
-    b_refresh |= ProcessOptionsDialog(rr, g_options->GetWorkDirListPtr());
-    ChartData->GetChartDirArray() =
-        *(g_options->GetWorkDirListPtr());  // Perform a deep copy back to main
-                                            // database.
-    bDBUpdateInProgress = false;
-    ret_val = true;
-  }
-
-  delete pWorkDirArray;
-
-  DoChartUpdate();
-
-  //  We set the compass size first, since that establishes the available space
-  //  for the toolbar.
-  SetGPSCompassScale();
-  // ..For each canvas...
-  for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
-    ChartCanvas *cc = g_canvasArray.Item(i);
-    if (cc) {
-      cc->GetCompass()->SetScaleFactor(g_compass_scalefactor);
-      cc->UpdateCanvasControlBar();
-    }
-  }
-  UpdateGPSCompassStatusBoxes();
-
-  SetAllToolbarScale();
-  RequestNewToolbars();
-
-  //  Rebuild cursors
-  // ..For each canvas...
-  for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
-    ChartCanvas *cc = g_canvasArray.Item(i);
-    if (cc) {
-      cc->RebuildCursors();
-    }
-  }
-
-  // Change of master toolbar scale?
-  bool b_masterScaleChange = false;
-  if (fabs(g_MainToolbar->GetScaleFactor() - g_toolbar_scalefactor) > 0.01f)
-    b_masterScaleChange = true;
-
-  if ((rr & TOOLBAR_CHANGED) || b_masterScaleChange)
-    RequestNewMasterToolbar(true);
-
-  bool bMuiChange = false;
-#ifdef __ANDROID__
-  bMuiChange = true;  // to pick up possible "zoom" button visibility change
-#endif
-
-  // Inform the canvases
-  if (b_masterScaleChange || bMuiChange) {
-    // ..For each canvas...
-    for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
-      ChartCanvas *cc = g_canvasArray.Item(i);
-      if (cc) {
-        cc->ProcessNewGUIScale();
-      }
-    }
-  }
-
-  if (g_MainToolbar) {
-    if (IsFullScreen() && !g_bFullscreenToolbar) g_MainToolbar->Submerge();
-  }
-
-#if defined(__WXOSX__) || defined(__WXQT__)
-  if (b_restoreAIS) {
-    g_pAISTargetList = new AISTargetListDialog(this, g_pauimgr, g_pAIS);
-    g_pAISTargetList->UpdateAISTargetList();
-  }
-#endif
-
-  if (console && console->IsShown()) console->Raise();
-
-  auto alert_dlg_active =
-      dynamic_cast<AISTargetAlertDialog *>(g_pais_alert_dialog_active);
-  if (alert_dlg_active) alert_dlg_active->Raise();
-
-  if (NMEALogWindow::GetInstance().Active())
-    NMEALogWindow::GetInstance().GetTTYWindow()->Raise();
-
-#ifdef __ANDROID__
-  if (g_pi_manager) g_pi_manager->NotifyAuiPlugIns();
-#endif
-
-  //  Force reload of options dialog to pick up font changes or other major
-  //  layout changes
-  if ((rr & FONT_CHANGED) || (rr & NEED_NEW_OPTIONS)) {
-    delete g_options;
-    g_options = NULL;
-    g_pOptions = NULL;
-  }
-
-  //  Pick up chart object icon size changes (g_ChartScaleFactorExp)
-  if (g_pMarkInfoDialog) {
-    g_pMarkInfoDialog->Hide();
-    g_pMarkInfoDialog->Destroy();
-    g_pMarkInfoDialog = NULL;
-  }
-
-#if wxUSE_XLOCALE
-  if (rr & LOCALE_CHANGED) {
-    g_Platform->ChangeLocale(g_locale, plocale_def_lang, &plocale_def_lang);
-    ApplyLocale();
-  }
-#endif
-
-  // If needed, refresh each canvas,
-  // trying to reload the previously displayed chart by name as saved in
-  // pathArray Also, restoring the previous chart VPScale, if possible
-  if (b_refresh) {
-    // ..For each canvas...
-    for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
-      ChartCanvas *cc = g_canvasArray.Item(i);
-      if (cc) {
-        int index_hint = -1;
-        if (i < pathArray.GetCount())
-          index_hint = ChartData->FinddbIndex(pathArray.Item(i));
-        cc->canvasChartsRefresh(index_hint);
-        if (index_hint != -1) cc->SetVPScale(restoreScale[i]);
-      }
-    }
-  }
-
-  g_boptionsactive = false;
-
-  //  If we had a config chamge, then schedule a re-entry to the settings dialog
-  if (rr & CONFIG_CHANGED) {
-    options_subpage = 3;  // Back to the "templates" page
-    ScheduleSettingsDialog();
-  } else
-    options_subpage = 0;
-
-  return ret_val;
+  g_options->Show();
+  return;
 }
 
 bool MyFrame::ProcessOptionsDialog(int rr, ArrayOfCDI *pNewDirArray) {
@@ -4341,29 +4123,6 @@ bool MyFrame::ProcessOptionsDialog(int rr, ArrayOfCDI *pNewDirArray) {
   if (g_pActiveTrack) {
     g_pActiveTrack->SetPrecision(g_nTrackPrecision);
   }
-
-  //     if( ( bPrevQuilt != g_bQuiltEnable ) || ( bPrevFullScreenQuilt !=
-  //     g_bFullScreenQuilt ) ) {
-  //         GetPrimaryCanvas()->SetQuiltMode( g_bQuiltEnable );
-  //         GetPrimaryCanvas()->SetupCanvasQuiltMode();
-  //     }
-
-#if 0
-//TODO Not need with per-canvas CourseUp
-    if( g_bCourseUp ) {
-        //    Stuff the COGAvg table in case COGUp is selected
-        double stuff = NAN;
-        if( !std::isnan(gCog) ) stuff = gCog;
-        if( g_COGAvgSec > 0 ) {
-            for( int i = 0; i < g_COGAvgSec; i++ )
-                COGTable[i] = stuff;
-        }
-
-        g_COGAvg = stuff;
-
-        DoCOGSet();
-    }
-#endif
 
   // reload pens and brushes
   g_pRouteMan->SetColorScheme(global_color_scheme,
@@ -4455,17 +4214,100 @@ bool MyFrame::ProcessOptionsDialog(int rr, ArrayOfCDI *pNewDirArray) {
 
   //  The zoom-scale factor may have changed
   //  so, trigger a recalculation of the reference chart
-
   bool ztc = g_bEnableZoomToCursor;  // record the present state
   g_bEnableZoomToCursor =
       false;  // since we don't want to pan to an unknown cursor position
 
   //  This is needed to recognise changes in zoom-scale factors
   GetPrimaryCanvas()->DoZoomCanvas(1.0001);
-
   g_bEnableZoomToCursor = ztc;
 
+  //  Pick up chart object icon size changes (g_ChartScaleFactorExp)
+  if (g_last_ChartScaleFactor != g_ChartScaleFactor) {
+    if (g_pMarkInfoDialog) {
+      g_pMarkInfoDialog->Hide();
+      g_pMarkInfoDialog->Destroy();
+      g_pMarkInfoDialog = NULL;
+    }
+  }
+
+  //  We set the compass size
+  SetGPSCompassScale();
+  // ..For each canvas...
+  for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
+    ChartCanvas *cc = g_canvasArray.Item(i);
+    if (cc) {
+      cc->GetCompass()->SetScaleFactor(g_compass_scalefactor);
+      cc->UpdateCanvasControlBar();
+    }
+  }
+  UpdateGPSCompassStatusBoxes();
+
+  SetAllToolbarScale();
+  RequestNewToolbars();
+
+  //  Rebuild cursors
+  for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
+    ChartCanvas *cc = g_canvasArray.Item(i);
+    if (cc) {
+      cc->RebuildCursors();
+    }
+  }
+
+  // Change of master toolbar scale?
+  bool b_masterScaleChange = false;
+  if (fabs(g_MainToolbar->GetScaleFactor() - g_toolbar_scalefactor) > 0.01f)
+    b_masterScaleChange = true;
+
+  if ((rr & TOOLBAR_CHANGED) || b_masterScaleChange)
+    RequestNewMasterToolbar(true);
+
+  bool bMuiChange = false;
+#ifdef __ANDROID__
+  bMuiChange = true;  // to pick up possible "zoom" button visibility change
+#endif
+
+  // Inform the canvases
+  if (b_masterScaleChange || bMuiChange) {
+    // ..For each canvas...
+    for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
+      ChartCanvas *cc = g_canvasArray.Item(i);
+      if (cc) {
+        cc->ProcessNewGUIScale();
+      }
+    }
+  }
+
+#if wxUSE_XLOCALE
+  if (rr & LOCALE_CHANGED) {
+    g_Platform->ChangeLocale(g_locale, plocale_def_lang, &plocale_def_lang);
+    ApplyLocale();
+    rr |= NEED_NEW_OPTIONS;
+  }
+#endif
+
+#ifdef __ANDROID__
+  if (g_pi_manager) g_pi_manager->NotifyAuiPlugIns();
+#endif
+
+  // Reset chart scale factor trigger
   g_last_ChartScaleFactor = g_ChartScaleFactor;
+
+  //  Force reload of options dialog to pick up font changes, locale changes,
+  //  or other major layout changes
+  if ((rr & FONT_CHANGED) || (rr & NEED_NEW_OPTIONS)) {
+    DestroyPersistentDialogs();
+    PrepareOptionsClose(g_options, rr);
+    ScheduleReconfigAndSettingsReload(true);
+  } else {
+    //  If we had a config change,
+    //  then schedule a re-entry to the settings dialog
+    if ((rr & CONFIG_CHANGED)) {
+      DestroyPersistentDialogs();
+      PrepareOptionsClose(g_options, rr);
+      ScheduleReconfigAndSettingsReload();
+    }
+  }
 
   return b_need_refresh;
 }
@@ -5198,6 +5040,7 @@ void MyFrame::HandleBasicNavMsg(std::shared_ptr<const BasicNavDataMsg> msg) {
       uint64_t fix_time_gt_now =
           msg->set_time.tv_sec * 1e9 + msg->set_time.tv_nsec;
       fix_time_interval = (fix_time_gt_now - fix_time_gt_last) / (double)1e9;
+      // printf("interval:  %g\n", fix_time_interval);
 
       // Calculate an implied SOG from the position change and time interval
       double implied_sog = dist / (fix_time_interval / 3600);
@@ -5253,7 +5096,10 @@ void MyFrame::HandleBasicNavMsg(std::shared_ptr<const BasicNavDataMsg> msg) {
           tentative_cog_rate_gt *= 1e9;  // degrees / sec
           cog_rate_gt = tentative_cog_rate_gt;
         }
-        // printf("cog_rate_gt  %g\n", cog_rate_gt);
+
+        gCog = gCog_gt_m1;
+
+        // printf("cog_rate_gt  %g %g\n", gCog, cog_rate_gt);
       }
     }
   } else if ((msg->vflag & HDT_UPDATE) == HDT_UPDATE) {
@@ -5277,6 +5123,8 @@ void MyFrame::HandleBasicNavMsg(std::shared_ptr<const BasicNavDataMsg> msg) {
           // Sanity check, and resolve the "phase" problem at +/- North
           if (fabs(tentative_hdt_rate_gt - hdt_rate_gt) < 180.)
             hdt_rate_gt = tentative_hdt_rate_gt;
+
+          gHdt = gHdt_gt_m1;
         }
       }
     }
@@ -5528,6 +5376,7 @@ void MyFrame::ProcessUnitTest() {
     }
   }
 }
+double gCog_last;
 
 void MyFrame::OnFrameTenHzTimer(wxTimerEvent &event) {
   // Check to see if in non-North-Up mode
@@ -5593,7 +5442,7 @@ void MyFrame::OnFrameTenHzTimer(wxTimerEvent &event) {
   }
 
   if (b_update) {
-    // printf("10 Hz update\n");
+    // printf("                   gCog:  %g  %g\n", gCog, gCog - gCog_last);
 
     for (ChartCanvas *cc : g_canvasArray) {
       if (cc) {
@@ -5607,6 +5456,7 @@ void MyFrame::OnFrameTenHzTimer(wxTimerEvent &event) {
     }
   }
 
+  gCog_last = gCog;
   FrameTenHzTimer.Start(100, wxTIMER_CONTINUOUS);
 }
 
@@ -5825,7 +5675,7 @@ void MyFrame::OnFrameTimer1(wxTimerEvent &event) {
   //    If in COG UP mode, the chart update is handled by COG Update timer
   if (/*!g_bCourseUp &&*/ (0 != g_ChartUpdatePeriod)) {
     if (0 == m_ChartUpdatePeriod--) {
-      bnew_view = DoChartUpdate();
+      // bnew_view = DoChartUpdate();
       m_ChartUpdatePeriod = g_ChartUpdatePeriod;
     }
   }
@@ -7877,9 +7727,9 @@ void ApplyLocale() {
   FontMgr::Get().ScrubList();
 
   //  Close and re-init various objects to allow new locale to show.
-  delete g_options;
-  g_options = NULL;
-  g_pOptions = NULL;
+  // delete g_options;
+  // g_options = NULL;
+  // g_pOptions = NULL;
 
   if (pRoutePropDialog) {
     pRoutePropDialog->Hide();
