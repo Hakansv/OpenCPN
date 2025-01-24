@@ -24,10 +24,6 @@
 
 #include "dialog_alert.h"
 
-#ifdef __ANDROID__
-#include "androidUTIL.h"
-#endif
-
 AlertDialog::AlertDialog(wxWindow* parent, const std::string& title,
                          const std::string& action)
     : BaseDialog(parent, title, wxSTAY_ON_TOP | wxCAPTION),
@@ -42,15 +38,15 @@ AlertDialog::AlertDialog(wxWindow* parent, const std::string& title,
 
   Bind(wxEVT_BUTTON, &AlertDialog::OnConfirm, this, wxID_OK);
   Bind(wxEVT_BUTTON, &AlertDialog::OnCancel, this, wxID_CANCEL);
-
-  wxSizerFlags flags = wxSizerFlags().Border(wxALL, FromDIP(kDialogPadding));
+#if wxCHECK_VERSION(3, 2, 0)
+  auto flags = wxSizerFlags().Border(wxALL, FromDIP(kDialogPadding));
+#else
+  auto flags = wxSizerFlags().Border();
+#endif
   m_layout->Add(footer, flags);
 }
 
 AlertDialog::~AlertDialog() {
-#ifdef __OCPN__ANDROID__
-  androidEnableRotation();
-#endif
 }
 
 void AlertDialog::SetListener(IAlertConfirmation* listener) {
@@ -63,9 +59,6 @@ void AlertDialog::SetMessage(const std::string& msg) {
 }
 
 int AlertDialog::ShowModal() {
-#ifdef __OCPN__ANDROID__
-  androidDisableRotation();
-#endif
 
   // Adjust the dialog size.
   m_layout->Fit(this);
