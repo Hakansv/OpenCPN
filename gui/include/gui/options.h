@@ -240,6 +240,7 @@ enum {
 #define NEED_NEW_OPTIONS 1 << 14
 #define PARSE_ENC 1 << 15
 #define CONFIG_CHANGED 1 << 16
+#define FONT_CHANGED_SAFE 1 << 17
 
 #ifndef wxCLOSE_BOX
 #define wxCLOSE_BOX 0x1000
@@ -663,6 +664,7 @@ private:
   void resetMarStdList(bool bsetConfig, bool bsetStd);
 
   ObservableListener compat_os_listener;
+  void ApplyChanges(wxCommandEvent &event);
 
   unsigned int m_screenConfig;
 
@@ -675,6 +677,8 @@ private:
   bool m_bcompact;
   int m_fontHeight, m_scrollRate;
   bool m_bfontChanged;
+  wxArrayString m_font_element_array;
+
   bool m_bVectorInit;
 
   wxBoxSizer *m_boxSizerConfigs;

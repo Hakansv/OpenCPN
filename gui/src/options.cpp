@@ -5798,7 +5798,7 @@ void options::CreateControls(void) {
   wxBoxSizer* buttons = new wxBoxSizer(wxHORIZONTAL);
   itemBoxSizer2->Add(buttons, 0, wxALIGN_RIGHT | wxALL, border_size);
 
-  m_OKButton = new wxButton(itemDialog1, xID_OK, _("Close"));
+  m_OKButton = new wxButton(itemDialog1, xID_OK, _("Ok"));
   m_OKButton->SetDefault();
   buttons->Add(m_OKButton, 0, wxALIGN_CENTER_VERTICAL | wxALL, border_size);
 
@@ -5963,6 +5963,7 @@ void options::SetInitialSettings(void) {
 
   m_returnChanges = 0;  // reset the flags
   m_bfontChanged = false;
+  m_font_element_array.Clear();
 
   b_oldhaveWMM = b_haveWMM;
   auto loader = PluginLoader::getInstance();
@@ -6823,6 +6824,26 @@ void options::UpdateWorkArrayFromDisplayPanel(void) {
 }
 
 void options::OnApplyClick(wxCommandEvent& event) {
+  ApplyChanges(event);
+
+  // Complete processing
+  //  Force reload of options dialog to pick up font changes, locale changes,
+  //  or other major layout changes
+  if ((m_returnChanges & FONT_CHANGED) ||
+      (m_returnChanges & NEED_NEW_OPTIONS)) {
+    gFrame->PrepareOptionsClose(this, m_returnChanges);
+    if (!(m_returnChanges & FONT_CHANGED_SAFE))
+      gFrame->ScheduleReconfigAndSettingsReload(true, true);
+  } else {
+    //  If we had a config change,
+    //  then schedule a re-entry to the settings dialog
+    if ((m_returnChanges & CONFIG_CHANGED)) {
+      gFrame->ScheduleReconfigAndSettingsReload(true, false);
+    }
+  }
+}
+
+void options::ApplyChanges(wxCommandEvent& event) {
   //::wxBeginBusyCursor();
   // FIXME This function is in ConnectionsDialog StopBTScan();
 
@@ -6894,7 +6915,13 @@ void options::OnApplyClick(wxCommandEvent& event) {
       gFrame->GetPrimaryCanvas()->GetglCanvas()->ResetGridFont();
     }
 #endif
+
     m_returnChanges |= FONT_CHANGED;
+
+    // If the font element changed was not "Dialog", then we don't need a full
+    // reload
+    if (m_font_element_array.Index("Dialog") == wxNOT_FOUND)
+      m_returnChanges |= FONT_CHANGED_SAFE;
   }
 
   // Handle Chart Tab
@@ -7442,8 +7469,8 @@ void options::OnApplyClick(wxCommandEvent& event) {
 
     //  We can clear a few flag bits on "Apply", so they won't be recognised at
     //  the "Close" click. Their actions have already been accomplished once...
-    m_returnChanges &= ~(CHANGE_CHARTS | FORCE_UPDATE | SCAN_UPDATE);
-    k_charts = 0;
+    // m_returnChanges &= ~(CHANGE_CHARTS | FORCE_UPDATE | SCAN_UPDATE);
+    // k_charts = 0;
 
     gFrame->RefreshAllCanvas();
   }
@@ -7463,7 +7490,20 @@ void options::OnXidOkClick(wxCommandEvent& event) {
   // second is empty??
   if (event.GetEventObject() == NULL) return;
 
-  OnApplyClick(event);
+  ApplyChanges(event);
+
+  // Complete processing
+  gFrame->PrepareOptionsClose(this, m_returnChanges);
+
+  //  If we had a config change, then do it now
+  if ((m_returnChanges & CONFIG_CHANGED))
+    gFrame->ScheduleReconfigAndSettingsReload(false, false);
+
+  // Special case for "Dialog" font edit
+  if ((m_returnChanges & FONT_CHANGED) &&
+      !(m_returnChanges & FONT_CHANGED_SAFE))
+    gFrame->ScheduleDeleteSettingsDialog();
+
   Finish();
   Hide();
 }
@@ -7483,8 +7523,6 @@ void options::Finish(void) {
   pConfig->SetPath("/Settings");
   pConfig->Write("OptionsSizeX", lastWindowSize.x);
   pConfig->Write("OptionsSizeY", lastWindowSize.y);
-
-  gFrame->PrepareOptionsClose(this, m_returnChanges);
 }
 
 ArrayOfCDI options::GetSelectedChartDirs() {
@@ -7943,6 +7981,7 @@ void options::OnClose(wxCloseEvent& event) {
 
 void options::OnFontChoice(wxCommandEvent& event) {
   wxString sel_text_element = m_itemFontElementListBox->GetStringSelection();
+  m_font_element_array.Add(sel_text_element);
 
   wxFont* pif = FontMgr::Get().GetFont(sel_text_element);
   wxColour init_color = FontMgr::Get().GetFontColor(sel_text_element);
@@ -7959,6 +7998,7 @@ void options::OnChooseFont(wxCommandEvent& event) {
 #endif
 
   wxString sel_text_element = m_itemFontElementListBox->GetStringSelection();
+  m_font_element_array.Add(sel_text_element);
   wxFontData font_data;
 
   wxFont* pif = FontMgr::Get().GetFont(sel_text_element);
@@ -8041,6 +8081,7 @@ void options::OnChooseFont(wxCommandEvent& event) {
 #if defined(__WXGTK__) || defined(__WXQT__)
 void options::OnChooseFontColor(wxCommandEvent& event) {
   wxString sel_text_element = m_itemFontElementListBox->GetStringSelection();
+  m_font_element_array.Add(sel_text_element);
 
   wxColourData colour_data;
 
