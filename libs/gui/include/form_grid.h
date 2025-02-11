@@ -1,5 +1,5 @@
-/**************************************************************************
- *   Copyright (C) 2024 Alec Leamas                                        *
+/***************************************************************************
+ *   Copyright (C) 2025 by NoCodeHummel                                    *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -16,18 +16,18 @@
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
  **************************************************************************/
+#ifndef FORM_GRID_H
+#define FORM_GRID_H
+
+#include <wx/wx.h>
 
 /**
- *  \file
- *  Implement gui.h.
+ * Grid layout with 2 columns for form labels and fields.
+ * The flexible grid aligns the form elements with spacing.
  */
-#include <wx/dialog.h>
-#include <wx/frame.h>
+class FormGrid : public wxFlexGridSizer {
+public:
+  FormGrid(wxWindow* parent);
+};
 
-#include "model/gui.h"
-
-wxWindow* GetTopWindow() {
-  auto top_window = wxWindow::FindWindowByName(kTopLevelWindowName);
-  assert(top_window && "Cannot find MainWindow a k a gFrame");
-  return top_window;
-}
+#endif  // FORM_GRID_H
