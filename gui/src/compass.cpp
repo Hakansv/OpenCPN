@@ -436,7 +436,7 @@ void ocpnCompass::CreateBmp(bool newColorScheme) {
   if (g_btenhertz) {
     mdc.SetPen(wxPen(GetGlobalColor(_T("DASHR")), 1));
     mdc.SetBrush(wxBrush(GetGlobalColor(_T("DASHR")), wxBRUSHSTYLE_SOLID));
-    mdc.DrawCircle(5, m_StatBmp.GetHeight() - 5, 2);
+    mdc.DrawCircle(5, m_StatBmp.GetHeight() - 5, 4);
   }
 
   offset.x += iconBm.GetWidth();
