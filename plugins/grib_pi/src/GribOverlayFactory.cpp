@@ -657,7 +657,9 @@ void GRIBOverlayFactory::GetCalibratedGraphicColor(int settings, double val_in,
     // set full transparency if no rain or no clouds at all
     // TODO: make map support this
     if ((settings == GribOverlaySettings::PRECIPITATION ||
-         settings == GribOverlaySettings::CLOUD) && val_in < 0.01) a = 0;
+         settings == GribOverlaySettings::CLOUD) &&
+        val_in < 0.01)
+      a = 0;
 
     if ((settings == GribOverlaySettings::COMP_REFL) && val_in < 5) a = 0;
 
