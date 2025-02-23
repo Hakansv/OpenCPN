@@ -1044,6 +1044,7 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   // Boolean to cater for sailing when not approaching waypoint
   Read(_T( "AdvanceRouteWaypointOnArrivalOnly" ),
        &g_bAdvanceRouteWaypointOnArrivalOnly);
+  Read("EnableRootMenuDebug", &g_enable_root_menu_debug);
 
   Read(_T ( "EnableRotateKeys" ), &g_benable_rotate);
   Read(_T ( "EmailCrashReport" ), &g_bEmailCrashReport);
@@ -2592,6 +2593,7 @@ void MyConfig::UpdateSettings() {
         g_b_legacy_input_filter_behaviour);
   Write(_T( "AdvanceRouteWaypointOnArrivalOnly" ),
         g_bAdvanceRouteWaypointOnArrivalOnly);
+  Write("EnableRootMenuDebug", g_enable_root_menu_debug);
 
   // LIVE ETA OPTION
   Write(_T( "LiveETA" ), g_bShowLiveETA);
@@ -3377,6 +3379,58 @@ bool LogMessageOnce(const wxString &msg) {
 /**************************************************************************/
 /*          Some assorted utilities                                       */
 /**************************************************************************/
+
+wxDateTime toUsrDateTime(const wxDateTime ts, const int format,
+                         const double lon) {
+  if (!ts.IsValid()) {
+    return ts;
+  }
+  wxDateTime dt;
+  switch (format) {
+    case LMTINPUT:  // LMT@Location
+      if (std::isnan(lon)) {
+        dt = wxInvalidDateTime;
+      } else {
+        dt =
+            ts.Add(wxTimeSpan(wxTimeSpan(0, 0, wxLongLong(lon * 3600. / 15.))));
+      }
+      break;
+    case LTINPUT:  // Local@PC
+      // Convert date/time from UTC to local time.
+      dt = ts.FromUTC();
+      break;
+    case UTCINPUT:  // UTC
+      // The date/time is already in UTC.
+      dt = ts;
+      break;
+  }
+  return dt;
+}
+
+wxDateTime fromUsrDateTime(const wxDateTime ts, const int format,
+                           const double lon) {
+  if (!ts.IsValid()) {
+    return ts;
+  }
+  wxDateTime dt;
+  switch (format) {
+    case LMTINPUT:  // LMT@Location
+      if (std::isnan(lon)) {
+        dt = wxInvalidDateTime;
+      } else {
+        dt = ts.Subtract(wxTimeSpan(0, 0, wxLongLong(lon * 3600. / 15.)));
+      }
+      break;
+    case LTINPUT:  // Local@PC
+      // The input date/time is in local time, so convert it to UTC.
+      dt = ts.ToUTC();
+      break;
+    case UTCINPUT:  // UTC
+      dt = ts;
+      break;
+  }
+  return dt;
+}
 
 /**************************************************************************/
 /*          Converts the distance from the units selected by user to NMi  */

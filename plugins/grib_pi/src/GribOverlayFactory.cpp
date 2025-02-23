@@ -105,20 +105,6 @@ static wxString MToString( int DataCenterModel )
 }
 #endif
 
-#if 0
-static wxString TToString( const wxDateTime date_time, const int time_zone )
-{
-    wxDateTime t( date_time );
-    t.MakeFromTimezone( wxDateTime::UTC );
-    if( t.IsDST() ) t.Subtract( wxTimeSpan( 1, 0, 0, 0 ) );
-    switch( time_zone ) {
-        case 0: return t.Format( _T(" %a %d-%b-%Y  %H:%M "), wxDateTime::Local ) + _T("LOC");//:%S
-        case 1:
-        default: return t.Format( _T(" %a %d-%b-%Y %H:%M  "), wxDateTime::UTC ) + _T("UTC");
-    }
-}
-#endif
-
 #ifdef ocpnUSE_GL
 static GLuint texture_format = 0;
 #endif
@@ -389,9 +375,9 @@ void GRIBOverlayFactory::Reset() {
 void GRIBOverlayFactory::SetMessageFont() {
   wxFont fo;
 #ifdef __WXQT__
-  fo = GetOCPNGUIScaledFont_PlugIn(_T("Dialog"));
+  fo = GetOCPNGUIScaledFont_PlugIn(_("Dialog"));
 #else
-  fo = *OCPNGetFont(_("Dialog"), 10);
+  fo = *OCPNGetFont(_("Dialog"), 0);
   fo.SetPointSize(
       (fo.GetPointSize() * g_ContentScaleFactor / OCPN_GetWinDIPScaleFactor()));
 #endif
@@ -1999,7 +1985,7 @@ void GRIBOverlayFactory::DrawNumbers(wxPoint p, double value, int settings,
 #else
 
 #ifdef __WXQT__
-    wxFont font = GetOCPNGUIScaledFont_PlugIn(_T("Dialog"));
+    wxFont font = GetOCPNGUIScaledFont_PlugIn(_("Dialog"));
 #else
     wxFont font(9, wxFONTFAMILY_DEFAULT, wxFONTSTYLE_NORMAL,
                 wxFONTWEIGHT_NORMAL);
