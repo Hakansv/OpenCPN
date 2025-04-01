@@ -51,6 +51,32 @@ bool UpdateAutopilotN0183(Routeman &routeman) {
   NMEA0183 nmea0183 = routeman.GetNMEA0183();
   RoutePoint *pActivePoint = routeman.GetpActivePoint();
 
+  // Hakan
+  extern bool g_bXTE_multiply;
+  extern double g_dXTE_multiplier;
+  extern int wp30DevData[361];
+  extern bool devfileNotfound;
+
+  double f_brg = routeman.GetCurrentBrgToActivePoint();
+  double f_xte = routeman.GetCurrentXTEToActivePoint();
+  // If active multiply XTE with given factor.
+  if (g_bXTE_multiply) {
+    // Fetch Momo AP wp30 deviation table once
+    if (!devfileNotfound && wp30DevData[0] == 0) Routeman::UpdateWP30DevData();
+    if (wp30DevData[0] != 0) {  // flag: updated file
+      int brg = routeman.GetCurrentBrgToActivePoint();
+      if (brg < 361 && brg >= 0) {
+        f_brg += wp30DevData[brg];
+        if (f_brg > 360.0)
+          f_brg -= 360.;
+        else if (f_brg < 0.)
+          f_brg += 360.;
+      }
+    }
+    if ((f_xte *= g_dXTE_multiplier) > 1.2) f_xte = 1.2;
+  }
+  // Hakan
+
   // Set max WP name length
   int maxName = 6;
   if ((g_maxWPNameLength >= 3) && (g_maxWPNameLength <= 32))
@@ -67,12 +93,13 @@ bool UpdateAutopilotN0183(Routeman &routeman) {
     nmea0183.TalkerID = "EC";
     SENTENCE snt;
     nmea0183.Rmb.IsDataValid = bGPSValid ? NTrue : NFalse;
-    nmea0183.Rmb.CrossTrackError = routeman.GetCurrentXTEToActivePoint();
+    nmea0183.Rmb.CrossTrackError =  // Hakan
+        g_bXTE_multiply ? f_xte : routeman.GetCurrentXTEToActivePoint();
     nmea0183.Rmb.DirectionToSteer = routeman.GetXTEDir() < 0 ? Left : Right;
     nmea0183.Rmb.RangeToDestinationNauticalMiles =
         routeman.GetCurrentRngToActivePoint();
-    nmea0183.Rmb.BearingToDestinationDegreesTrue =
-        routeman.GetCurrentBrgToActivePoint();
+    nmea0183.Rmb.BearingToDestinationDegreesTrue =  // Hakan
+        g_bXTE_multiply ? f_brg : routeman.GetCurrentBrgToActivePoint();
 
     if (pActivePoint->m_lat < 0.)
       nmea0183.Rmb.DestinationPosition.Latitude.Set(-pActivePoint->m_lat, "S");
@@ -174,8 +201,8 @@ bool UpdateAutopilotN0183(Routeman &routeman) {
     nmea0183.Apb.IsLoranCCycleLockOK = NTrue;
     if (!bGPSValid) nmea0183.Apb.IsLoranCCycleLockOK = NFalse;
 
-    nmea0183.Apb.CrossTrackErrorMagnitude =
-        routeman.GetCurrentXTEToActivePoint();
+    nmea0183.Apb.CrossTrackErrorMagnitude =  // Hakan
+        g_bXTE_multiply ? f_xte : routeman.GetCurrentXTEToActivePoint();
 
     if (routeman.GetXTEDir() < 0)
       nmea0183.Apb.DirectionToSteer = Left;
@@ -220,11 +247,12 @@ bool UpdateAutopilotN0183(Routeman &routeman) {
       nmea0183.Apb.BearingOriginToDestination = brg1;
       nmea0183.Apb.BearingOriginToDestinationUnits = _T("T");
 
-      nmea0183.Apb.BearingPresentPositionToDestination =
-          routeman.GetCurrentBrgToActivePoint();
+      nmea0183.Apb.BearingPresentPositionToDestination =  // Hakan
+          g_bXTE_multiply ? f_brg : routeman.GetCurrentBrgToActivePoint();
       nmea0183.Apb.BearingPresentPositionToDestinationUnits = _T("T");
 
-      nmea0183.Apb.HeadingToSteer = routeman.GetCurrentBrgToActivePoint();
+      nmea0183.Apb.HeadingToSteer =  // Hakan
+          g_bXTE_multiply ? f_brg : routeman.GetCurrentBrgToActivePoint();
       nmea0183.Apb.HeadingToSteerUnits = _T("T");
     }
 
@@ -246,8 +274,8 @@ bool UpdateAutopilotN0183(Routeman &routeman) {
     nmea0183.Xte.IsLoranCCycleLockOK = NTrue;
     if (!bGPSValid) nmea0183.Xte.IsLoranCCycleLockOK = NFalse;
 
-    nmea0183.Xte.CrossTrackErrorDistance =
-        routeman.GetCurrentXTEToActivePoint();
+    nmea0183.Xte.CrossTrackErrorDistance =  // Hakan
+        g_bXTE_multiply ? f_xte : routeman.GetCurrentXTEToActivePoint();
 
     if (routeman.GetXTEDir() < 0)
       nmea0183.Xte.DirectionToSteer = Left;

@@ -144,6 +144,10 @@ public:
   bool IsAnyRouteActive(void) { return (pActiveRoute != NULL); }
   bool GetArrival() { return m_bArrival; }
 
+  // Hakan
+  static void UpdateWP30DevData();
+  // Hakan
+
   Route *GetpActiveRoute() { return pActiveRoute; }
   RoutePoint *GetpActiveRouteSegmentBeginPoint() {
     return pActiveRouteSegmentBeginPoint;

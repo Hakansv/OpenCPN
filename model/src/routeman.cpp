@@ -109,7 +109,7 @@ static void ActivatePersistedRoute(Routeman *routeman) {
   routeman->ActivateRoute(route);  // FIXME (leamas) better start point
 }
 
-static void UpdateWP30DevData() {  // Hakan
+void Routeman::UpdateWP30DevData() {  // Hakan
   wxString wp30DevDataFile = g_BasePlatform->GetPrivateDataDir();
   appendOSDirSlash(&wp30DevDataFile);
   wp30DevDataFile << "MomoAPDev.csv";
@@ -571,29 +571,6 @@ bool Routeman::UpdateAutopilot() {
 
 
   // Send all known Autopilot messages upstream
-  // Hakan
-  double f_brg = CurrentBrgToActivePoint;
-  // If active multiply XTE with given factor.
-  if (g_bXTE_multiply) {
-    // Fetch Momo AP wp30 deviation table once
-    if (!devfileNotfound && wp30DevData[0] == 0) UpdateWP30DevData();
-    if (wp30DevData[0] != 0) {  // flag: updated file
-      int brg = CurrentBrgToActivePoint;
-      if (brg < 361 && brg >= 0) {
-        CurrentBrgToActivePoint += wp30DevData[brg];
-      }
-    }
-    static bool b_arrived;
-    if (b_arrived) {  // zero XTE once at first turn after arrival
-      CurrentXTEToActivePoint = 0.0;
-      b_arrived = false;
-    }
-    if ((CurrentXTEToActivePoint *= g_dXTE_multiplier) > 1.2)
-      CurrentXTEToActivePoint = 1.2;
-    if (m_bArrival) b_arrived = true;
-  }
-  // Hakan
-
   // Set max WP name length
   int maxName = 6;
   if ((g_maxWPNameLength >= 3) && (g_maxWPNameLength <= 32))
