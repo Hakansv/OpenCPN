@@ -75,6 +75,7 @@
 #include "model/multiplexer.h"
 #include "model/nav_object_database.h"
 #include "model/navutil_base.h"
+#include "model/notification_manager.h"
 #include "model/own_ship.h"
 #include "model/plugin_comm.h"
 #include "model/plugin_loader.h"
@@ -102,6 +103,7 @@
 #include "concanv.h"
 #include "connections_dlg.h"
 #include "ConfigMgr.h"
+#include "data_monitor.h"
 #include "displays.h"
 #include "dychart.h"
 #include "FontMgr.h"
@@ -115,7 +117,6 @@
 #include "MUIBar.h"
 #include "N2KParser.h"
 #include "navutil.h"
-#include "NMEALogWindow.h"
 #include "ocpn_app.h"
 #include "ocpn_plugin.h"
 #include "OCPN_AUIManager.h"
@@ -124,6 +125,8 @@
 #include "OCPN_Sound.h"
 #include "options.h"
 #include "pluginmanager.h"
+#include "print_dialog.h"
+#include "printout_chart.h"
 #include "routemanagerdialog.h"
 #include "routeman_gui.h"
 #include "route_point_gui.h"
@@ -235,8 +238,6 @@ extern int g_COGAvgSec;
 extern ActiveTrack *g_pActiveTrack;
 extern std::vector<Track *> g_TrackList;
 extern double gQueryVar;
-extern wxPrintData *g_printData;
-extern wxPageSetupData *g_pageSetupData;
 extern int g_ChartUpdatePeriod;
 extern int g_SkewCompUpdatePeriod;
 extern bool g_bCourseUp;
@@ -487,11 +488,11 @@ Please click \"Agree\" and proceed, or \"Cancel\" to quit.\n"));
 
   std::string title = _("Welcome to OpenCPN").ToStdString();
   std::string action = _("Agree").ToStdString();
-  AlertDialog *info_dlg = new AlertDialog(gFrame, title, action);
-  info_dlg->SetInitialSize();
-  info_dlg->AddHtmlContent(html);
-  int agreed = info_dlg->ShowModal();
-  return agreed == wxID_YES;
+  AlertDialog info_dlg(gFrame, title, action);
+  info_dlg.SetInitialSize();
+  info_dlg.AddHtmlContent(html);
+  int agreed = info_dlg.ShowModal();
+  return agreed == wxID_OK;
 #endif
 }
 
@@ -636,15 +637,22 @@ static void onBellsFinishedCB(void *ptr) {
 
 static void OnDriverMsg(const ObservedEvt &ev) {
   auto msg = ev.GetString().ToStdString();
-  OCPNMessageBox(GetTopWindow(), msg, _("Communication Error"));
+  auto &noteman = NotificationManager::GetInstance();
+  noteman.AddNotification(NotificationSeverity::kInformational, msg, 60);
+}
+
+static NmeaLog *GetDataMonitor() {
+  auto w = wxWindow::FindWindowByName(kDataMonitorWindowName);
+  return dynamic_cast<NmeaLog *>(w);
 }
 
 // My frame constructor
 MyFrame::MyFrame(wxFrame *frame, const wxString &title, const wxPoint &pos,
-                 const wxSize &size, long style)
+                 const wxSize &size, long style, DataMonitor *data_monitor)
     : wxFrame(frame, -1, title, pos, size, style, kTopLevelWindowName),
       comm_overflow_dlg(this),
-      m_connections_dlg(nullptr) {
+      m_connections_dlg(nullptr),
+      m_data_monitor(data_monitor) {
   g_current_monitor = wxDisplay::GetFromWindow(this);
 #ifdef __WXOSX__
   // On retina displays there is a difference between the physical size of the
@@ -658,7 +666,7 @@ MyFrame::MyFrame(wxFrame *frame, const wxString &title, const wxPoint &pos,
 #endif
   m_last_track_rotation_ts = 0;
   m_ulLastNMEATicktime = 0;
-
+  m_data_monitor->Hide();
   m_pStatusBar = NULL;
   m_StatusBarFieldCount = g_Platform->GetStatusBarFieldCount();
 
@@ -729,11 +737,13 @@ MyFrame::MyFrame(wxFrame *frame, const wxString &title, const wxPoint &pos,
 
   //    Establish my children
   struct MuxLogCallbacks log_callbacks;
-  log_callbacks.log_is_active = []() {
-    return NMEALogWindow::GetInstance().Active();
+  log_callbacks.log_is_active = [&]() {
+    auto log = GetDataMonitor();
+    return log && log->IsActive();
   };
-  log_callbacks.log_message = [](const wxString &s) {
-    NMEALogWindow::GetInstance().Add(s);
+  log_callbacks.log_message = [&](Logline ll) {
+    NmeaLog *monitor = GetDataMonitor();
+    if (monitor && monitor->IsActive()) monitor->Add(ll);
   };
   g_pMUX = new Multiplexer(log_callbacks, g_b_legacy_input_filter_behaviour);
 
@@ -1203,7 +1213,8 @@ void MyFrame::CreateCanvasLayout(bool b_useStoredSize) {
     default:
     case 0:  // a single canvas
       if (!g_canvasArray.GetCount() || !config_array.Item(0)) {
-        cc = new ChartCanvas(this, 0);  // the chart display canvas
+        cc = new ChartCanvas(this, 0,
+                             m_data_monitor);  // the chart display canvas
         g_canvasArray.Add(cc);
       } else {
         cc = g_canvasArray[0];
@@ -1239,7 +1250,7 @@ void MyFrame::CreateCanvasLayout(bool b_useStoredSize) {
 
     case 1: {  // two canvas, horizontal
       if (!g_canvasArray.GetCount() || !g_canvasArray[0]) {
-        cc = new ChartCanvas(this, 0);  // the chart display canvas
+        cc = new ChartCanvas(this, 0, m_data_monitor);  // chart display canvas
         g_canvasArray.Add(cc);
       } else {
         cc = g_canvasArray[0];
@@ -1270,7 +1281,7 @@ void MyFrame::CreateCanvasLayout(bool b_useStoredSize) {
 
       g_pauimgr->GetPane(cc).CenterPane();
 
-      cc = new ChartCanvas(this, 1);  // the chart display canvas
+      cc = new ChartCanvas(this, 1, m_data_monitor);  // chart display canvas
       g_canvasArray.Add(cc);
 
       //  There is not yet a config descriptor for canvas 2, so create one by
@@ -1730,9 +1741,6 @@ void MyFrame::OnCloseWindow(wxCloseEvent &event) {
   pConfig->DeleteGroup(_T ( "/Marks" ));
   pConfig->Flush();
 
-  delete g_printData;
-  delete g_pageSetupData;
-
   if (g_pAboutDlg) g_pAboutDlg->Destroy();
   if (g_pAboutDlgLegacy) g_pAboutDlgLegacy->Destroy();
 
@@ -1845,8 +1853,6 @@ void MyFrame::OnCloseWindow(wxCloseEvent &event) {
       delete lay;  // automatically removes the layer from list, see Layer dtor
     }
   }
-
-  NMEALogWindow::Shutdown();
 
   ReleaseApiListeners();
 
@@ -2390,11 +2396,12 @@ void MyFrame::OnToolLeftClick(wxCommandEvent &event) {
     }
 
     case ID_MENU_TOOL_NMEA_DBG_LOG:
-      if (!wxWindow::FindWindowByName("NmeaDebugWindow")) {
-        auto top_window = wxWindow::FindWindowByName(kTopLevelWindowName);
-        NMEALogWindow::GetInstance().Create(top_window, 35);
-      }
-      wxWindow::FindWindowByName("NmeaDebugWindow")->Show();
+      m_data_monitor->Show();
+      m_data_monitor->Raise();
+      break;
+
+    case ID_MENU_TOOL_IO_MONITOR:
+      m_data_monitor->Show();
       break;
 
     case ID_MENU_MARK_BOAT: {
@@ -3116,8 +3123,6 @@ void MyFrame::TrackOn(void) {
   }
 
   wxJSONValue v;
-  wxDateTime now;
-  now = now.Now().ToUTC();
   wxString name = g_pActiveTrack->GetName();
   if (name.IsEmpty()) {
     TrackPoint *tp = g_pActiveTrack->GetPoint(0);
@@ -3662,7 +3667,7 @@ void MyFrame::RegisterGlobalMenuItems() {
 
   wxMenu *tools_menu = new wxMenu();
   tools_menu->Append(ID_MENU_TOOL_NMEA_DBG_LOG,
-                     _menuText(_("NMEA Debugger"), "Alt-C"));
+                     _menuText(_("Data Monitor"), "Alt-C"));
 #ifndef __WXOSX__
   tools_menu->Append(ID_MENU_TOOL_MEASURE,
                      _menuText(_("Measure Distance"), _T("M")));
@@ -4970,6 +4975,21 @@ void MyFrame::HandleGPSWatchdogMsg(std::shared_ptr<const GPSWatchdogMsg> msg) {
       bGPSValid = false;
       m_fixtime = 0;  // Invalidate fix time
       if (last_bGPSValid != bGPSValid) UpdateGPSCompassStatusBoxes(true);
+
+      // Possible notification on position watchdog timeout..
+      // if fix has been valid for at least 5 minutes, and then lost,
+      // then post a critical notification
+      if (m_fix_start_time.IsValid()) {
+        wxDateTime now = wxDateTime::Now();
+        wxTimeSpan span = now - m_fix_start_time;
+        if (span.IsLongerThan(wxTimeSpan(0, 5))) {
+          auto &noteman = NotificationManager::GetInstance();
+          std::string msg = "GNSS Position fix lost";
+          noteman.AddNotification(NotificationSeverity::kCritical, msg);
+          m_fix_start_time = wxInvalidDateTime;
+        }
+      }
+
     } else if (msg->wd_source == GPSWatchdogMsg::WDSource::velocity) {
       bool last_bVelocityValid = bVelocityValid;
       bVelocityValid = false;
@@ -5026,6 +5046,11 @@ void MyFrame::HandleBasicNavMsg(std::shared_ptr<const BasicNavDataMsg> msg) {
 
   if (((msg->vflag & POS_UPDATE) == POS_UPDATE) &&
       ((msg->vflag & POS_VALID) == POS_VALID)) {
+    // Maintain valid fix start time
+    if (!m_fix_start_time.IsValid()) {
+      m_fix_start_time = wxDateTime::Now();
+    }
+
     // Check the position change, looking for a valid new fix.
     double dist, brg;
     DistanceBearingMercator(gLat, gLon, gLat_gt, gLon_gt, &brg, &dist);
@@ -6326,41 +6351,20 @@ void MyFrame::DoPrint(void) {
 #endif
     Refresh();
 
-  if (NULL == g_printData) {
-    g_printData = new wxPrintData;
-    g_printData->SetOrientation(wxLANDSCAPE);
-    g_pageSetupData = new wxPageSetupDialogData;
+  ChartPrintout printout;
+  if (g_bopengl) {
+    printout.GenerateGLbmp();
   }
-
-  wxPrintDialogData printDialogData(*g_printData);
-  printDialogData.EnablePageNumbers(false);
-
-  wxPrinter printer(&printDialogData);
-
-  MyPrintout printout(wxT("Chart Print"));
-
-  //  In OperGL mode, make the bitmap capture of the screen before the print
-  //  method starts as to be sure the "Abort..." dialog does not appear on
-  //  the image
-  if (g_bopengl) printout.GenerateGLbmp();
-
-  if (!printer.Print(this, &printout, true)) {
-    if (wxPrinter::GetLastError() == wxPRINTER_ERROR)
-      OCPNMessageBox(NULL,
-                     _("There was a problem printing.\nPerhaps your current "
-                       "printer is not set correctly?"),
-                     _T("OpenCPN"), wxOK);
-    //        else
-    //            OCPNMessageBox(_T("Print Cancelled"), _T("OpenCPN"), wxOK);
-  } else {
-    (*g_printData) = printer.GetPrintDialogData().GetPrintData();
-  }
+  auto &printer = PrintDialog::GetInstance();
+  printer.Initialize(wxLANDSCAPE);
+  printer.EnablePageNumbers(false);
+  printer.Print(this, &printout);
 
   // Pass two printout objects: for preview, and possible printing.
   /*
    wxPrintDialogData printDialogData(* g_printData);
-   wxPrintPreview *preview = new wxPrintPreview(new MyPrintout, new MyPrintout,
-   & printDialogData); if (!preview->Ok())
+   wxPrintPreview *preview = new wxPrintPreview(new MyPrintout, new
+   MyPrintout, & printDialogData); if (!preview->Ok())
    {
    delete preview;
    OCPNMessageBox(_T("There was a problem previewing.\nPerhaps your current
@@ -6930,9 +6934,7 @@ void MyFrame::applySettingsString(wxString settings) {
   if (console) console->Raise();
 
   Refresh(false);
-
-  if (NMEALogWindow::GetInstance().Active())
-    NMEALogWindow::GetInstance().GetTTYWindow()->Raise();
+  if (m_data_monitor->IsActive()) m_data_monitor->Raise();
 }
 
 #ifdef wxHAS_POWER_EVENTS

@@ -37,6 +37,7 @@
 
 #include "model/comm_decoder.h"
 #include "model/comm_navmsg.h"
+#include "model/nmea_log.h"
 
 typedef struct {
   std::string pcclass;
@@ -55,6 +56,13 @@ typedef struct {
   int satellite_watchdog;
 
 } Watchdogs;
+
+struct BridgeLogCallbacks {
+  std::function<bool()> log_is_active;
+  std::function<void(Logline)> log_message;
+  BridgeLogCallbacks()
+      : log_is_active([]() { return false; }), log_message([](Logline) {}) {}
+};
 
 class CommBridge : public wxEvtHandler {
 public:
@@ -79,6 +87,25 @@ public:
   bool HandleN0183_GSV(std::shared_ptr<const Nmea0183Msg> n0183_msg);
   bool HandleN0183_GGA(std::shared_ptr<const Nmea0183Msg> n0183_msg);
   bool HandleN0183_GLL(std::shared_ptr<const Nmea0183Msg> n0183_msg);
+  /**
+   * Processes NMEA 0183 AIVDO sentences containing own vessel's AIS data.
+   *
+   * AIVDO messages provide navigation data broadcast by the vessel's own AIS
+   * transponder:
+   * - Position (latitude/longitude)
+   * - Movement (SOG/COG)
+   * - Heading (true heading)
+   *
+   * The data is evaluated against other sources based on configured priorities.
+   * If accepted, the data updates the vessel's:
+   * - Position (if valid lat/lon received)
+   * - Speed and course (if valid SOG/COG received)
+   * - True heading (if valid HDT received)
+   *
+   * @param n0183_msg Shared pointer to NMEA 0183 message containing AIVDO
+   * sentence
+   * @return true if message was processed, false on decode error
+   */
   bool HandleN0183_AIVDO(std::shared_ptr<const Nmea0183Msg> n0183_msg);
 
   bool HandleSignalK(std::shared_ptr<const SignalkMsg> sK_msg);
@@ -156,6 +183,8 @@ private:
   std::unordered_map<std::string, int> priority_map_satellites;
 
   int n_LogWatchdogPeriod;
+
+  BridgeLogCallbacks m_log_callbacks;
 
   DECLARE_EVENT_TABLE()
 };

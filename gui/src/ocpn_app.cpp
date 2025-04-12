@@ -142,7 +142,6 @@ using namespace std::literals::chrono_literals;
 #include "Layer.h"
 #include "MarkInfo.h"
 #include "navutil.h"
-#include "NMEALogWindow.h"
 #include "observable.h"
 #include "ocpn_app.h"
 #include "OCPN_AUIManager.h"
@@ -338,12 +337,6 @@ bool g_bCruising;
 ChartDummy *pDummyChart;
 
 ocpnStyle::StyleManager *g_StyleManager;
-
-// Global print data, to remember settings during the session
-wxPrintData *g_printData = (wxPrintData *)NULL;
-
-// Global page setup data
-wxPageSetupData *g_pageSetupData = (wxPageSetupData *)NULL;
 
 bool g_bShowOutlines;
 bool g_bShowDepthUnits;
@@ -1155,8 +1148,7 @@ bool MyApp::OnInit() {
 #ifdef __WXMSW__
 
   //  Un-comment the following to establish a separate console window as a
-  //  target for printf() in Windows
-  //     RedirectIOToConsole();
+  //  target for printf() in Windows RedirectIOToConsole();
 
 #endif
 
@@ -1231,11 +1223,12 @@ bool MyApp::OnInit() {
   //      overwhelm the log
   pMessageOnceArray = new wxArrayString;
 
-  //      Init the Route Manager
+  // Created here to be available for Routenman, reparented later.
+  m_data_monitor = new DataMonitor(nullptr);
 
-  g_pRouteMan =
-      new Routeman(RoutePropDlg::GetDlgCtx(), RoutemanGui::GetDlgCtx(),
-                   NMEALogWindow::GetInstance());
+  //      Init the Route Manager
+  g_pRouteMan = new Routeman(RoutePropDlg::GetDlgCtx(),
+                             RoutemanGui::GetDlgCtx(), m_data_monitor);
 
   //      Init the Selectable Route Items List
   pSelect = new Select();
@@ -1650,7 +1643,9 @@ bool MyApp::OnInit() {
   wxLogMessage(fmsg);
 
   gFrame = new MyFrame(NULL, myframe_window_title, position, new_frame_size,
-                       app_style);  // Gunther
+                       app_style, m_data_monitor);
+  wxTheApp->SetTopWindow(gFrame);
+  m_data_monitor->Reparent(gFrame);
 
   //  Do those platform specific initialization things that need gFrame
   g_Platform->Initialize_3();

@@ -1,4 +1,4 @@
-/***************************************************************************
+/**************************************************************************
  *
  * Project:  OpenCPN
  * Purpose:  Track Properties Dialog
@@ -40,9 +40,10 @@
 #include "ocpn_frame.h"
 #include "OCPNPlatform.h"
 #include "pluginmanager.h"
+#include "print_dialog.h"
 #include "routemanagerdialog.h"
 #include "routeman_gui.h"
-#include "trackprintout.h"
+#include "track_printout.h"
 #include "TrackPropDlg.h"
 
 #ifdef __ANDROID__
@@ -597,6 +598,13 @@ void TrackPropDlg::CreateControlsCompact() {
 
   m_sdbBtmBtnsSizerExtend = new wxButton(this, wxID_ANY, _("Extend"),
                                          wxDefaultPosition, wxDefaultSize, 0);
+  m_sdbBtmBtnsSizerExtend->SetToolTip(
+      _("Extends this track by connecting it to another track.\n"
+        "Disabled when the track is active, the track is in a layer, or no "
+        "suitable track to connect to exists.\n"
+        "A suitable track is one that is visible, is different from this "
+        "track, and has its last point's timestamp earlier than or equal to "
+        "this track's first point's timestamp."));
   itemBoxSizerAux->Add(m_sdbBtmBtnsSizerExtend, 0,
                        wxALIGN_LEFT | wxALIGN_CENTER_VERTICAL | wxALL, 5);
 
@@ -1404,13 +1412,18 @@ void TrackPropDlg::OnTrackPropCopyTxtClick(wxCommandEvent& event) {
 }
 
 void TrackPropDlg::OnPrintBtnClick(wxCommandEvent& event) {
-  TrackPrintSelection* dlg =
-      new TrackPrintSelection(this, m_pTrack, m_lcPoints);
-  DimeControl(dlg);
-  dlg->ShowWindowModalThenDo([this, dlg](int retcode) {
-    if (retcode == wxID_OK) {
-    }
-  });
+  static std::set<int> s_options;  // keep selected options
+  TrackPrintDialog dlg(this, s_options);
+  int result = dlg.ShowModal();
+
+  if (result == wxID_OK) {
+    dlg.GetSelected(s_options);
+    TrackPrintout printout(m_pTrack, m_lcPoints, s_options);
+    auto& printer = PrintDialog::GetInstance();
+    printer.Initialize(wxPORTRAIT);
+    printer.EnablePageNumbers(true);
+    printer.Print(this, &printout);
+  }
 }
 
 void TrackPropDlg::OnTrackPropRightClick(wxListEvent& event) {
@@ -1875,7 +1888,7 @@ wxString OCPNTrackListCtrl::OnGetItemText(long item, long column) const {
             DateTimeFormatOptions()
                 .SetTimezone(getDatetimeTimezoneSelector(m_tz_selection))
                 .SetLongitude(getStartPointLongitude());
-        ret = ocpn::toUsrDateTimeFormat(timestamp, opts);
+        ret = ocpn::toUsrDateTimeFormat(timestamp.FromUTC(), opts);
       } else
         ret = _T("----");
     } break;

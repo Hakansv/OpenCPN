@@ -1,9 +1,5 @@
-/******************************************************************************
- *
- * Project:  OpenCPN
- *
- ***************************************************************************
- *   Copyright (C) 2013 by David S. Register                               *
+/***************************************************************************
+ *   Copyright (C) 2025 by NoCodeHummel                                    *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -21,44 +17,32 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
  ***************************************************************************
  */
+#include <wx/panel.h>
 
-#ifndef __TTYWINDOW_H__
-#define __TTYWINDOW_H__
+#include "dialog_input.h"
+#include "form_grid.h"
 
-#include <wx/frame.h>
-#include <wx/bitmap.h>
+InputDialog::InputDialog(wxWindow* parent, const std::string& title,
+                         const std::string& action)
+    : AlertDialog(parent, title, action) {
+  FormGrid* sizer = new FormGrid(this);
+  sizer->SetHGap(GUI::GetSpacing(this, 4));
+  m_grid = new wxPanel(this);
+  m_grid->SetSizer(sizer);
+  m_content->Add(m_grid);
+}
 
-class wxButton;
-class wxTextCtrl;
-class TtyScroll;
-class WindowDestroyListener;
+SwitchField* InputDialog::AddSelection(int key, const std::string& label,
+                                       bool value) {
+  return new SwitchField(m_grid, key, label, value);
+}
 
-class TTYWindow : public wxFrame {
-  DECLARE_EVENT_TABLE()
+void InputDialog::GetSelected(std::set<int>& options) {
+  wxWindowList children = m_grid->GetChildren();
+  options.clear();
 
-public:
-  TTYWindow();
-  TTYWindow(wxWindow *parent, int n_lines,
-            WindowDestroyListener *listener = NULL);
-  virtual ~TTYWindow();
-
-  void Add(const wxString &line);
-  void OnCloseWindow(wxCloseEvent &event);
-  void Close();
-  void OnPauseClick(wxCommandEvent &event);
-  void OnCopyClick(wxCommandEvent &event);
-  void OnCopyN0183Click(wxCommandEvent &event);
-
-protected:
-  void CreateLegendBitmap();
-  WindowDestroyListener *m_window_destroy_listener;
-  TtyScroll *m_tty_scroll;
-  wxButton *m_btn_pause;
-  wxButton *m_btn_copy;
-  wxButton *m_btn_copy_N0183;
-  bool m_is_paused;
-  wxBitmap m_bm_legend;
-  wxTextCtrl *m_filter;
-};
-
-#endif
+  for (auto& child : m_grid->GetChildren()) {
+    auto* select = dynamic_cast<SwitchField*>(child);
+    if (select && select->IsActive()) options.insert(select->GetKey());
+  }
+}

@@ -362,10 +362,10 @@ if (NOT WIN32 AND NOT APPLE)
     )
   endif ()
   if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang|GNU")
-    #if (CMAKE_BUILD_TYPE MATCHES "Debug")
+    if (CMAKE_BUILD_TYPE MATCHES "Debug")
       string(APPEND CMAKE_CXX_FLAGS_DEBUG " -O0")
       add_compile_options("-O0")
-    #endif ()
+    endif ()
   endif ()
   add_definitions(" -DPREFIX=\\\"${CMAKE_INSTALL_PREFIX}\\\"")
   # profiling with gprof ADD_COMPILE_OPTIONS( -pg )
@@ -565,7 +565,7 @@ if (APPLE)
   # Bundle all of wxWidgets as a courtesy for plugins, see #2153
   set(wxWidgets_FIND_COMPONENTS
       net xml html adv aui core base media propgrid qa ribbon richtext webview
-      stc xrc
+      stc
   )
 elseif (_wx_selected_config MATCHES "qt-armv7")
   set(wxWidgets_FIND_COMPONENTS base core xml html adv aui)
@@ -778,6 +778,7 @@ set(GUI_HDRS
     ${GUI_HDR_DIR}/connection_edit.h
     ${GUI_HDR_DIR}/connections_dlg.h
     ${GUI_HDR_DIR}/conn_params_panel.h
+    ${GUI_HDR_DIR}/data_monitor.h
     ${GUI_HDR_DIR}/DetailSlider.h
     ${GUI_HDR_DIR}/displays.h
     ${GUI_HDR_DIR}/download_mgr.h
@@ -801,7 +802,7 @@ set(GUI_HDRS
     ${GUI_HDR_DIR}/MUIBar.h
     ${GUI_HDR_DIR}/n0183_ctx_factory.h
     ${GUI_HDR_DIR}/navutil.h
-    ${GUI_HDR_DIR}/NMEALogWindow.h
+    ${GUI_HDR_DIR}/notification_manager_gui.h
     ${GUI_HDR_DIR}/ocpCursor.h
     ${GUI_HDR_DIR}/ocpndc.h
     ${GUI_HDR_DIR}/ocpn_app.h
@@ -809,13 +810,15 @@ set(GUI_HDRS
     ${GUI_HDR_DIR}/OCPNListCtrl.h
     ${GUI_HDR_DIR}/ocpn_pixel.h
     ${GUI_HDR_DIR}/OCPNPlatform.h
-    ${GUI_HDR_DIR}/ocpn_print.h
     ${GUI_HDR_DIR}/OCPN_AUIManager.h
     ${GUI_HDR_DIR}/OCPNRegion.h
     ${GUI_HDR_DIR}/options.h
     ${GUI_HDR_DIR}/piano.h
     ${GUI_HDR_DIR}/peer_client_dlg.h
     ${GUI_HDR_DIR}/pluginmanager.h
+    ${GUI_HDR_DIR}/print_dialog.h
+    ${GUI_HDR_DIR}/printout_base.h
+    ${GUI_HDR_DIR}/printout_chart.h
     ${GUI_HDR_DIR}/printtable.h
     ${GUI_HDR_DIR}/priority_gui.h
     ${GUI_HDR_DIR}/Quilt.h
@@ -826,8 +829,8 @@ set(GUI_HDRS
     ${GUI_HDR_DIR}/routemanagerdialog.h
     ${GUI_HDR_DIR}/routeman_gui.h
     ${GUI_HDR_DIR}/route_point_gui.h
+    ${GUI_HDR_DIR}/route_printout.h
     ${GUI_HDR_DIR}/route_validator.h
-    ${GUI_HDR_DIR}/routeprintout.h
     ${GUI_HDR_DIR}/RoutePropDlg.h
     ${GUI_HDR_DIR}/RoutePropDlgImpl.h
     ${GUI_HDR_DIR}/s57chart.h
@@ -855,10 +858,9 @@ set(GUI_HDRS
     ${GUI_HDR_DIR}/time_textbox.h
     ${GUI_HDR_DIR}/toolbar.h
     ${GUI_HDR_DIR}/track_gui.h
-    ${GUI_HDR_DIR}/trackprintout.h
+    ${GUI_HDR_DIR}/track_printout.h
     ${GUI_HDR_DIR}/TrackPropDlg.h
     ${GUI_HDR_DIR}/tty_scroll.h
-    ${GUI_HDR_DIR}/TTYWindow.h
     ${GUI_HDR_DIR}/udev_rule_mgr.h
     ${GUI_HDR_DIR}/undo.h
     ${GUI_HDR_DIR}/update_mgr.h
@@ -898,9 +900,12 @@ set(GUI_SRC
     ${GUI_SRC_DIR}/connection_edit.cpp
     ${GUI_SRC_DIR}/connections_dlg.cpp
     ${GUI_SRC_DIR}/conn_params_panel.cpp
+    ${GUI_SRC_DIR}/data_monitor.cpp
+    ${GUI_SRC_DIR}/data_monitor_src.cpp
     ${GUI_SRC_DIR}/DetailSlider.cpp
     ${GUI_SRC_DIR}/displays.cpp
     ${GUI_SRC_DIR}/download_mgr.cpp
+    ${GUI_SRC_DIR}/filter_dlg.cpp
     ${GUI_SRC_DIR}/FlexHash.cpp
     ${GUI_SRC_DIR}/FontDesc.cpp
     ${GUI_SRC_DIR}/FontMgr.cpp
@@ -924,7 +929,7 @@ set(GUI_SRC
     ${GUI_SRC_DIR}/mbtiles/tile_cache.cpp
     ${GUI_SRC_DIR}/MUIBar.cpp
     ${GUI_SRC_DIR}/navutil.cpp
-    ${GUI_SRC_DIR}/NMEALogWindow.cpp
+    ${GUI_SRC_DIR}/notification_manager_gui.cpp
     ${GUI_SRC_DIR}/ocpCursor.cpp
     ${GUI_SRC_DIR}/ocpn_app.cpp
     ${GUI_SRC_DIR}/ocpn_plugin_gui.cpp
@@ -934,13 +939,15 @@ set(GUI_SRC
     ${GUI_SRC_DIR}/OCPNListCtrl.cpp
     ${GUI_SRC_DIR}/ocpn_pixel.cpp
     ${GUI_SRC_DIR}/OCPNPlatform.cpp
-    ${GUI_SRC_DIR}/ocpn_print.cpp
     ${GUI_SRC_DIR}/OCPNRegion.cpp
     ${GUI_SRC_DIR}/options.cpp
     ${GUI_SRC_DIR}/Osenc.cpp
     ${GUI_SRC_DIR}/peer_client_dlg.cpp
     ${GUI_SRC_DIR}/piano.cpp
     ${GUI_SRC_DIR}/pluginmanager.cpp
+    ${GUI_SRC_DIR}/print_dialog.cpp
+    ${GUI_SRC_DIR}/printout_base.cpp
+    ${GUI_SRC_DIR}/printout_chart.cpp
     ${GUI_SRC_DIR}/printtable.cpp
     ${GUI_SRC_DIR}/priority_gui.cpp
     ${GUI_SRC_DIR}/Quilt.cpp
@@ -950,8 +957,8 @@ set(GUI_SRC
     ${GUI_SRC_DIR}/routemanagerdialog.cpp
     ${GUI_SRC_DIR}/routeman_gui.cpp
     ${GUI_SRC_DIR}/route_point_gui.cpp
+    ${GUI_SRC_DIR}/route_printout.cpp
     ${GUI_SRC_DIR}/route_validator.cpp
-    ${GUI_SRC_DIR}/routeprintout.cpp
     ${GUI_SRC_DIR}/RoutePropDlg.cpp
     ${GUI_SRC_DIR}/RoutePropDlgImpl.cpp
     ${GUI_SRC_DIR}/s57obj.cpp
@@ -964,6 +971,7 @@ set(GUI_SRC
     ${GUI_SRC_DIR}/shapefile_basemap.cpp
     ${GUI_SRC_DIR}/Station_Data.cpp
     ${GUI_SRC_DIR}/styles.cpp
+    ${GUI_SRC_DIR}/svg_icons.cpp
     ${GUI_SRC_DIR}/svg_utils.cpp
     ${GUI_SRC_DIR}/TCDataFactory.cpp
     ${GUI_SRC_DIR}/TCDataSource.cpp
@@ -974,10 +982,9 @@ set(GUI_SRC
     ${GUI_SRC_DIR}/thumbwin.cpp
     ${GUI_SRC_DIR}/toolbar.cpp
     ${GUI_SRC_DIR}/track_gui.cpp
-    ${GUI_SRC_DIR}/trackprintout.cpp
+    ${GUI_SRC_DIR}/track_printout.cpp
     ${GUI_SRC_DIR}/TrackPropDlg.cpp
     ${GUI_SRC_DIR}/tty_scroll.cpp
-    ${GUI_SRC_DIR}/TTYWindow.cpp
     ${GUI_SRC_DIR}/udev_rule_mgr.cpp
     ${GUI_SRC_DIR}/undo.cpp
     ${GUI_SRC_DIR}/update_mgr.cpp
@@ -1113,9 +1120,6 @@ endif ()
 
 find_package(Gettext REQUIRED)
 
-# UI components
-add_subdirectory(libs/gui)
-target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::guilib)
 
 add_subdirectory(libs/ssl_sha1)
 target_link_libraries(${PACKAGE_NAME} PRIVATE ssl::sha1)
@@ -1475,6 +1479,9 @@ target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::manual)
 add_subdirectory(libs/s57-charts)
 target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::s57-charts)
 
+add_subdirectory(libs/gui)
+target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::guilib)
+
 if (MSVC)
   install(FILES "cache/buildwin/libssl-3.dll" DESTINATION ".")
   install(FILES "cache/buildwin/libcrypto-3.dll" DESTINATION ".")
@@ -1627,6 +1634,16 @@ set(s57data
     data/s57data/chartsymbols.xml
 )
 
+set(filters
+    data/filters/all-data.filter.json
+    data/filters/all-nmea.filter.json
+    data/filters/default.filter.json
+    data/filters/malformed.filter.json
+    data/filters/nmea-input.filter.json
+    data/filters/nmea-output.filter.json
+    data/filters/plugin-msg.filter.json
+)
+
 if (OCPN_BUNDLE_TCDATA)
   set(tcData
       data/tcdata/HARMONICS_NO_US data/tcdata/HARMONICS_NO_US.IDX
@@ -1662,13 +1679,17 @@ if (APPLE)
     ${uiData} PROPERTIES MACOSX_PACKAGE_LOCATION SharedSupport/uidata
   )
   set_source_files_properties(
+    ${filters} PROPERTIES MACOSX_PACKAGE_LOCATION SharedSupport/filters
+  )
+  set_source_files_properties(
     ${s57data} PROPERTIES MACOSX_PACKAGE_LOCATION SharedSupport/s57data
   )
   if (OCPN_BUNDLE_TCDATA)
     set_source_files_properties(
       ${tcData} PROPERTIES MACOSX_PACKAGE_LOCATION SharedSupport/tcdata
     )
-  endif (OCPN_BUNDLE_TCDATA)
+  endif ()
+
 
   set_source_files_properties(
     data/license.html PROPERTIES MACOSX_PACKAGE_LOCATION SharedSupport
@@ -1844,6 +1865,7 @@ if (APPLE)
             ${basemap_shp}
             ${ssfnData}
             ${uiData}
+            ${filters}
             ${s57data}
             ${tcData}
             data/license.html
@@ -1945,6 +1967,7 @@ if (NOT APPLE)
     DESTINATION ${PREFIX_PKGDATA}
   )
   install(FILES ${uiData} DESTINATION ${PREFIX_PKGDATA}/uidata)
+  install(FILES ${filters} DESTINATION ${PREFIX_PKGDATA}/filters)
   install(DIRECTORY data/svg/markicons/
           DESTINATION ${PREFIX_PKGDATA}/uidata/markicons
   )

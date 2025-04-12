@@ -1,11 +1,5 @@
-/***************************************************************************
- *
- * Project:  OpenCPN
- * Purpose:  Application print support
- * Author:   David Register
- *
- ***************************************************************************
- *   Copyright (C) 2010 by David S. Register                               *
+/**************************************************************************
+ *   Copyright (C) 2025 by David S. Register                               *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -23,29 +17,46 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
  **************************************************************************/
 
-#ifndef _OCPN_PRINT_H__
-#define _OCPN_PRINT_H__
+/**
+ * \file
+ * Class Notification.
+ */
 
-#include <wx/dc.h>
-#include <wx/bitmap.h>
-#include <wx/print.h>
-#include <wx/string.h>
+#ifndef _NOTIFICATION_H__
+#define _NOTIFICATION_H__
 
-class MyPrintout : public wxPrintout {
-public:
-  MyPrintout(const wxChar *title = _T("My printout")) : wxPrintout(title) {}
-  virtual bool OnPrintPage(int page);
-  virtual bool HasPage(int page);
-  virtual bool OnBeginDocument(int startPage, int endPage);
-  virtual void GetPageInfo(int *minPage, int *maxPage, int *selPageFrom,
-                           int *selPageTo);
+#include <string>
 
-  void DrawPageOne(wxDC *dc);
+#include <wx/datetime.h>
 
-  void GenerateGLbmp(void);
-
-private:
-  wxBitmap m_GLbmp;
+enum class NotificationSeverity : int {
+  kInformational = 0,
+  kWarning = 1,
+  kCritical = 2
 };
 
-#endif  //  _OCPN_PRINT_H__
+/** User visible notification. */
+class Notification {
+public:
+  Notification(NotificationSeverity _severity, const std::string &_message,
+               int _timeout_secs = -1);
+  virtual ~Notification() = default;
+
+  std::string GetMessage() { return message; }
+  NotificationSeverity GetSeverity() const { return severity; }
+  time_t GetActivateTime() const { return activate_time; }
+  std::string GetGuid() const { return guid; }
+  size_t GetStringHash() const { return message_hash; }
+  int GetTimeoutCount() const { return auto_timeout_secs; }
+  void DecrementTimoutCount() { auto_timeout_secs--; }
+
+private:
+  NotificationSeverity severity;
+  const std::string message;
+  const time_t activate_time;
+  const std::string guid;
+  const size_t message_hash;
+  int auto_timeout_secs;
+};
+
+#endif

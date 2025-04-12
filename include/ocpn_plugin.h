@@ -223,7 +223,7 @@ class PlugIn_Position_Fix {
 public:
   double Lat;  //!< Latitude in decimal degrees
   double Lon;  //!< Longitude in decimal degrees
-  double Cog;  //!< Course over ground in degrees true
+  double Cog;  //!< Course over ground in degrees
   double Sog;  //!< Speed over ground in knots
   double Var;  //!< Magnetic variation in degrees, typically from RMC message
   time_t FixTime;  //!< UTC time of fix as time_t value
@@ -231,19 +231,71 @@ public:
 };
 /**
  * Extended position fix information.
+ *
+ * This class provides position and navigation data that may come from various
+ * sources:
+ * - GNSS receiver (primary source)
+ * - Last known position (when GNSS signal is lost)
+ * - User-defined position (when manually moved on map)
+ * - Dead reckoning (calculated from last known position and movement)
  */
 class PlugIn_Position_Fix_Ex {
 public:
-  double Lat;  //!< Latitude in decimal degrees
-  double Lon;  //!< Longitude in decimal degrees
-  double Cog;  //!< Course over ground in degrees true
-  double Sog;  //!< Speed over ground in knots
-  double Var;  //!< Magnetic variation in degrees, typically from RMC message
-  double Hdm;  //!< Heading magnetic in degrees
-  double Hdt;  //!< Heading true in degrees
-  time_t FixTime;  //!< UTC time of fix from the most recent GNSS message, or
-                   //!< system time if GNSS watchdog has expired
-  int nSats;       //!< Number of satellites used in the fix
+  /**
+   * Latitude in decimal degrees.
+   * May represent last known position rather than current true position if:
+   * - GNSS signal is lost
+   * - Position has been manually set by user on map
+   */
+  double Lat;
+
+  /**
+   * Longitude in decimal degrees.
+   * May represent last known position rather than current true position if:
+   * - GNSS signal is lost
+   * - Position has been manually set by user on map
+   */
+  double Lon;
+
+  /** Course over ground in degrees */
+  double Cog;
+
+  /**
+   * Speed over ground in knots.
+   * May be NaN if speed cannot be determined.
+   */
+  double Sog;
+
+  /** Magnetic variation in degrees, typically from RMC message */
+  double Var;
+
+  /**
+   * Heading magnetic in degrees.
+   * May be NaN if heading sensor data is not available.
+   */
+  double Hdm;
+
+  /**
+   * Heading true in degrees.
+   * May be NaN if true heading cannot be calculated (requires both magnetic
+   * heading and variation).
+   */
+  double Hdt;
+
+  /**
+   * UTC time of fix.
+   * - If GNSS available: Time from most recent GNSS message
+   * - If GNSS watchdog expired: Current system time
+   */
+  time_t FixTime;
+
+  /**
+   * Number of satellites used in the fix.
+   * Will be 0 if:
+   * - GNSS watchdog has expired
+   * - Position is not from GNSS
+   */
+  int nSats;
 };
 
 /**
@@ -278,7 +330,7 @@ public:
   int Class;               //!< AIS class (Class A: 0, Class B: 1)
   int NavStatus;           //!< Navigational status (0-15 as per ITU-R M.1371)
   double SOG;              //!< Speed over ground in knots
-  double COG;              //!< Course over ground in degrees true
+  double COG;              //!< Course over ground in degrees
   double HDG;              //!< Heading in degrees true
   double Lon;              //!< Longitude in decimal degrees
   double Lat;              //!< Latitude in decimal degrees
@@ -1414,8 +1466,15 @@ public:
   /**
    * Notifies plugin of viewport changes.
    *
-   * This method is called when the chart viewport changes (pan/zoom).
-   * Must be implemented if plugin needs viewport awareness.
+   * This method is called whenever the chart viewport changes on any canvas due
+   * to:
+   * - User pan/zoom operations
+   * - Periodic canvas updates
+   * - Course/heading changes affecting chart orientation
+   *
+   * For multi-canvas configurations (e.g. split screen), this is called
+   * separately for each canvas's viewport changes, regardless of which canvas
+   * has focus or mouse interaction.
    *
    * @param vp New viewport parameters
    *
@@ -1433,7 +1492,7 @@ public:
    * @param pfix Position fix data containing:
    *   - Lat: Latitude in decimal degrees
    *   - Lon: Longitude in decimal degrees
-   *   - Cog: Course over ground in degrees true
+   *   - Cog: Course over ground in degrees
    *   - Sog: Speed over ground in knots
    *   - Var: Magnetic variation in degrees
    *   - FixTime: UTC timestamp of fix
@@ -2208,24 +2267,26 @@ extern "C" DECL_EXP void RequestRefresh(wxWindow *);
 extern "C" DECL_EXP bool GetGlobalColor(wxString colorName, wxColour *pcolour);
 
 /**
- * Converts lat/lon to canvas pixel coordinates.
+ * Converts lat/lon to canvas physical pixel coordinates.
  *
- * Transforms geographic coordinates to screen pixels for the given viewport.
+ * Transforms geographic coordinates to screen physical pixels for the given
+ * viewport.
  *
  * @param vp Current viewport
- * @param pp Will receive pixel coordinates
+ * @param pp Will receive physical pixel coordinates
  * @param lat Latitude in decimal degrees
  * @param lon Longitude in decimal degrees
  */
 extern "C" DECL_EXP void GetCanvasPixLL(PlugIn_ViewPort *vp, wxPoint *pp,
                                         double lat, double lon);
 /**
- * Converts canvas pixel coordinates to lat/lon.
+ * Converts canvas physical pixel coordinates to lat/lon.
  *
- * Transforms screen pixels to geographic coordinates for the given viewport.
+ * Transforms screen physical pixels to geographic coordinates for the given
+ * viewport.
  *
  * @param vp Current viewport
- * @param p Pixel coordinates
+ * @param p Physical pixel coordinates
  * @param plat Will receive latitude in decimal degrees
  * @param plon Will receive longitude in decimal degrees
  */
@@ -2278,7 +2339,8 @@ extern "C" DECL_EXP wxWindow *GetOCPNCanvasWindow();
  * Time to Go (TTG). By default, the text is large and green, optimized for
  * visibility.
  */
-extern "C" DECL_EXP wxFont *OCPNGetFont(wxString TextElement, int default_size);
+extern "C" DECL_EXP wxFont *OCPNGetFont(wxString TextElement,
+                                        int default_size = 0);
 
 /**
  * Gets shared application data location.
@@ -2697,10 +2759,87 @@ extern DECL_EXP wxString getUsrSpeedUnit_Plugin(int unit = -1);
  * Gets display string for user's preferred temperature unit.
  *
  * @param unit Override unit choice (-1 for user preference):
- *             0=Celsius, 1=Fahrenheit
- * @return Localized unit string ("°C" or "°F")
+ *             0=Celsius, 1=Fahrenheit, 2=Kelvin
+ * @return Localized unit string ("°C", "°F", or "K")
  */
 extern DECL_EXP wxString getUsrTempUnit_Plugin(int unit = -1);
+
+/**
+ * Gets display string for user's preferred wind speed unit.
+ *
+ * @param unit Override unit choice (-1 for user preference):
+ *             0=knots, 1=m/s, 2=mph, 3=km/h
+ * @return Localized unit string (e.g. "kts", "m/s", "mph", "km/h")
+ */
+extern DECL_EXP wxString getUsrWindSpeedUnit_Plugin(int unit = -1);
+
+/**
+ * Converts knots to user's preferred wind speed unit.
+ *
+ * @param kts_wspeed Wind speed in knots
+ * @param unit Override unit choice (-1 for user preference):
+ *             0=knots, 1=m/s, 2=mph, 3=km/h
+ * @return Wind speed in user's preferred unit
+ */
+extern DECL_EXP double toUsrWindSpeed_Plugin(double kts_wspeed, int unit = -1);
+
+/**
+ * Converts from user's preferred wind speed unit to knots.
+ *
+ * @param usr_wspeed Wind speed in user's unit
+ * @param unit Override unit choice (-1 for user preference):
+ *             0=knots, 1=m/s, 2=mph, 3=km/h
+ * @return Wind speed in knots
+ */
+extern DECL_EXP double fromUsrWindSpeed_Plugin(double usr_wspeed,
+                                               int unit = -1);
+
+/**
+ * Gets display string for user's preferred depth unit.
+ *
+ * @param unit Override unit choice (-1 for user preference):
+ *             0=feet, 1=meters, 2=fathoms
+ * @return Localized unit string (e.g. "ft", "m", "fa")
+ */
+extern DECL_EXP wxString getUsrDepthUnit_Plugin(int unit = -1);
+
+/**
+ * Converts meters to user's preferred depth unit.
+ *
+ * @param m_depth Depth in meters
+ * @param unit Override unit choice (-1 for user preference):
+ *             0=feet, 1=meters, 2=fathoms
+ * @return Depth in user's preferred unit
+ */
+extern DECL_EXP double toUsrDepth_Plugin(double m_depth, int unit = -1);
+
+/**
+ * Converts from user's preferred depth unit to meters.
+ *
+ * @param usr_depth Depth in user's unit
+ * @param unit Override unit choice (-1 for user preference):
+ *             0=feet, 1=meters, 2=fathoms
+ * @return Depth in meters
+ */
+extern DECL_EXP double fromUsrDepth_Plugin(double usr_depth, int unit = -1);
+
+/**
+ * Parse a formatted coordinate string to get decimal degrees.
+ *
+ * This function attempts to parse a wide variety of formatted coordinate
+ * strings and convert them to decimal degrees. It handles formats like:
+ * - 37°54.204' N
+ * - N37 54 12
+ * - 37°54'12"
+ * - 37.9034
+ * - 122°18.621' W
+ * - 122w 18 37
+ * - -122.31035
+ *
+ * @param sdms The formatted coordinate string to parse
+ * @return The decimal degrees value, or NaN if parsing failed
+ */
+extern DECL_EXP double fromDMM_PlugIn(wxString sdms);
 
 /**
  * Configuration options for date and time formatting.
@@ -2831,19 +2970,21 @@ struct DateTimeFormatOptions {
 };
 
 /**
- * Format a wxDateTime to a localized string representation, conforming to the
+ * Format a date/time to a localized string representation, conforming to the
  * global date/time format and timezone settings.
  *
- * The function uses the timezone configuration to format the date/time either
- * in UTC, local time, or local mean time (LMT) based on the longitude.
+ * The function expects date_time to be in local time and formats it according to the 
+ * timezone configuration either in:
+ * - UTC: Coordinated Universal Time (default)
+ * - Local Time: System's configured timezone with proper DST handling
+ * - LMT: Local Mean Time calculated based on the longitude specified in options
  *
  * @note This function should be used instead of wxDateTime.Format() to ensure
  * consistent date/time formatting across the entire application.
  *
- * @param date_time The date/time to format.
- * @param options The date/time format options.
- * @return wxString The formatted date/time string.
- *
+ * @param date_time The date/time to format, must be in local time.
+ * @param options The date/time format options including target timezone and formatting preferences.
+ * @return wxString The formatted date/time string with appropriate timezone indicator.
  */
 extern DECL_EXP wxString toUsrDateTimeFormat_Plugin(
     const wxDateTime date_time,
@@ -3030,14 +3171,18 @@ int DECL_EXP OCPNMessageBox_PlugIn(wxWindow *parent, const wxString &message,
                                    int style = wxOK, int x = -1, int y = -1);
 
 /**
- * Formats latitude/longitude in degrees and decimal minutes.
+ * Convert decimal degrees to a formatted string.
  *
- * Converts decimal degrees to deg/min format with N/S/E/W indicator.
+ * Converts a decimal degrees value to a string formatted in the currently
+ * specified format. For example, -123.456 can be converted to "123° 27.36' W".
  *
- * @param NEflag North/East flag (true=N/E, false=S/W)
- * @param a Decimal degrees value
- * @param hi_precision True for higher precision output
- * @return Formatted string like "50° 12.345' N"
+ * @param NEflag North/East flags: 1 = N/S, 2 = E/W
+ * @param a Degrees decimal in the range -180.0 to 180.0
+ * @param hi_precision If true, format with 4 decimal places instead of 1
+ * @return Formatted string in one of these formats depending on preferences:
+ *         - DD° MM.mmm'
+ *         - DD.ddddd°
+ *         - DD° MM' SS.sss"
  */
 extern DECL_EXP wxString toSDMM_PlugIn(int NEflag, double a,
                                        bool hi_precision = true);
@@ -4635,9 +4780,23 @@ extern DECL_EXP bool ShuttingDown(void);
  * Gets the currently focused chart canvas.
  *
  * Returns the chart canvas window that currently has input focus in
- * multi-canvas configurations.
+ * multi-canvas configurations. A canvas gains focus when:
+ *
+ * - User clicks within the canvas area
+ * - User uses keyboard shortcuts to switch canvas focus
+ * - Canvas is explicitly given focus programmatically
+ *
+ * Focus determines which canvas:
+ * - Receives keyboard input events
+ * - Is the target for navigation commands
+ * - Shows active canvas indicators
+ * - Gets tool/menu actions by default
  *
  * @return Pointer to focused canvas window, NULL if none focused
+ *
+ * @see GetCanvasIndexUnderMouse() To find canvas under mouse cursor
+ * @see GetCanvasCount() To get total number of canvases
+ * @see GetCanvasByIndex() To get canvas by index number
  */
 extern DECL_EXP wxWindow *PluginGetFocusCanvas();
 /**
@@ -4758,9 +4917,14 @@ extern DECL_EXP wxWindow *GetCanvasUnderMouse();
  * Gets index of chart canvas under mouse cursor.
  *
  * Returns the index of the canvas window that the mouse cursor is currently
- * over in multi-canvas configurations.
+ * positioned over in multi-canvas configurations. Note that having the mouse
+ * over a canvas does not automatically give that canvas focus - it merely
+ * indicates mouse position.
  *
  * @return Canvas index (0-based), -1 if mouse not over any canvas
+ * @note This returns mouse position only - does not affect canvas focus
+ * @see GetFocusCanvas() To determine which canvas has input focus
+ * @see GetCanvasCount() To get total number of canvases
  */
 extern DECL_EXP int GetCanvasIndexUnderMouse();
 // extern DECL_EXP std::vector<wxWindow *> GetCanvasArray();
@@ -5480,7 +5644,7 @@ struct PluginNavdata {
   double lat;   //!< Latitude in decimal degrees
   double lon;   //!< Longitude in decimal degrees
   double sog;   //!< Speed over ground in knots
-  double cog;   //!< Course over ground in degrees true
+  double cog;   //!< Course over ground in degrees
   double var;   //!< Magnetic variation in degrees
   double hdt;   //!< True heading in degrees
   time_t time;  //!< UTC timestamp of data

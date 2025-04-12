@@ -70,6 +70,8 @@ public:
   bool SendMessage(std::shared_ptr<const NavMsg> msg,
                    std::shared_ptr<const NavAddr> addr) override;
 
+  void AddTxPGN(int pgn);
+
   int SetTXPGN(int pgn) override;
 
   //    Secondary thread life toggle
@@ -90,7 +92,7 @@ public:
   void handle_N2K_SERIAL_RAW(CommDriverN2KSerialEvent& event);
   int GetMfgCode();
 
-  DriverStats GetDriverStats() const;
+  DriverStats GetDriverStats() const override;
 
   std::atomic_int m_Thread_run_flag;
   ConnectionParams m_params;
@@ -128,6 +130,7 @@ private:
   bool m_got_mfg_code;
   StatsTimer m_stats_timer;
   DriverStats m_driver_stats;
+  std::vector<int> pgn_tx_list;
 };
 
 #endif  // guard

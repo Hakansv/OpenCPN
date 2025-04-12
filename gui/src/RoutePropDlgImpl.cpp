@@ -34,8 +34,9 @@
 #include "model/navutil_base.h"
 #include "navutil.h"
 #include "ocpn_plugin.h"
+#include "print_dialog.h"
 #include "routemanagerdialog.h"
-#include "routeprintout.h"
+#include "route_printout.h"
 #include "RoutePropDlgImpl.h"
 #include "tcmgr.h"
 
@@ -256,7 +257,7 @@ RoutePropDlgImpl::RoutePropDlgImpl(wxWindow* parent, wxWindowID id,
                                    const wxString& title, const wxPoint& pos,
                                    const wxSize& size, long style)
     : RoutePropDlg(parent, id, title, pos, size, style) {
-  m_pRoute = NULL;
+  m_pRoute = nullptr;
 
   SetColorScheme(global_color_scheme);
 
@@ -367,8 +368,8 @@ void RoutePropDlgImpl::UpdatePoints() {
                 .SetTimezone(getDatetimeTimezoneSelector(m_tz_selection))
                 .SetLongitude(pnode->GetData()->m_lon);
         eta = wxString::Format(
-            "Start: %s",
-            ocpn::toUsrDateTimeFormat(m_pRoute->m_PlannedDeparture, opts));
+            "Start: %s", ocpn::toUsrDateTimeFormat(
+                             m_pRoute->m_PlannedDeparture.FromUTC(), opts));
         eta.Append(wxString::Format(
             _T(" (%s)"),
             GetDaylightString(getDaylightStatus(pnode->GetData()->m_lat,
@@ -392,7 +393,8 @@ void RoutePropDlgImpl::UpdatePoints() {
             DateTimeFormatOptions()
                 .SetTimezone(getDatetimeTimezoneSelector(m_tz_selection))
                 .SetLongitude(pnode->GetData()->m_lon);
-        eta = ocpn::toUsrDateTimeFormat(pnode->GetData()->GetETA(), opts);
+        eta = ocpn::toUsrDateTimeFormat(pnode->GetData()->GetETA().FromUTC(),
+                                        opts);
         eta.Append(wxString::Format(
             _T(" (%s)"),
             GetDaylightString(getDaylightStatus(pnode->GetData()->m_lat,
@@ -414,14 +416,14 @@ void RoutePropDlgImpl::UpdatePoints() {
     wxString etd;
     if (pnode->GetData()->GetManualETD().IsValid()) {
       // GetManualETD() returns time in UTC, always. So use it as such.
+      RoutePoint* rt = pnode->GetData();
       DateTimeFormatOptions opts =
           DateTimeFormatOptions()
               .SetTimezone(getDatetimeTimezoneSelector(m_tz_selection))
-              .SetLongitude(pnode->GetData()->m_lon);
-      etd = ocpn::toUsrDateTimeFormat(pnode->GetData()->GetManualETD(), opts);
-      if (pnode->GetData()->GetManualETD().IsValid() &&
-          pnode->GetData()->GetETA().IsValid() &&
-          pnode->GetData()->GetManualETD() < pnode->GetData()->GetETA()) {
+              .SetLongitude(rt->m_lon);
+      etd = ocpn::toUsrDateTimeFormat(rt->GetManualETD().FromUTC(), opts);
+      if (rt->GetManualETD().IsValid() && rt->GetETA().IsValid() &&
+          rt->GetManualETD() < rt->GetETA()) {
         etd.Prepend(
             _T("!! "));  // Manually entered ETD is before we arrive here!
       }
@@ -501,8 +503,9 @@ void RoutePropDlgImpl::SetRouteAndUpdate(Route* pR, bool only_points) {
 
   //  Fetch any config file values
   if (!only_points) {
-    if (!pR->m_PlannedDeparture.IsValid())
+    if (!pR->m_PlannedDeparture.IsValid()) {
       pR->m_PlannedDeparture = wxDateTime::Now().ToUTC();
+    }
 
     m_tz_selection = GLOBAL_SETTINGS_INPUT;  // Honor global setting by default
     if (pR != m_pRoute) {
@@ -578,21 +581,17 @@ void RoutePropDlgImpl::SetRouteAndUpdate(Route* pR, bool only_points) {
     m_tcName->SetFocus();
     if (m_pRoute->m_PlannedDeparture.IsValid() &&
         m_pRoute->m_PlannedDeparture.GetValue() > 0) {
-      m_dpDepartureDate->SetValue(
-          toUsrDateTime(m_pRoute->m_PlannedDeparture, m_tz_selection,
-                        m_pRoute->pRoutePointList->GetFirst()->GetData()->m_lon)
-              .GetDateOnly());
-      m_tpDepartureTime->SetValue(toUsrDateTime(
+      wxDateTime t = toUsrDateTime(
           m_pRoute->m_PlannedDeparture, m_tz_selection,
-          m_pRoute->pRoutePointList->GetFirst()->GetData()->m_lon));
+          m_pRoute->pRoutePointList->GetFirst()->GetData()->m_lon);
+      m_dpDepartureDate->SetValue(t.GetDateOnly());
+      m_tpDepartureTime->SetValue(t);
     } else {
-      m_dpDepartureDate->SetValue(
-          toUsrDateTime(wxDateTime::Now(), m_tz_selection,
-                        m_pRoute->pRoutePointList->GetFirst()->GetData()->m_lon)
-              .GetDateOnly());
-      m_tpDepartureTime->SetValue(toUsrDateTime(
-          wxDateTime::Now(), m_tz_selection,
-          m_pRoute->pRoutePointList->GetFirst()->GetData()->m_lon));
+      wxDateTime t = toUsrDateTime(
+          wxDateTime::Now().ToUTC(), m_tz_selection,
+          m_pRoute->pRoutePointList->GetFirst()->GetData()->m_lon);
+      m_dpDepartureDate->SetValue(t.GetDateOnly());
+      m_tpDepartureTime->SetValue(t);
     }
   }
 
@@ -645,14 +644,13 @@ void RoutePropDlgImpl::DepartureTimeOnTimeChanged(wxDateEvent& event) {
 }
 
 void RoutePropDlgImpl::TimezoneOnChoice(wxCommandEvent& event) {
+  if (!m_pRoute) return;
   m_tz_selection = m_choiceTimezone->GetSelection();
-  m_dpDepartureDate->SetValue(
+  wxDateTime t =
       toUsrDateTime(m_pRoute->m_PlannedDeparture, m_tz_selection,
-                    m_pRoute->pRoutePointList->GetFirst()->GetData()->m_lon)
-          .GetDateOnly());
-  m_tpDepartureTime->SetValue(
-      toUsrDateTime(m_pRoute->m_PlannedDeparture, m_tz_selection,
-                    m_pRoute->pRoutePointList->GetFirst()->GetData()->m_lon));
+                    m_pRoute->pRoutePointList->GetFirst()->GetData()->m_lon);
+  m_dpDepartureDate->SetValue(t.GetDateOnly());
+  m_tpDepartureTime->SetValue(t);
   UpdatePoints();
   event.Skip();
 }
@@ -912,7 +910,7 @@ void RoutePropDlgImpl::WaypointsOnDataViewListCtrlItemContextMenu(
     wxMenuItem* delItem =
         new wxMenuItem(&menu, ID_RCLK_MENU_DELETE, _("Remove Selected"));
 #ifdef __ANDROID__
-    wxFont* pf = OCPNGetFont(_("Menu"), 0);
+    wxFont* pf = OCPNGetFont(_("Menu"));
     editItem->SetFont(*pf);
     moveUpItem->SetFont(*pf);
     moveDownItem->SetFont(*pf);
@@ -964,7 +962,7 @@ void RoutePropDlgImpl::ResetChanges() {
   if (!m_pRoute) return;
   m_pRoute->m_PlannedSpeed = m_OrigRoute.m_PlannedSpeed;
   m_pRoute->m_PlannedDeparture = m_OrigRoute.m_PlannedDeparture;
-  m_pRoute = NULL;
+  m_pRoute = nullptr;
 }
 
 void RoutePropDlgImpl::SaveChanges() {
@@ -999,7 +997,7 @@ void RoutePropDlgImpl::SaveChanges() {
 
     pConfig->UpdateRoute(m_pRoute);
     pConfig->UpdateSettings();
-    m_pRoute = NULL;
+    m_pRoute = nullptr;
   }
 }
 
@@ -1056,12 +1054,20 @@ void RoutePropDlgImpl::SplitOnButtonClick(wxCommandEvent& event) {
 }
 
 void RoutePropDlgImpl::PrintOnButtonClick(wxCommandEvent& event) {
-  RoutePrintSelection* dlg = new RoutePrintSelection(this, m_pRoute);
-  DimeControl(dlg);
-  dlg->ShowWindowModalThenDo([this, dlg](int retcode) {
-    if (retcode == wxID_OK) {
-    }
-  });
+  static std::set<int> s_options;  // keep selected options
+  RoutePrintDialog dlg(this, s_options);
+  int result = dlg.ShowModal();
+
+  if (result == wxID_OK) {
+    dlg.GetSelected(s_options);
+    RoutePrintout printout(m_pRoute, s_options);
+    auto& printer = PrintDialog::GetInstance();
+    printer.Initialize(wxPORTRAIT);
+    printer.EnablePageNumbers(true);
+    printer.Print(this, &printout);
+  }
+
+  event.Skip();
 }
 
 void RoutePropDlgImpl::ExtendOnButtonClick(wxCommandEvent& event) {
@@ -1084,7 +1090,8 @@ void RoutePropDlgImpl::ExtendOnButtonClick(wxCommandEvent& event) {
 bool RoutePropDlgImpl::IsThisRouteExtendable() {
   m_pExtendRoute = NULL;
   m_pExtendPoint = NULL;
-  if (m_pRoute->m_bRtIsActive || m_pRoute->m_bIsInLayer) return false;
+  if (!m_pRoute || m_pRoute->m_bRtIsActive || m_pRoute->m_bIsInLayer)
+    return false;
 
   RoutePoint* pLastPoint = m_pRoute->GetLastPoint();
   wxArrayPtrVoid* pEditRouteArray;
@@ -1162,9 +1169,9 @@ wxString RoutePropDlgImpl::MakeTideInfo(wxString stationName, double lat,
   wxString tide_form = wxEmptyString;
 
   if (ev == 1) {
-    tide_form.Append(_T("LW: "));
+    tide_form.Append(_T("LW: "));  // High Water
   } else if (ev == 2) {
-    tide_form.Append(_T("HW: "));
+    tide_form.Append(_T("HW: "));  // Low Water
   } else if (ev == 0) {
     tide_form.Append(_("Unavailable: "));
   }
@@ -1175,12 +1182,14 @@ wxString RoutePropDlgImpl::MakeTideInfo(wxString stationName, double lat,
       DateTimeFormatOptions()
           .SetTimezone(getDatetimeTimezoneSelector(m_tz_selection))
           .SetLongitude(lon);
-  tide_form.Append(ocpn::toUsrDateTimeFormat(dtm, opts));
+  wxString tideDateTime = ocpn::toUsrDateTimeFormat(dtm.FromUTC(), opts);
+  tide_form.Append(tideDateTime);
   dtm.Add(wxTimeSpan(0, offset, 0));
-  tide_form.Append(wxString::Format(_T(" (") + _("Local") + _T(": %s) @ %s"),
-                                    ocpn::toUsrDateTimeFormat(dtm, opts),
-                                    stationName.c_str()));
-
+  // Write next tide event using station timezone, formatted with explicit HH:MM
+  // offset from UTC.
+  tide_form.Append(wxString::Format(" (" + _("Local") + ": %s%+03d:%02d) @ %s",
+                                    dtm.Format("%a %x %H:%M:%S"), (offset / 60),
+                                    abs(offset) % 60, stationName.c_str()));
   return tide_form;
 }
 

@@ -564,7 +564,7 @@ bool AisDecoder::HandleN2K_129039(std::shared_ptr<const Nmea2000Msg> n2k_msg) {
     else
       pTargetData->Class = AIS_BUOY;
 
-    pTargetData->NavStatus = (ais_nav_status)NavStat;
+    pTargetData->NavStatus = UNDEFINED;  // Class B targets have no status.
     if (!N2kIsNA(SOG)) pTargetData->SOG = MS2KNOTS(SOG);
     if (!N2kIsNA(COG)) pTargetData->COG = GeodesicRadToDeg(COG);
     if (!N2kIsNA(Heading)) pTargetData->HDG = GeodesicRadToDeg(Heading);
@@ -1093,8 +1093,7 @@ void AisDecoder::HandleSignalK(std::shared_ptr<const SignalkMsg> sK_msg) {
   if (g_pMUX && g_pMUX->IsLogActive()) {
     wxString logmsg;
     logmsg.Printf("AIS :MMSI: %ld", mmsi);
-    std::string source = sK_msg->source->to_string();
-    g_pMUX->LogInputMessage(logmsg, source, false, false);
+    g_pMUX->LogInputMessage(sK_msg, false, false);
   }
 
   // Stop here if the target shall be ignored
