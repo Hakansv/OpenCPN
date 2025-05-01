@@ -5240,7 +5240,6 @@ public:
                      const int nRanges = 0, const double RangeDistance = 1.0,
                      const wxColor RangeColor = wxColor(255, 0, 0));
   ~PlugIn_Waypoint_Ex();
-
   /**
    * Initializes waypoint properties to default values.
    *
@@ -5500,6 +5499,12 @@ extern DECL_EXP double OCPN_GetWinDIPScaleFactor();
  * @return Vector of priority map names
  */
 extern DECL_EXP std::vector<std::string> GetPriorityMaps();
+
+/**
+ * Sets and applies new priority mapping scheme.
+ *
+ */
+extern DECL_EXP void UpdateAndApplyPriorityMaps(std::vector<std::string> map);
 
 /**
  * Gets list of active priority identifiers.
