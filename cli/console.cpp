@@ -111,7 +111,7 @@ Commands:
   install-plugin <plugin name>:
       Download and install given plugin
 
-  Uninstall-plugin <plugin name>:
+  uninstall-plugin <plugin name>:
       Uninstall given plugin
 
   list-plugins:
@@ -374,7 +374,7 @@ public:
       ocpn::replace(url, "@branch@", catalog);
     }
     auto path = PluginHandler::GetInstance()->GetMetadataPath();
-    auto cat_handler = CatalogHandler::getInstance();
+    auto cat_handler = CatalogHandler::GetInstance();
     auto status = cat_handler->DownloadCatalog(path, url);
     if (status != CatalogHandler::ServerStatus::OK) {
       std::cout << "Cannot update catalog\n";
