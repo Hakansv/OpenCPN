@@ -2443,22 +2443,18 @@ void dashboard_pi::HandleN2K_129540(ObservedEvt ev) {
 void dashboard_pi::HandleN2K_130306(ObservedEvt ev) {
   NMEA2000Id id_130306(130306);
   std::vector<uint8_t> v = GetN2000Payload(id_130306, ev);
-
+  // No source prioritization for 130306 because there are
+  // multiple variables that can come from different sources.
+  //
   // Get a uniqe ID to prioritize source(s)
-  unsigned char source_id = v.at(7);
+  /*unsigned char source_id = v.at(7);
   char ss[4];
   sprintf(ss, "%d", source_id);
   std::string ident = std::string(ss);
   std::string source = GetN2000Source(id_130306, ev);
-  source += ":" + ident;
+  source += ":" + ident;*/
 
-  if (mPriWDN >= 1) {
-    if (mPriWDN == 1) {
-      if (source != prio130306) return;
-    } else {
-      prio130306 = source;
-    }
-
+  if (1) {  // mPriWDN >= 1) {  //Need this??
     unsigned char SID;
     double WindSpeed, WindAngle;
     tN2kWindReference WindReference;
@@ -2466,8 +2462,9 @@ void dashboard_pi::HandleN2K_130306(ObservedEvt ev) {
     // Get wind data
     if (ParseN2kPGN130306(v, SID, WindSpeed, WindAngle, WindReference)) {
       if (!N2kIsNA(WindSpeed) && !N2kIsNA(WindAngle)) {
-        double m_twaangle, m_twaspeed_kn;
-        bool sendTrueWind = false;
+        double m_twaangle;
+        //, m_twaspeed_kn;
+        bool sendTWA = false, sendTWS = false;
 
         switch (WindReference) {
           case 0:  // N2kWind direction True North
@@ -2476,6 +2473,7 @@ void dashboard_pi::HandleN2K_130306(ObservedEvt ev) {
               SendSentenceToAllInstruments(OCPN_DBP_STC_TWD, m_twdT,
                                            _T("\u00B0"));
               mPriWDN = 1;
+              sendTWS = true;
               mWDN_Watchdog = no_nav_watchdog_timeout_ticks;
             }
             break;
@@ -2494,6 +2492,7 @@ void dashboard_pi::HandleN2K_130306(ObservedEvt ev) {
               SendSentenceToAllInstruments(OCPN_DBP_STC_TWD, m_twdT,
                                            _T("\u00B0"));
               mPriWDN = 1;
+              sendTWS = true;
               mWDN_Watchdog = no_nav_watchdog_timeout_ticks;
             }
             break;
@@ -2535,15 +2534,19 @@ void dashboard_pi::HandleN2K_130306(ObservedEvt ev) {
           case 3:  // N2kWind_True_centerline_boat(ground)
             if (mPriTWA >= 1 && g_bDBtrueWindGround) {
               m_twaangle = GEODESIC_RAD2DEG(WindAngle);
-              m_twaspeed_kn = MS2KNOTS(WindSpeed);
-              sendTrueWind = true;
+              // m_twaspeed_kn = MS2KNOTS(WindSpeed);
+              sendTWA = true;
+              sendTWS = true;
+              mPriTWA = 1;
             }
             break;
           case 4:  // N2kWind_True_Centerline__water
             if (mPriTWA >= 1 && !g_bDBtrueWindGround) {
               m_twaangle = GEODESIC_RAD2DEG(WindAngle);
-              m_twaspeed_kn = MS2KNOTS(WindSpeed);
-              sendTrueWind = true;
+              // m_twaspeed_kn = MS2KNOTS(WindSpeed);
+              sendTWA = true;
+              sendTWS = true;
+              mPriTWA = 1;
             }
             break;
           case 6:  // N2kWind_Error
@@ -2554,7 +2557,7 @@ void dashboard_pi::HandleN2K_130306(ObservedEvt ev) {
             break;
         }
 
-        if (sendTrueWind) {
+        if (sendTWA) {
           // Wind angle is 0-360 degr
           wxString m_twaunit = _T("\u00B0R");
           // Should be unit "L" and 0-180 to port
@@ -2563,17 +2566,18 @@ void dashboard_pi::HandleN2K_130306(ObservedEvt ev) {
             m_twaunit = _T("\u00B0L");
           }
           SendSentenceToAllInstruments(OCPN_DBP_STC_TWA, m_twaangle, m_twaunit);
-          // Wind speed
+        }
+
+        // Wind speed
+        if (sendTWS) {
           SendSentenceToAllInstruments(
               OCPN_DBP_STC_TWS,
-              toUsrSpeed_Plugin(m_twaspeed_kn, g_iDashWindSpeedUnit),
+              toUsrSpeed_Plugin(MS2KNOTS(WindSpeed), g_iDashWindSpeedUnit),
               getUsrSpeedUnit_Plugin(g_iDashWindSpeedUnit));
           SendSentenceToAllInstruments(
               OCPN_DBP_STC_TWS2,
-              toUsrSpeed_Plugin(m_twaspeed_kn, g_iDashWindSpeedUnit),
+              toUsrSpeed_Plugin(MS2KNOTS(WindSpeed), g_iDashWindSpeedUnit),
               getUsrSpeedUnit_Plugin(g_iDashWindSpeedUnit));
-          mPriTWA = 1;
-          mPriWDN = 1;  // For source prio
           mMWVT_Watchdog = gps_watchdog_timeout_ticks;
         }
       }
