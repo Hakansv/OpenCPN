@@ -4630,6 +4630,45 @@ wxString GetShipNameFromFile(int nmmsi) {
   return name;
 }
 
+void AisDecoder::UpdateMMSItoNameFile(const wxString &mmsi,
+                                      const wxString &name) {
+  // Path to the mmsitoname.csv file is already in AISTargetNameFileName
+
+  // Create a map to hold the current contents of the file
+  std::map<wxString, wxString> mmsi_name_map;
+
+  // Read the existing file
+  std::ifstream infile(AISTargetNameFileName.mb_str());
+  if (infile) {
+    std::string line;
+    while (getline(infile, line)) {
+      wxStringTokenizer tokenizer(wxString::FromUTF8(line.c_str()), _T(","));
+      wxString file_mmsi = tokenizer.GetNextToken();
+      wxString file_name = tokenizer.GetNextToken().Trim();
+      mmsi_name_map[file_mmsi] = file_name;
+    }
+    infile.close();
+  }
+
+  // Update or add the new entry.
+  mmsi_name_map[mmsi] = name.Upper();
+
+  // Write the updated map back to the file
+  std::ofstream outfile(AISTargetNameFileName.mb_str());
+  if (outfile) {
+    for (const auto &pair : mmsi_name_map) {
+      std::string line = std::string(pair.first.mb_str()) + "," +
+                         std::string(pair.second.mb_str()) + "\n";
+      outfile << line;
+    }
+    outfile.close();
+  }
+}
+
+wxString AisDecoder::GetMMSItoNameEntry(const wxString &mmsi) {
+  return GetShipNameFromFile(wxAtoi(mmsi));
+}
+
 // Assign a unique meteo mmsi related to position
 int AisMeteoNewMmsi(int orig_mmsi, int m_lat, int m_lon, int lon_bits = 0,
                     int siteID = 0) {
@@ -4719,7 +4758,8 @@ bool isBuoyMmsi(const int msi) {
   // Consider any not valid MMSI number for a class B target (message 18 or 19)
   // to be a "net buoy"
   int mid = msi / 1000000;
-  if ((mid > 200 && mid < 800) || mid >= 970) {
+  if ((mid > 200 && mid < 880) || mid >= 970) {
+    // MID is stated to be >200 <800. Handheld AIS starts with 8+mid thus 880
     return false;
   } else {
     return true;

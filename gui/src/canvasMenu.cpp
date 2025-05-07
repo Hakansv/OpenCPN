@@ -88,6 +88,7 @@
 #include "track_gui.h"
 #include "TrackPropDlg.h"
 #include "undo.h"
+#include "model/navobj_db.h"
 
 #ifdef __ANDROID__
 #include "androidUTIL.h"
@@ -518,8 +519,9 @@ void CanvasMenuHandler::CanvasPopupMenu(int x, int y, int seltype) {
       MenuAppend1(contextMenu, ID_DEF_MENU_MOVE_BOAT_HERE, _("Move Boat Here"));
   }
 
-  if (!g_bBasicMenus &&
-      (!(g_pRouteMan->GetpActiveRoute() || (seltype & SELTYPE_MARKPOINT))))
+  if (!g_bBasicMenus && !g_pRouteMan->GetpActiveRoute() &&
+      (!(seltype & SELTYPE_MARKPOINT) ||
+       (m_pFoundRoutePoint && m_pFoundRoutePoint->m_bIsInLayer)))
     MenuAppend1(contextMenu, ID_DEF_MENU_GOTO_HERE, _("Navigate To Here"));
 
   if (!g_bBasicMenus)
@@ -1912,8 +1914,8 @@ void CanvasMenuHandler::PopupMenuHandler(wxCommandEvent &event) {
         if (m_pSelectedTrack == g_pActiveTrack)
           m_pSelectedTrack = parent->parent_frame->TrackOff();
         g_pAIS->DeletePersistentTrack(m_pSelectedTrack);
-        pConfig->DeleteConfigTrack(m_pSelectedTrack);
-
+        // pConfig->DeleteConfigTrack(m_pSelectedTrack);
+        NavObj_dB::GetInstance().DeleteTrack(m_pSelectedTrack);
         RoutemanGui(*g_pRouteMan).DeleteTrack(m_pSelectedTrack);
 
         if (TrackPropDlg::getInstanceFlag() && pTrackPropDialog &&

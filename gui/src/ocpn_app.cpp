@@ -111,8 +111,10 @@ using namespace std::literals::chrono_literals;
 #include "model/mdns_query.h"
 #include "model/mdns_service.h"
 #include "model/multiplexer.h"
+#include "model/navobj_db.h"
 #include "model/nav_object_database.h"
 #include "model/navutil_base.h"
+#include "model/notification_manager.h"
 #include "model/own_ship.h"
 #include "model/plugin_handler.h"
 #include "model/route.h"
@@ -120,7 +122,7 @@ using namespace std::literals::chrono_literals;
 #include "model/select.h"
 #include "model/track.h"
 
-#include "AboutFrameImpl.h"
+#include "about_frame_impl.h"
 #include "about.h"
 #include "ais_info_gui.h"
 #include "AISTargetAlertDialog.h"
@@ -570,9 +572,10 @@ int g_NeedDBUpdate;  // 0 - No update needed, 1 - Update needed because there is
                      // no chart database, inform user, 2 - Start update right
                      // away
 bool g_bPreserveScaleOnX;
+bool g_CanvasHideNotificationIcon;
 
 AboutFrameImpl *g_pAboutDlg;
-about *g_pAboutDlgLegacy;
+About *g_pAboutDlgLegacy;
 
 #if wxUSE_XLOCALE || !wxCHECK_VERSION(3, 0, 0)
 wxLocale *plocale_def_lang = 0;
@@ -695,6 +698,7 @@ ChartCanvas *g_overlayCanvas;
 bool b_inCloseWindow;
 bool g_disable_main_toolbar;
 bool g_btenhertz;
+bool g_declutter_anchorage;
 
 #ifdef LINUX_CRASHRPT
 wxCrashPrint g_crashprint;
@@ -728,7 +732,7 @@ void SetSystemColors(ColorScheme cs);
 
 static bool LoadAllPlugIns(bool load_enabled) {
   g_Platform->ShowBusySpinner();
-  bool b = PluginLoader::getInstance()->LoadAllPlugIns(load_enabled);
+  bool b = PluginLoader::GetInstance()->LoadAllPlugIns(load_enabled);
   g_Platform->HideBusySpinner();
   return b;
 }
@@ -1140,6 +1144,10 @@ bool MyApp::OnInit() {
                    wxFONTENCODING_SYSTEM);
   temp_font.SetDefaultEncoding(wxFONTENCODING_SYSTEM);
 
+  //  Start the Notification Manager and remove old persisted messages
+  auto &noteman = NotificationManager::GetInstance();
+  noteman.ScrubNotificationDirectory(30);
+
   //      Establish Log File location
   if (!g_Platform->InitializeLogFile()) {
     return false;
@@ -1223,12 +1231,9 @@ bool MyApp::OnInit() {
   //      overwhelm the log
   pMessageOnceArray = new wxArrayString;
 
-  // Created here to be available for Routenman, reparented later.
-  m_data_monitor = new DataMonitor(nullptr);
-
   //      Init the Route Manager
-  g_pRouteMan = new Routeman(RoutePropDlg::GetDlgCtx(),
-                             RoutemanGui::GetDlgCtx(), m_data_monitor);
+  g_pRouteMan =
+      new Routeman(RoutePropDlg::GetDlgCtx(), RoutemanGui::GetDlgCtx());
 
   //      Init the Selectable Route Items List
   pSelect = new Select();
@@ -1267,6 +1272,9 @@ bool MyApp::OnInit() {
   pLayerList = new LayerList;
   //  Routes
   pRouteList = new RouteList;
+
+  //  Initialize the NavObj_db
+  auto &navobj_db = NavObj_dB::GetInstance();
 
   //      (Optionally) Capture the user and file(effective) ids
   //  Some build environments may need root privileges for hardware
@@ -1547,7 +1555,7 @@ bool MyApp::OnInit() {
   auto style = g_StyleManager->GetCurrentStyle();
   auto bitmap = new wxBitmap(style->GetIcon("default_pi", 32, 32));
   if (bitmap->IsOk())
-    PluginLoader::getInstance()->SetPluginDefaultIcon(bitmap);
+    PluginLoader::GetInstance()->SetPluginDefaultIcon(bitmap);
   else
     wxLogWarning("Cannot initiate plugin default jigsaw icon.");
 
@@ -1643,9 +1651,8 @@ bool MyApp::OnInit() {
   wxLogMessage(fmsg);
 
   gFrame = new MyFrame(NULL, myframe_window_title, position, new_frame_size,
-                       app_style, m_data_monitor);
+                       app_style);
   wxTheApp->SetTopWindow(gFrame);
-  m_data_monitor->Reparent(gFrame);
 
   //  Do those platform specific initialization things that need gFrame
   g_Platform->Initialize_3();

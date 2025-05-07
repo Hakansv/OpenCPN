@@ -73,6 +73,7 @@
 #include "model/local_api.h"
 #include "model/logger.h"
 #include "model/multiplexer.h"
+#include "model/navobj_db.h"
 #include "model/nav_object_database.h"
 #include "model/navutil_base.h"
 #include "model/notification_manager.h"
@@ -85,7 +86,7 @@
 #include "model/track.h"
 
 #include "dialog_alert.h"
-#include "AboutFrameImpl.h"
+#include "about_frame_impl.h"
 #include "about.h"
 #include "ais.h"
 #include "ais_info_gui.h"
@@ -171,7 +172,7 @@ extern TrackPropDlg *pTrackPropDialog;
 extern GoToPositionDialog *pGoToPositionDialog;
 extern CM93OffsetDialog *g_pCM93OffsetDialog;
 extern S57QueryDialog *g_pObjectQueryDialog;
-extern about *g_pAboutDlgLegacy;
+extern About *g_pAboutDlgLegacy;
 extern AboutFrameImpl *g_pAboutDlg;
 
 extern double vLat, vLon;
@@ -324,6 +325,7 @@ extern bool g_config_display_size_manual;
 extern bool g_PrintingInProgress;
 extern bool g_disable_main_toolbar;
 extern bool g_btenhertz;
+extern bool g_declutter_anchorage;
 
 #ifdef __WXMSW__
 // System color control support
@@ -381,9 +383,58 @@ void SetSystemColors(ColorScheme cs);
 
 static bool LoadAllPlugIns(bool load_enabled) {
   AbstractPlatform::ShowBusySpinner();
-  bool b = PluginLoader::getInstance()->LoadAllPlugIns(load_enabled);
+  bool b = PluginLoader::GetInstance()->LoadAllPlugIns(load_enabled);
   AbstractPlatform::HideBusySpinner();
   return b;
+}
+
+static void LaunchLocalHelp(void) {
+#ifdef __ANDROID__
+  androidLaunchHelpView();
+#else
+  wxString def_lang_canonical = _T("en_US");
+
+#if wxUSE_XLOCALE
+  if (plocale_def_lang)
+    def_lang_canonical = plocale_def_lang->GetCanonicalName();
+#endif
+
+  wxString help_locn = g_Platform->GetSharedDataDir() + _T("doc/help_");
+
+  wxString help_try = help_locn + def_lang_canonical + _T(".html");
+
+  if (!::wxFileExists(help_try)) {
+    help_try = help_locn + _T("en_US") + _T(".html");
+
+    if (!::wxFileExists(help_try)) {
+      help_try = help_locn + _T("web") + _T(".html");
+    }
+
+    if (!::wxFileExists(help_try)) return;
+  }
+
+  wxLaunchDefaultBrowser(wxString(_T("file:///")) + help_try);
+#endif
+}
+
+static void DoHelpDialog(void) {
+#ifndef __ANDROID__
+  if (!g_pAboutDlg) {
+    g_pAboutDlg = new AboutFrameImpl(gFrame);
+  } else {
+    g_pAboutDlg->SetFocus();
+  }
+  g_pAboutDlg->Show();
+
+#else
+  if (!g_pAboutDlgLegacy)
+    g_pAboutDlgLegacy = new About(gFrame, g_Platform->GetSharedDataDir(),
+                                  [] { LaunchLocalHelp(); });
+  else
+    g_pAboutDlgLegacy->SetFocus();
+  g_pAboutDlgLegacy->Show();
+
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -648,11 +699,11 @@ static NmeaLog *GetDataMonitor() {
 
 // My frame constructor
 MyFrame::MyFrame(wxFrame *frame, const wxString &title, const wxPoint &pos,
-                 const wxSize &size, long style, DataMonitor *data_monitor)
+                 const wxSize &size, long style)
     : wxFrame(frame, -1, title, pos, size, style, kTopLevelWindowName),
       comm_overflow_dlg(this),
       m_connections_dlg(nullptr),
-      m_data_monitor(data_monitor) {
+      m_data_monitor(new DataMonitor(this)) {
   g_current_monitor = wxDisplay::GetFromWindow(this);
 #ifdef __WXOSX__
   // On retina displays there is a difference between the physical size of the
@@ -739,11 +790,11 @@ MyFrame::MyFrame(wxFrame *frame, const wxString &title, const wxPoint &pos,
   struct MuxLogCallbacks log_callbacks;
   log_callbacks.log_is_active = [&]() {
     auto log = GetDataMonitor();
-    return log && log->IsActive();
+    return log && log->IsVisible();
   };
   log_callbacks.log_message = [&](Logline ll) {
     NmeaLog *monitor = GetDataMonitor();
-    if (monitor && monitor->IsActive()) monitor->Add(ll);
+    if (monitor && monitor->IsVisible()) monitor->Add(ll);
   };
   g_pMUX = new Multiplexer(log_callbacks, g_b_legacy_input_filter_behaviour);
 
@@ -1684,27 +1735,30 @@ void MyFrame::OnCloseWindow(wxCloseEvent &event) {
     if (!watching_anchor && (g_bCruising) && (gSog < 0.5) &&
         (uptime.IsLongerThan(wxTimeSpan(0, 30, 0, 0))))  // pjotrc 2010.02.15
     {
-      //    First, delete any single anchorage waypoint closer than 0.25 NM from
-      //    this point This will prevent clutter and database congestion....
+      //    First, if enabled, delete any single anchorage waypoints closer
+      //    than 0.25 NM from this point
+      //    This will prevent screen clutter and database congestion.
+      if (g_declutter_anchorage) {
+        wxRoutePointListNode *node =
+            pWayPointMan->GetWaypointList()->GetFirst();
+        while (node) {
+          RoutePoint *pr = node->GetData();
+          if (pr->GetName().StartsWith(_T("Anchorage"))) {
+            double a = gLat - pr->m_lat;
+            double b = gLon - pr->m_lon;
+            double l = sqrt((a * a) + (b * b));
 
-      wxRoutePointListNode *node = pWayPointMan->GetWaypointList()->GetFirst();
-      while (node) {
-        RoutePoint *pr = node->GetData();
-        if (pr->GetName().StartsWith(_T("Anchorage"))) {
-          double a = gLat - pr->m_lat;
-          double b = gLon - pr->m_lon;
-          double l = sqrt((a * a) + (b * b));
-
-          // caveat: this is accurate only on the Equator
-          if ((l * 60. * 1852.) < (.25 * 1852.)) {
-            pConfig->DeleteWayPoint(pr);
-            pSelect->DeleteSelectablePoint(pr, SELTYPE_ROUTEPOINT);
-            delete pr;
-            break;
+            // caveat: this is accurate only on the Equator
+            if ((l * 60. * 1852.) < (.25 * 1852.)) {
+              pConfig->DeleteWayPoint(pr);
+              pSelect->DeleteSelectablePoint(pr, SELTYPE_ROUTEPOINT);
+              delete pr;
+              break;
+            }
           }
-        }
 
-        node = node->GetNext();
+          node = node->GetNext();
+        }
       }
 
       wxString name = now.Format();
@@ -1722,18 +1776,16 @@ void MyFrame::OnCloseWindow(wxCloseEvent &event) {
   pConfig->UpdateSettings();
 
   //    Deactivate the PlugIns
-  auto plugin_loader = PluginLoader::getInstance();
-  if (plugin_loader) {
-    plugin_loader->DeactivateAllPlugIns();
-  }
-
-  wxLogMessage(_T("opencpn::MyFrame exiting cleanly."));
+  PluginLoader::GetInstance()->DeactivateAllPlugIns();
+  wxLogMessage("opencpn::MyFrame exiting cleanly.");
 
   quitflag++;
 
   pConfig->UpdateNavObj();
 
   pConfig->m_pNavObjectChangesSet->reset();
+
+  NavObj_dB::GetInstance().Close();
 
   // Remove any leftover Routes and Waypoints from config file as they were
   // saved to navobj before
@@ -1809,8 +1861,7 @@ void MyFrame::OnCloseWindow(wxCloseEvent &event) {
 
   if (ChartData) ChartData->PurgeCachePlugins();
 
-  if (PluginLoader::getInstance())
-    PluginLoader::getInstance()->UnLoadAllPlugIns();
+  PluginLoader::GetInstance()->UnLoadAllPlugIns();
 
   if (g_pi_manager) {
     delete g_pi_manager;
@@ -2558,12 +2609,12 @@ void MyFrame::OnToolLeftClick(wxCommandEvent &event) {
 
     case wxID_ABOUT:
     case ID_ABOUT: {
-      g_Platform->DoHelpDialog();
+      DoHelpDialog();
       break;
     }
 
     case wxID_HELP: {
-      g_Platform->LaunchLocalHelp();
+      LaunchLocalHelp();
       break;
     }
 
@@ -3101,7 +3152,7 @@ void MyFrame::TrackOn(void) {
 
   g_TrackList.push_back(g_pActiveTrack);
   if (pConfig) pConfig->AddNewTrack(g_pActiveTrack);
-
+  NavObj_dB::GetInstance().AddNewTrack(g_pActiveTrack);
   g_pActiveTrack->Start();
 
   // The main toolbar may still be NULL here, and we will do nothing...
@@ -3152,12 +3203,14 @@ Track *MyFrame::TrackOff(bool do_add_point) {
     g_pActiveTrack->Stop(do_add_point);
 
     if (g_pActiveTrack->GetnPoints() < 2) {
+      NavObj_dB::GetInstance().DeleteTrack(g_pActiveTrack);
       RoutemanGui(*g_pRouteMan).DeleteTrack(g_pActiveTrack);
       return_val = NULL;
     } else {
       if (g_bTrackDaily) {
         Track *pExtendTrack = g_pActiveTrack->DoExtendDaily();
         if (pExtendTrack) {
+          NavObj_dB::GetInstance().DeleteTrack(g_pActiveTrack);
           RoutemanGui(*g_pRouteMan).DeleteTrack(g_pActiveTrack);
           return_val = pExtendTrack;
         }
@@ -4655,6 +4708,8 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
       }
 
       pConfig->LoadNavObjects();
+      NavObj_dB::GetInstance().LoadNavObjects();
+
       //    Re-enable anchor watches if set in config file
       if (!g_AW1GUID.IsEmpty()) {
         pAnchorWatchPoint1 = pWayPointMan->FindRoutePointByGUID(g_AW1GUID);
@@ -4704,7 +4759,7 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
       if (m_initializing) break;
       m_initializing = true;
       AbstractPlatform::ShowBusySpinner();
-      PluginLoader::getInstance()->LoadAllPlugIns(true);
+      PluginLoader::GetInstance()->LoadAllPlugIns(true);
       AbstractPlatform::HideBusySpinner();
       //            RequestNewToolbars();
       RequestNewMasterToolbar();
@@ -4976,7 +5031,7 @@ void MyFrame::HandleGPSWatchdogMsg(std::shared_ptr<const GPSWatchdogMsg> msg) {
       m_fixtime = 0;  // Invalidate fix time
       if (last_bGPSValid != bGPSValid) UpdateGPSCompassStatusBoxes(true);
 
-      // Possible notification on position watchdog timeout..
+      // Possible notification on position watchdog timeout...
       // if fix has been valid for at least 5 minutes, and then lost,
       // then post a critical notification
       if (m_fix_start_time.IsValid()) {
@@ -5765,7 +5820,7 @@ void MyFrame::OnFrameTimer1(wxTimerEvent &event) {
   //    refresh thus, ensuring at least 1 Hz. callback.
   bool brq_dynamic = false;
   if (g_pi_manager) {
-    auto *pplugin_array = PluginLoader::getInstance()->GetPlugInArray();
+    auto *pplugin_array = PluginLoader::GetInstance()->GetPlugInArray();
     for (unsigned int i = 0; i < pplugin_array->GetCount(); i++) {
       PlugInContainer *pic = pplugin_array->Item(i);
       if (pic->m_enabled && pic->m_init_state) {
@@ -5889,7 +5944,7 @@ void MyFrame::OnFrameTimer1(wxTimerEvent &event) {
 
 double MyFrame::GetMag(double a, double lat, double lon) {
   double Variance = std::isnan(gVar) ? g_UserVar : gVar;
-  auto loader = PluginLoader::getInstance();
+  auto loader = PluginLoader::GetInstance();
   if (loader && loader->IsPlugInAvailable(_T("WMM"))) {
     // Request variation at a specific lat/lon
 
@@ -6934,7 +6989,7 @@ void MyFrame::applySettingsString(wxString settings) {
   if (console) console->Raise();
 
   Refresh(false);
-  if (m_data_monitor->IsActive()) m_data_monitor->Raise();
+  if (m_data_monitor->IsVisible()) m_data_monitor->Raise();
 }
 
 #ifdef wxHAS_POWER_EVENTS
@@ -7805,8 +7860,8 @@ void ApplyLocale() {
   //  Compliant Plugins will reload their locale message catalog during the
   //  Init() method. So it is sufficient to simply deactivate, and then
   //  re-activate, all "active" plugins.
-  PluginLoader::getInstance()->DeactivateAllPlugIns();
-  PluginLoader::getInstance()->UpdatePlugIns();
+  PluginLoader::GetInstance()->DeactivateAllPlugIns();
+  PluginLoader::GetInstance()->UpdatePlugIns();
 
   //         // Make sure the perspective saved in the config file is
   //         "reasonable"

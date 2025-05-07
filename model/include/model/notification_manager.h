@@ -28,6 +28,23 @@
 #include <wx/timer.h>
 #include "notification.h"
 #include "observable_evtvar.h"
+#include "comm_appmsg.h"
+
+class NotificationMsg : public AppMsg {
+public:
+  NotificationMsg() : AppMsg(AppMsg::Type::CustomMsg) {}
+
+  NotificationMsg(const std::string action,
+                  std::shared_ptr<Notification> _notification)
+      : AppMsg(AppMsg::Type::CustomMsg),
+        action_verb(action),
+        notification(_notification) {};
+
+  virtual ~NotificationMsg() = default;
+
+  const std::string action_verb;
+  std::shared_ptr<Notification> notification;
+};
 
 /** The global list of user notifications, a singleton. */
 class NotificationManager {
@@ -56,6 +73,8 @@ public:
    */
   bool AcknowledgeNotification(const std::string& guid);
 
+  bool AcknowledgeAllNotifications();
+
   /** Return max severity among current active notifications. */
   NotificationSeverity GetMaxSeverity();
 
@@ -65,12 +84,15 @@ public:
   }
 
   size_t GetNotificationCount() const { return active_notifications.size(); }
+  void ScrubNotificationDirectory(int days_to_retain);
 
   /** Notified without data when a notification is added or removed. */
   EventVar evt_notificationlist_change;
 
 private:
   NotificationManager();
+  void PersistNotificationAsFile(
+      const std::shared_ptr<Notification> _notification);
 
   void OnTimer(wxTimerEvent& event);
 

@@ -25,10 +25,20 @@
 #include <cmath>
 #include <memory>
 #include <vector>
+#include <fstream>
+#include <sstream>
+#include <wx/dir.h>
 
+#include "model/base_platform.h"
 #include "model/navutil_base.h"
 #include "model/notification.h"
 #include "model/notification_manager.h"
+#include "wx/filename.h"
+#include "model/datetime.h"
+#include "model/comm_appmsg_bus.h"
+
+extern BasePlatform* g_BasePlatform;
+extern std::shared_ptr<ObservableListener> ack_listener;
 
 NotificationManager& NotificationManager::GetInstance() {
   static NotificationManager instance;
@@ -43,16 +53,67 @@ NotificationManager::NotificationManager() {
 
 void NotificationManager::OnTimer(wxTimerEvent& event) {
   for (auto note : active_notifications) {
-    if (note->GetTimeoutCount() > 0) {
+    if (note->GetTimeoutLeft() > 0) {
       note->DecrementTimoutCount();
     }
   }
   for (auto note : active_notifications) {
-    if (note->GetTimeoutCount() == 0) {
+    if (note->GetTimeoutLeft() == 0) {
       AcknowledgeNotification(note->GetGuid());
       note->DecrementTimoutCount();
       break;
     }
+  }
+}
+
+void NotificationManager::ScrubNotificationDirectory(int days_to_retain) {
+  wxString note_directory = g_BasePlatform->GetPrivateDataDir() +
+                            wxFileName::GetPathSeparator() + "notifications" +
+                            wxFileName::GetPathSeparator();
+  if (!wxDirExists(note_directory)) return;
+
+  wxDateTime now = wxDateTime::Now();
+  wxArrayString file_list;
+  wxDir::GetAllFiles(note_directory, &file_list);
+  for (size_t i = 0; i < file_list.GetCount(); i++) {
+    wxFileName fn(file_list[i]);
+    wxTimeSpan age = now.Subtract(fn.GetModificationTime());
+    if (age.IsLongerThan(wxTimeSpan(days_to_retain * 24))) {
+      wxRemoveFile(file_list[i]);
+    }
+  }
+}
+
+void NotificationManager::PersistNotificationAsFile(
+    const std::shared_ptr<Notification> _notification) {
+  wxString note_directory = g_BasePlatform->GetPrivateDataDir() +
+                            wxFileName::GetPathSeparator() + "notifications" +
+                            wxFileName::GetPathSeparator();
+  if (!wxDirExists(note_directory)) wxMkdir(note_directory);
+  wxString severity_prefix = "Info_";
+  NotificationSeverity severity = _notification->GetSeverity();
+  if (severity == NotificationSeverity::kWarning)
+    severity_prefix = "Warning_";
+  else if (severity == NotificationSeverity::kCritical)
+    severity_prefix = "Critical_";
+  wxString file_name = wxString(_notification.get()->GetGuid().c_str());
+  file_name.Prepend(severity_prefix);
+  file_name.Prepend(note_directory);
+  file_name += ".txt";
+
+  wxDateTime act_time = wxDateTime(_notification->GetActivateTime());
+  wxString stime = wxString::Format(
+      "%s", ocpn::toUsrDateTimeFormat(
+                act_time, DateTimeFormatOptions().SetFormatString(
+                              "$short_date  $24_hour_minutes_seconds")));
+
+  std::stringstream ss;
+  ss << stime.ToStdString() << std::endl;
+  ss << _notification->GetMessage() << std::endl;
+
+  std::ofstream outputFile(file_name.ToStdString().c_str(), std::ios::out);
+  if (outputFile.is_open()) {
+    outputFile << ss.str();
   }
 }
 
@@ -68,7 +129,13 @@ NotificationSeverity NotificationManager::GetMaxSeverity() {
 std::string NotificationManager::AddNotification(
     std::shared_ptr<Notification> _notification) {
   active_notifications.push_back(_notification);
+  PersistNotificationAsFile(_notification);
   evt_notificationlist_change.Notify();
+
+  // Send notification to listeners
+  auto msg = std::make_shared<NotificationMsg>("POST", _notification);
+  AppMsgBus::GetInstance().Notify(std::move(msg));
+
   return _notification->GetGuid();
 }
 
@@ -77,9 +144,7 @@ std::string NotificationManager::AddNotification(NotificationSeverity _severity,
                                                  int _timeout_secs) {
   auto notification =
       std::make_shared<Notification>(_severity, _message, _timeout_secs);
-  active_notifications.push_back(notification);
-  evt_notificationlist_change.Notify();
-  return notification->GetGuid();
+  return AddNotification(notification);
 }
 
 bool NotificationManager::AcknowledgeNotification(const std::string& GUID) {
@@ -103,7 +168,13 @@ bool NotificationManager::AcknowledgeNotification(const std::string& GUID) {
     for (auto it = active_notifications.begin();
          it != active_notifications.end();) {
       if ((*it)->GetStringHash() == target_message_hash) {
+        // Send notification to listeners
+        auto msg = std::make_shared<NotificationMsg>("ACK", *it);
+        AppMsgBus::GetInstance().Notify(std::move(msg));
+
+        //  Drop the notification
         active_notifications.erase(it);
+
         rv = true;
         break;
       } else
@@ -112,7 +183,20 @@ bool NotificationManager::AcknowledgeNotification(const std::string& GUID) {
     }
   }
 
-  if (rv) evt_notificationlist_change.Notify();
+  if (rv) {
+    evt_notificationlist_change.Notify();
+  }
+
+  return rv;
+}
+
+bool NotificationManager::AcknowledgeAllNotifications() {
+  bool rv = false;
+
+  while (active_notifications.size()) {
+    AcknowledgeNotification(active_notifications[0]->GetGuid());
+    rv = true;
+  }
 
   return rv;
 }

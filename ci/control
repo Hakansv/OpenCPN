@@ -3,6 +3,7 @@ Maintainer: Alec Leamas <leamas.alec@gmail.com>
 Section: misc
 Priority: optional
 Build-Depends: debhelper-compat (>= 11),
+ asciidoc-base,
  cmake,
  dbus,
  googletest (>= 1.11.0) | base-files,
@@ -21,6 +22,7 @@ Build-Depends: debhelper-compat (>= 11),
  liblz4-dev,
  liblzma-dev,
  libpango1.0-dev,
+ libshp-dev,
  libsqlite3-dev,
  libssl-dev,
  libtinyxml-dev,

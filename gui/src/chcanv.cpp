@@ -312,6 +312,7 @@ extern bool g_bDeferredInitDone;
 
 extern wxString g_CmdSoundString;
 ShapeBaseChartSet gShapeBasemap;
+extern bool g_CanvasHideNotificationIcon;
 
 //  TODO why are these static?
 
@@ -2915,16 +2916,7 @@ void ChartCanvas::OnKeyDown(wxKeyEvent &event) {
 
 #ifndef __WXOSX__
     case WXK_F9: {
-      double t0 = wxGetLocalTimeMillis().ToDouble();
-      pConfig->Flush();
-      double t1 = wxGetLocalTimeMillis().ToDouble() - t0;
-
       ToggleCanvasQuiltMode();
-      auto &noteman = NotificationManager::GetInstance();
-      noteman.AddNotification(NotificationSeverity::kCritical,
-                              "Test Notification long message.\nMultiline "
-                              "message that may be many, many chars wide.");
-
       break;
     }
 #endif
@@ -2937,13 +2929,6 @@ void ChartCanvas::OnKeyDown(wxKeyEvent &event) {
     case WXK_F12: {
       if (m_modkeys == wxMOD_ALT) {
         // m_nMeasureState = *(volatile int *)(0);  // generate a fault for
-        // testing
-        bool b = GetEnableTenHertzUpdate();
-        EnableTenHertzUpdate(!b);
-        UpdateGPSCompassStatusBox(true);
-        auto &noteman = NotificationManager::GetInstance();
-        noteman.AddNotification(NotificationSeverity::kInformational,
-                                "Test Timed Notification", 10);
       } else {
         ToggleChartOutlines();
       }
@@ -5131,6 +5116,10 @@ bool ChartCanvas::PanCanvas(double dx, double dy) {
     }
 
     if (new_ref_dbIndex == -1) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Warray-bounds"
+      // The compiler sees a -1 index being used. Does not happen, though.
+
       // for whatever reason, no reference chart is known
       // Probably panned out of the coverage region
       // If any charts are anywhere on-screen, choose the smallest
@@ -5153,6 +5142,7 @@ bool ChartCanvas::PanCanvas(double dx, double dy) {
                      VPoint.rotation);
         ReloadVP();
       }
+#pragma GCC diagnostic pop
     }
   }
 
@@ -11262,6 +11252,7 @@ void ChartCanvas::RenderRouteLegs(ocpnDC &dc) {
   }
 
   wxString routeInfo;
+  double varBrg = 0;
   if (g_bShowTrue)
     routeInfo << wxString::Format(wxString("%03d%c(T) ", wxConvUTF8), (int)brg,
                                   0x00B0);
@@ -11269,13 +11260,24 @@ void ChartCanvas::RenderRouteLegs(ocpnDC &dc) {
   if (g_bShowMag) {
     double latAverage = (m_cursor_lat + render_lat) / 2;
     double lonAverage = (m_cursor_lon + render_lon) / 2;
-    double varBrg = gFrame->GetMag(brg, latAverage, lonAverage);
+    varBrg = gFrame->GetMag(brg, latAverage, lonAverage);
 
     routeInfo << wxString::Format(wxString("%03d%c(M) ", wxConvUTF8),
                                   (int)varBrg, 0x00B0);
   }
-
   routeInfo << _T(" ") << FormatDistanceAdaptive(dist);
+
+  // To make it easier to use a route as a bearing on a charted object add for
+  // the first leg also the reverse bearing.
+  if (np == 1) {
+    routeInfo << "\nReverse: ";
+    if (g_bShowTrue)
+      routeInfo << wxString::Format(wxString("%03d%c(T) ", wxConvUTF8),
+                                    (int)(brg + 180.) % 360, 0x00B0);
+    if (g_bShowMag)
+      routeInfo << wxString::Format(wxString("%03d%c(M) ", wxConvUTF8),
+                                    (int)(varBrg + 180.) % 360, 0x00B0);
+  }
 
   wxString s0;
   if (!route->m_bIsInLayer)
@@ -11891,39 +11893,11 @@ void ChartCanvas::OnPaint(wxPaintEvent &event) {
   // May get an unexpected OnPaint call while switching display modes
   // Guard for that.
   if (!g_bopengl) {
-    //    Draw the rest of the overlay objects directly on the scratch dc
     ocpnDC scratch_dc(mscratch_dc);
-    DrawOverlayObjects(scratch_dc, ru);
-
-    if (m_bShowTide) {
-      RebuildTideSelectList(GetVP().GetBBox());
-      DrawAllTidesInBBox(scratch_dc, GetVP().GetBBox());
-    }
-
-    if (m_bShowCurrent) {
-      RebuildCurrentSelectList(GetVP().GetBBox());
-      DrawAllCurrentsInBBox(scratch_dc, GetVP().GetBBox());
-    }
-
-    if (m_brepaint_piano && g_bShowChartBar) {
-      m_Piano->Paint(GetClientSize().y - m_Piano->GetHeight(), mscratch_dc);
-    }
-
-    if (m_Compass) m_Compass->Paint(scratch_dc);
-
-    auto &noteman = NotificationManager::GetInstance();
-    if (noteman.GetNotificationCount()) {
-      m_notification_button->SetIconSeverity(noteman.GetMaxSeverity());
-      if (m_notification_button->UpdateStatus()) Refresh();
-      m_notification_button->Show(true);
-      m_notification_button->Paint(scratch_dc);
-    } else {
-      m_notification_button->Show(false);
-    }
-
     RenderAlertMessage(mscratch_dc, GetVP());
   }
 
+#if 0
   // quiting?
   if (g_bquiting) {
 #ifdef ocpnUSE_DIBSECTION
@@ -11948,6 +11922,8 @@ void ChartCanvas::OnPaint(wxPaintEvent &event) {
 
     q_dc.SelectObject(wxNullBitmap);
   }
+#endif
+
 #if 0
     //  It is possible that this two-step method may be reuired for some platforms.
     //  So, retain in the code base to aid recovery if necessary
@@ -12036,6 +12012,10 @@ void ChartCanvas::OnPaint(wxPaintEvent &event) {
     }
   }
 
+  //  Now that charts are fully rendered, apply the overlay objects as decals.
+  ocpnDC scratch_dc(mscratch_dc);
+  DrawOverlayObjects(scratch_dc, ru);
+
   //    And finally, blit the scratch dc onto the physical dc
   wxRegionIterator upd_final(rgn_blit);
   while (upd_final) {
@@ -12044,20 +12024,6 @@ void ChartCanvas::OnPaint(wxPaintEvent &event) {
             rect.y);
     upd_final++;
   }
-
-  //  Test code to validate the dc drawing rectangle....
-  /*
-      wxRegionIterator upd_ru ( rgn_blit ); // get the update rect list
-       while ( upd_ru )
-       {
-       wxRect rect = upd_ru.GetRect();
-
-       dc.SetPen(wxPen(*wxRED));
-       dc.SetBrush(wxBrush(*wxRED, wxTRANSPARENT));
-       dc.DrawRectangle(rect);
-       upd_ru ++ ;
-       }
-  */
 
   //    Deselect the chart bitmap from the temp_dc, so that it will not be
   //    destroyed in the temp_dc dtor
@@ -12445,6 +12411,17 @@ void ChartCanvas::DrawOverlayObjects(ocpnDC &dc, const wxRegion &ru) {
     g_pi_manager->RenderAllCanvasOverlayPlugIns(dc, GetVP(), m_canvasIndex,
                                                 OVERLAY_OVER_EMBOSS);
   }
+
+  if (m_bShowTide) {
+    RebuildTideSelectList(GetVP().GetBBox());
+    DrawAllTidesInBBox(dc, GetVP().GetBBox());
+  }
+
+  if (m_bShowCurrent) {
+    RebuildCurrentSelectList(GetVP().GetBBox());
+    DrawAllCurrentsInBBox(dc, GetVP().GetBBox());
+  }
+
   if (!g_PrintingInProgress) {
     if (IsPrimaryCanvas()) {
       if (g_MainToolbar) g_MainToolbar->DrawDC(dc, 1.0);
@@ -12469,6 +12446,23 @@ void ChartCanvas::DrawOverlayObjects(ocpnDC &dc, const wxRegion &ru) {
     if (m_pAISRolloverWin) {
       m_pAISRolloverWin->Draw(dc);
       m_brepaint_piano = true;
+    }
+    if (m_brepaint_piano && g_bShowChartBar) {
+      m_Piano->Paint(GetClientSize().y - m_Piano->GetHeight(), dc);
+    }
+
+    if (m_Compass) m_Compass->Paint(dc);
+
+    if (!g_CanvasHideNotificationIcon) {
+      auto &noteman = NotificationManager::GetInstance();
+      if (noteman.GetNotificationCount()) {
+        m_notification_button->SetIconSeverity(noteman.GetMaxSeverity());
+        if (m_notification_button->UpdateStatus()) Refresh();
+        m_notification_button->Show(true);
+        m_notification_button->Paint(dc);
+      } else {
+        m_notification_button->Show(false);
+      }
     }
   }
   if (g_pi_manager) {

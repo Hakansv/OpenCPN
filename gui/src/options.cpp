@@ -284,6 +284,7 @@ extern wxString g_default_wp_icon;
 extern int osMajor, osMinor;
 extern bool g_bShowMuiZoomButtons;
 extern MyConfig* pConfig;
+extern bool g_btenhertz;
 
 #ifdef __ANDROID__
 extern int g_Android_SDK_Version;
@@ -691,7 +692,7 @@ void OCPNChartDirPanel::OnPaint(wxPaintEvent& event) {
 
 static bool LoadAllPlugIns(bool load_enabled) {
   g_Platform->ShowBusySpinner();
-  bool b = PluginLoader::getInstance()->LoadAllPlugIns(load_enabled);
+  bool b = PluginLoader::GetInstance()->LoadAllPlugIns(load_enabled);
   g_Platform->HideBusySpinner();
   return b;
 }
@@ -909,50 +910,102 @@ void MMSIEditDialog::CreateControls(void) {
   wxStaticBoxSizer* mmsiSizer = new wxStaticBoxSizer(mmsiBox, wxVERTICAL);
   mainSizer->Add(mmsiSizer, 0, wxEXPAND | wxALL, 5);
 
-  mmsiSizer->Add(new wxStaticText(this, wxID_STATIC, _("MMSI")), 0,
-                 wxALIGN_LEFT | wxLEFT | wxRIGHT | wxTOP, 5);
+  wxStaticText* mmsiLabel = new wxStaticText(this, wxID_STATIC, _("MMSI"));
+  mmsiLabel->SetToolTip(
+      _("Maritime Mobile Service Identity - A unique 9-digit number assigned "
+        "to a vessel or navigation aid. Used to identify vessels and devices "
+        "in AIS transmissions and DSC calls."));
+  mmsiSizer->Add(mmsiLabel, 0, wxALIGN_LEFT | wxLEFT | wxRIGHT | wxTOP, 5);
 
   m_MMSICtl = new wxTextCtrl(this, ID_MMSI_CTL, wxEmptyString,
                              wxDefaultPosition, wxSize(180, -1), 0);
+  m_MMSICtl->SetToolTip(
+      _("Enter the 9-digit MMSI number for this vessel or station"));
   mmsiSizer->Add(m_MMSICtl, 0,
                  wxALIGN_LEFT | wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 5);
+  m_MMSICtl->Bind(wxEVT_TEXT, &MMSIEditDialog::OnMMSIChanged, this);
 
-  wxStaticBoxSizer* trackSizer = new wxStaticBoxSizer(
-      new wxStaticBox(this, wxID_ANY, _("Tracking")), wxVERTICAL);
+  wxStaticText* userLabelText = new wxStaticText(this, wxID_STATIC, _("Name"));
+  userLabelText->SetToolTip(
+      _("Display name for this vessel or device - can override names received "
+        "in AIS messages"));
+  mmsiSizer->Add(userLabelText, 0, wxALIGN_LEFT | wxLEFT | wxRIGHT | wxTOP, 5);
+
+  m_ShipNameCtl = new wxTextCtrl(this, wxID_ANY, wxEmptyString,
+                                 wxDefaultPosition, wxSize(180, -1), 0);
+  m_ShipNameCtl->SetToolTip(_(
+      "Set the name for this vessel or device. If specified, this name takes "
+      "precedence over names received via AIS messages. Note that standard AIS "
+      "only supports uppercase letters (A-Z), numbers, and limited "
+      "punctuation. Your manual entries are stored in the mmsitoname.csv file "
+      "and preserved across sessions."));
+  mmsiSizer->Add(m_ShipNameCtl, 0,
+                 wxALIGN_LEFT | wxLEFT | wxRIGHT | wxBOTTOM | wxEXPAND, 5);
+
+  wxStaticBox* trackBox = new wxStaticBox(this, wxID_ANY, _("Tracking"));
+  trackBox->SetToolTip(_("Control how tracks are created for this MMSI"));
+  wxStaticBoxSizer* trackSizer = new wxStaticBoxSizer(trackBox, wxVERTICAL);
 
   wxGridSizer* gridSizer = new wxGridSizer(0, 3, 0, 0);
 
   m_rbTypeTrackDefault =
       new wxRadioButton(this, wxID_ANY, _("Default tracking"),
                         wxDefaultPosition, wxDefaultSize, wxRB_GROUP);
+  m_rbTypeTrackDefault->SetToolTip(
+      _("Use the global tracking settings for this vessel"));
   m_rbTypeTrackDefault->SetValue(TRUE);
   gridSizer->Add(m_rbTypeTrackDefault, 0, wxALL, 5);
 
   m_rbTypeTrackAlways = new wxRadioButton(this, wxID_ANY, _("Always track"));
+  m_rbTypeTrackAlways->SetToolTip(_(
+      "Always create a track for this vessel, regardless of global settings"));
   gridSizer->Add(m_rbTypeTrackAlways, 0, wxALL, 5);
 
   m_rbTypeTrackNever = new wxRadioButton(this, wxID_ANY, _(" Never track"));
+  m_rbTypeTrackNever->SetToolTip(
+      _("Never create a track for this vessel, regardless of global settings"));
   gridSizer->Add(m_rbTypeTrackNever, 0, wxALL, 5);
 
   m_cbTrackPersist = new wxCheckBox(this, wxID_ANY, _("Persistent"));
+  m_cbTrackPersist->SetToolTip(
+      _("Save this vessel's track between OpenCPN sessions. Useful for vessels "
+        "you want to monitor continuously over time."));
   gridSizer->Add(m_cbTrackPersist, 0, wxALL, 5);
 
   trackSizer->Add(gridSizer, 0, wxEXPAND, 0);
   mmsiSizer->Add(trackSizer, 0, wxEXPAND, 0);
 
   m_IgnoreButton = new wxCheckBox(this, wxID_ANY, _("Ignore this MMSI"));
+  m_IgnoreButton->SetToolTip(
+      _("When checked, AIS data for this MMSI will be ignored and the vessel "
+        "will not appear on the chart. Useful for suppressing shore stations, "
+        "permanently moored vessels, or duplicate AIS signals that you don't "
+        "need to monitor."));
   mmsiSizer->Add(m_IgnoreButton, 0, wxEXPAND, 5);
 
   m_MOBButton = new wxCheckBox(this, wxID_ANY,
                                _("Handle this MMSI as SART/PLB(AIS) MOB."));
+  m_MOBButton->SetToolTip(
+      _("When checked, OpenCPN will display a special icon for this device, "
+        "sound a distinctive alarm, and automatically create a temporary MOB "
+        "route from your vessel to this device in emergency. For crew safety "
+        "devices, you can assign the crew member's name using the Name "
+        "field above for quick identification."));
   mmsiSizer->Add(m_MOBButton, 0, wxEXPAND, 5);
 
   m_VDMButton =
       new wxCheckBox(this, wxID_ANY, _("Convert AIVDM to AIVDO for this MMSI"));
+  m_VDMButton->SetToolTip(
+      _("When checked, converts AIS messages for this vessel from AIVDM (other "
+        "vessel) to AIVDO (own vessel) format."));
   mmsiSizer->Add(m_VDMButton, 0, wxEXPAND, 5);
 
   m_FollowerButton = new wxCheckBox(
       this, wxID_ANY, _("This MMSI is my Follower - No CPA Alert"));
+  m_FollowerButton->SetToolTip(
+      _("When checked, disables CPA (Closest Point of Approach) alerts for "
+        "this vessel as it's considered intentionally following your vessel. "
+        "Follower vessels are displayed with a special own-ship style icon."));
   mmsiSizer->Add(m_FollowerButton, 0, wxEXPAND, 5);
 
   wxBoxSizer* btnSizer = new wxBoxSizer(wxHORIZONTAL);
@@ -972,6 +1025,11 @@ void MMSIEditDialog::CreateControls(void) {
   else
     sMMSI = _T("");
   m_MMSICtl->AppendText(sMMSI);
+
+  // Initialize user label with existing ship name if available
+  if (!m_props->m_ShipName.IsEmpty()) {
+    m_ShipNameCtl->SetValue(m_props->m_ShipName);
+  }
 
   switch (m_props->TrackType) {
     case TRACKTYPE_ALWAYS:
@@ -1013,7 +1071,21 @@ void MMSIEditDialog::Persist() {
     m_props->m_bVDM = m_VDMButton->GetValue();
     m_props->m_bFollower = m_FollowerButton->GetValue();
     m_props->m_bPersistentTrack = m_cbTrackPersist->GetValue();
-    if (m_props->m_ShipName == wxEmptyString) {
+
+    // Get user-defined ship name if provided.
+    wxString shipName = m_ShipNameCtl->GetValue().Upper();
+    if (!shipName.IsEmpty()) {
+      m_props->m_ShipName = shipName;
+
+      // Save the custom name to mmsitoname.csv file
+      wxString mmsi = m_MMSICtl->GetValue();
+      if (!mmsi.IsEmpty() && mmsi.Length() == 9 && mmsi.IsNumber()) {
+        g_pAIS->UpdateMMSItoNameFile(mmsi, shipName);
+      }
+    }
+    // If no user label provided and no existing name, try to get from AIS data
+    // or file
+    else if (m_props->m_ShipName == wxEmptyString) {
       auto proptarget = g_pAIS->Get_Target_Data_From_MMSI(m_props->MMSI);
       if (proptarget) {
         wxString s = proptarget->GetFullName();
@@ -1054,6 +1126,31 @@ void MMSIEditDialog::OnMMSIEditOKClick(wxCommandEvent& event) {
 }
 
 void MMSIEditDialog::OnCtlUpdated(wxCommandEvent& event) {}
+
+void MMSIEditDialog::OnMMSIChanged(wxCommandEvent& event) {
+  wxString mmsi = m_MMSICtl->GetValue();
+
+  // Only proceed if we have a valid MMSI (9 digits)
+  if (!mmsi.IsEmpty() && mmsi.Length() == 9 && mmsi.IsNumber()) {
+    // First check for a stored name in mmsitoname.csv
+    wxString shipName = g_pAIS->GetMMSItoNameEntry(mmsi);
+
+    // If no stored name found, try to get from AIS data
+    if (shipName.IsEmpty()) {
+      auto target = g_pAIS->Get_Target_Data_From_MMSI(wxAtoi(mmsi));
+      if (target) {
+        shipName = target->GetFullName();
+      }
+    }
+
+    // Update the ship name field if we found a name
+    if (!shipName.IsEmpty()) {
+      m_ShipNameCtl->SetValue(shipName);
+    }
+  }
+
+  event.Skip();
+}
 
 BEGIN_EVENT_TABLE(MMSIListCtrl, wxListCtrl)
 EVT_LIST_ITEM_SELECTED(ID_MMSI_PROPS_LIST, MMSIListCtrl::OnListItemClick)
@@ -1519,7 +1616,7 @@ options::options(wxWindow* parent, wxWindowID id, const wxString& caption,
   GlobalVar<wxString> compat_os(&g_compatOS);
   compat_os_listener.Listen(compat_os, this, EVT_COMPAT_OS_CHANGE);
   Bind(EVT_COMPAT_OS_CHANGE, [&](wxCommandEvent&) {
-    PluginLoader::getInstance()->LoadAllPlugIns(false);
+    PluginLoader::GetInstance()->LoadAllPlugIns(false);
     m_pPlugInCtrl->ReloadPluginPanels();
   });
   auto action = [&](wxCommandEvent& evt) {
@@ -1664,7 +1761,7 @@ void options::Init(void) {
   m_pagePlugins = -1;
   m_pageConnections = -1;
 
-  auto loader = PluginLoader::getInstance();
+  auto loader = PluginLoader::GetInstance();
   b_haveWMM = loader && loader->IsPlugInAvailable(_T("WMM"));
   b_oldhaveWMM = b_haveWMM;
 
@@ -4053,30 +4150,10 @@ void options::CreatePanel_Display(size_t parent, int border_size,
     pEnableZoomToCursor->SetValue(FALSE);
     boxCtrls->Add(pEnableZoomToCursor, verticleInputFlags);
 
-    // spacer
-    generalSizer->Add(0, border_size * 4);
-    generalSizer->Add(0, border_size * 4);
-
-    // Selection of timezone for date/time display format:
-    // UTC, local time, or specific time zone.
-    generalSizer->Add(
-        new wxStaticText(pDisplayPanel, wxID_ANY, _("Date and Time")),
-        groupLabelFlags);
-
-    wxBoxSizer* timezoneStyleBox = new wxBoxSizer(wxHORIZONTAL);
-    generalSizer->Add(timezoneStyleBox, groupInputFlags);
-    wxBoxSizer* itemTimezoneBoxSizer = new wxBoxSizer(wxHORIZONTAL);
-    timezoneStyleBox->Add(itemTimezoneBoxSizer, 1, wxEXPAND | wxALL,
-                          border_size);
-    pTimezoneLocalTime =
-        new wxRadioButton(pDisplayPanel, ID_TIMEZONE_LOCAL_TIME,
-                          _("Local Time"), wxDefaultPosition, wxDefaultSize, 0);
-    itemTimezoneBoxSizer->Add(pTimezoneLocalTime, 0,
-                              wxALIGN_CENTER_VERTICAL | wxRIGHT, border_size);
-    pTimezoneUTC = new wxRadioButton(pDisplayPanel, ID_TIMEZONE_UTC, _("UTC"),
-                                     wxDefaultPosition, wxDefaultSize, 0);
-    itemTimezoneBoxSizer->Add(pTimezoneUTC, 0,
-                              wxALIGN_CENTER_VERTICAL | wxRIGHT, border_size);
+    pEnableTenHertz = new wxCheckBox(pDisplayPanel, ID_TENHZCHECKBOX,
+                                     _("Enable Ten Hz screen update"));
+    pEnableTenHertz->SetValue(FALSE);
+    boxCtrls->Add(pEnableTenHertz, verticleInputFlags);
 
     if (!g_useMUI) {
       // spacer
@@ -4487,6 +4564,30 @@ void options::CreatePanel_Units(size_t parent, int border_size,
     unitsSizer->Add(0, border_size * 4);
     unitsSizer->Add(0, border_size * 4);
 
+    // Selection of timezone for date/time display format:
+    // UTC, local time, or specific time zone.
+    unitsSizer->Add(new wxStaticText(panelUnits, wxID_ANY, _("Date and Time")),
+                    groupLabelFlags);
+
+    wxBoxSizer* timezoneStyleBox = new wxBoxSizer(wxHORIZONTAL);
+    unitsSizer->Add(timezoneStyleBox, groupInputFlags);
+    wxBoxSizer* itemTimezoneBoxSizer = new wxBoxSizer(wxHORIZONTAL);
+    timezoneStyleBox->Add(itemTimezoneBoxSizer, 1, wxEXPAND | wxALL,
+                          border_size);
+    pTimezoneLocalTime =
+        new wxRadioButton(panelUnits, ID_TIMEZONE_LOCAL_TIME, _("Local Time"),
+                          wxDefaultPosition, wxDefaultSize, 0);
+    itemTimezoneBoxSizer->Add(pTimezoneLocalTime, 0,
+                              wxALIGN_CENTER_VERTICAL | wxRIGHT, border_size);
+    pTimezoneUTC = new wxRadioButton(panelUnits, ID_TIMEZONE_UTC, _("UTC"),
+                                     wxDefaultPosition, wxDefaultSize, 0);
+    itemTimezoneBoxSizer->Add(pTimezoneUTC, 0,
+                              wxALIGN_CENTER_VERTICAL | wxRIGHT, border_size);
+
+    // spacer
+    unitsSizer->Add(0, border_size * 4);
+    unitsSizer->Add(0, border_size * 4);
+
     // bearings (magnetic/true, variation)
     unitsSizer->Add(new wxStaticText(panelUnits, wxID_ANY, _("Bearings")),
                     groupLabelFlags);
@@ -4623,6 +4724,30 @@ void options::CreatePanel_Units(size_t parent, int border_size,
         new wxChoice(panelUnits, ID_SDMMFORMATCHOICE, wxDefaultPosition,
                      wxDefaultSize, m_SDMMFormatsNChoices, pSDMMFormats);
     unitsSizer->Add(pSDMMFormat, inputFlags);
+
+    // spacer
+    unitsSizer->Add(0, border_size * 4);
+    unitsSizer->Add(0, border_size * 4);
+
+    // Selection of timezone for date/time display format:
+    // UTC, local time, or specific time zone.
+    unitsSizer->Add(new wxStaticText(panelUnits, wxID_ANY, _("Date and Time")),
+                    groupLabelFlags);
+
+    wxBoxSizer* timezoneStyleBox = new wxBoxSizer(wxHORIZONTAL);
+    unitsSizer->Add(timezoneStyleBox, groupInputFlags);
+    wxBoxSizer* itemTimezoneBoxSizer = new wxBoxSizer(wxHORIZONTAL);
+    timezoneStyleBox->Add(itemTimezoneBoxSizer, 1, wxEXPAND | wxALL,
+                          border_size);
+    pTimezoneLocalTime =
+        new wxRadioButton(panelUnits, ID_TIMEZONE_LOCAL_TIME, _("Local Time"),
+                          wxDefaultPosition, wxDefaultSize, 0);
+    itemTimezoneBoxSizer->Add(pTimezoneLocalTime, 0,
+                              wxALIGN_CENTER_VERTICAL | wxRIGHT, border_size);
+    pTimezoneUTC = new wxRadioButton(panelUnits, ID_TIMEZONE_UTC, _("UTC"),
+                                     wxDefaultPosition, wxDefaultSize, 0);
+    itemTimezoneBoxSizer->Add(pTimezoneUTC, 0,
+                              wxALIGN_CENTER_VERTICAL | wxRIGHT, border_size);
 
     // spacer
     unitsSizer->Add(0, border_size * 4);
@@ -6031,7 +6156,7 @@ void options::SetInitialSettings(void) {
   m_font_element_array.Clear();
 
   b_oldhaveWMM = b_haveWMM;
-  auto loader = PluginLoader::getInstance();
+  auto loader = PluginLoader::GetInstance();
   b_haveWMM = loader && loader->IsPlugInAvailable(_T("WMM"));
 
   // Canvas configuration
@@ -6225,6 +6350,7 @@ void options::SetInitialSettings(void) {
   pSogCogFromLLDampInterval->SetValue(g_own_ship_sog_cog_calc_damp_sec);
 
   if (pEnableZoomToCursor) pEnableZoomToCursor->SetValue(g_bEnableZoomToCursor);
+  pEnableTenHertz->SetValue(g_btenhertz);
 
   if (pPreserveScale) pPreserveScale->SetValue(g_bPreserveScaleOnX);
   pPlayShipsBells->SetValue(g_bPlayShipsBells);
@@ -7119,7 +7245,7 @@ void options::ApplyChanges(wxCommandEvent& event) {
   g_bShowTrue = pCBTrueShow->GetValue();
   g_bShowMag = pCBMagShow->GetValue();
 
-  auto loader = PluginLoader::getInstance();
+  auto loader = PluginLoader::GetInstance();
   b_haveWMM = loader && loader->IsPlugInAvailable(_T("WMM"));
   if (!b_haveWMM && !b_oldhaveWMM) {
     pMagVar->GetValue().ToDouble(&g_UserVar);
@@ -7216,6 +7342,9 @@ void options::ApplyChanges(wxCommandEvent& event) {
 
   if (pEnableZoomToCursor)
     g_bEnableZoomToCursor = pEnableZoomToCursor->GetValue();
+
+  g_btenhertz = pEnableTenHertz->GetValue();
+
 #ifdef __ANDROID__
   g_bEnableZoomToCursor = false;
 #endif
@@ -7520,7 +7649,7 @@ void options::ApplyChanges(wxCommandEvent& event) {
   // PlugIn Manager Panel
 
   // Pick up any changes to selections
-  if (PluginLoader::getInstance()->UpdatePlugIns())
+  if (PluginLoader::GetInstance()->UpdatePlugIns())
     m_returnChanges |= TOOLBAR_CHANGED;
 
   // And keep config in sync
@@ -8429,7 +8558,7 @@ void options::DoOnPageChange(size_t page) {
   } else if (m_pagePlugins == i) {  // 7 is the index of "Plugins" page
     // load the disabled plugins finally because the user might want to enable
     // them
-    auto loader = PluginLoader::getInstance();
+    auto loader = PluginLoader::GetInstance();
     if (LoadAllPlugIns(false)) {
       delete m_pPlugInCtrl;
       m_pPlugInCtrl = NULL;

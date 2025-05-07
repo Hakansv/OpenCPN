@@ -31,9 +31,13 @@
 
 #include <wx/frame.h>
 
-#include "data_monitor_src.h"
+#include "model/data_monitor_src.h"
+#include "tty_scroll.h"
 #include "std_filesystem.h"
-
+/**
+ * Internal helper class
+ * \internal
+ */
 class DataLogger {
 public:
   enum class Format { kVdr, kDefault, kCsv };
@@ -46,11 +50,20 @@ public:
 
   void SetLogfile(const fs::path& path);
 
+  fs::path GetLogfile() const { return m_path; }
+
   void Add(const Logline& ll);
 
   void SetFormat(Format format);
 
-  fs::path GetLogfile() { return m_path; }
+  fs::path NullLogfile();
+
+  std::string GetFileDlgTypes();
+
+  fs::path GetDefaultLogfile();
+
+  /** Notified with new path on filename change. */
+  EventVar OnNewLogfile;
 
 private:
   wxWindow* m_parent;
@@ -58,8 +71,7 @@ private:
   std::ofstream m_stream;
   bool m_is_logging;
   Format m_format;
-
-  fs::path DefaultLogfile();
+  const NavmsgTimePoint m_log_start;
 };
 
 /** Overall logging handler, outputs to screen and log file. */
@@ -68,11 +80,9 @@ public:
   DataMonitor(wxWindow* parent);
 
   /** Add an input line to log output. */
-  void Add(std::string msg);
-
   void Add(const Logline& ll) override;
 
-  bool IsActive() const override;
+  virtual bool IsVisible() const override;
 
 private:
   void OnFilterListChange();
@@ -85,6 +95,7 @@ private:
   ObsListener m_filter_list_lstnr;
   ObsListener m_filter_update_lstnr;
   ObsListener m_filter_apply_lstnr;
+  std::string m_current_filter;
 };
 
 #endif  //  DATA_MONITOR_DLG__

@@ -35,7 +35,10 @@ set(SRC
     include/field_switch.h
     include/field_text.h
     include/edit_button.h
+    include/expand_icon.h
+    include/expand_panel.h
     include/form_grid.h
+    include/svg_button.h
     include/svg_icons.h
     include/text_entry.h
     include/ui_utils.h
@@ -43,10 +46,13 @@ set(SRC
     src/dialog_alert.cpp
     src/dialog_base.cpp
     src/edit_button.cpp
+    src/expand_icon.cpp
+    src/expand_panel.cpp
     src/dialog_input.cpp
     src/field_switch.cpp
     src/field_text.cpp
     src/form_grid.cpp
+    src/svg_button.cpp
     src/svg_icons.cpp
     src/text_entry.cpp
     src/ui_utils.cpp
@@ -64,6 +70,7 @@ endif ()
 
 target_include_directories(GUILIB PRIVATE ${wxWidgets_INCLUDE_DIRS})
 target_link_libraries(GUILIB PRIVATE ${wxWidgets_LIBRARIES})
+target_link_libraries(GUILIB PRIVATE ocpn::filesystem)
 if (TARGET ocpn::wxsvg)
    target_link_libraries(GUILIB PRIVATE ocpn::wxsvg)
 endif ()

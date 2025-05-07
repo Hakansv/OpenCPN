@@ -82,15 +82,14 @@
 void* g_pi_manager = reinterpret_cast<void*>(1L);
 
 class NmeaLogDummy : public NmeaLog {
-  bool IsActive() const { return false; }
+  bool IsVisible() const { return false; }
   void Add(const Logline& s) {};
 };
 
 static void InitRouteman() {
   struct RoutePropDlgCtx ctx;
   auto RouteMgrDlgUpdateListCtrl = [&]() {};
-  static NmeaLogDummy dummy_log;
-  g_pRouteMan = new Routeman(ctx, RoutemanDlgCtx(), &dummy_log);
+  g_pRouteMan = new Routeman(ctx, RoutemanDlgCtx());
 }
 
 static const char* USAGE = R"""(
@@ -186,8 +185,8 @@ public:
     using namespace std;
     wxImage::AddHandler(new wxPNGHandler());
     g_BasePlatform->GetSharedDataDir();  // See #2619
-    PluginLoader::getInstance()->LoadAllPlugIns(false);
-    auto plugins = PluginHandler::getInstance()->getInstalled();
+    PluginLoader::GetInstance()->LoadAllPlugIns(false);
+    auto plugins = PluginHandler::GetInstance()->GetInstalled();
     for (const auto& p : plugins) {
       if (p.version == "0.0") continue;
       auto path = PluginHandler::ImportedMetadataPath(p.name);
@@ -198,10 +197,10 @@ public:
 
   void list_available() {
     using namespace std;
-    auto handler = PluginHandler::getInstance();
-    auto plugins = handler->getAvailable();
+    auto handler = PluginHandler::GetInstance();
+    auto plugins = handler->GetAvailable();
     for (const auto& p : plugins) {
-      if (handler->isCompatible(p)) {
+      if (handler->IsCompatible(p)) {
         cout << left << setw(25) << p.name << p.version << "\n";
       }
     }
@@ -210,8 +209,8 @@ public:
   void uninstall_plugin(const std::string& plugin) {
     using namespace std;
     g_BasePlatform->GetSharedDataDir();  // See #2619
-    PluginLoader::getInstance()->LoadAllPlugIns(false);
-    auto plugins = PluginHandler::getInstance()->getInstalled();
+    PluginLoader::GetInstance()->LoadAllPlugIns(false);
+    auto plugins = PluginHandler::GetInstance()->GetInstalled();
     vector<PluginMetadata> found;
     copy_if(plugins.begin(), plugins.end(), back_inserter(found),
             [plugin](const PluginMetadata& m) { return m.name == plugin; });
@@ -219,22 +218,22 @@ public:
       cerr << "No such plugin installed\n";
       exit(2);
     }
-    PluginHandler::getInstance()->uninstall(found[0].name);
+    PluginHandler::GetInstance()->Uninstall(found[0].name);
   }
 
   void import_plugin(const std::string& tarball_path) {
-    auto handler = PluginHandler::getInstance();
+    auto handler = PluginHandler::GetInstance();
     PluginMetadata metadata;
     bool ok = handler->ExtractMetadata(tarball_path, metadata);
     if (!ok) {
       std::cerr << "Cannot extract metadata (malformed tarball?)\n";
       exit(2);
     }
-    if (!PluginHandler::isCompatible(metadata)) {
+    if (!PluginHandler::IsCompatible(metadata)) {
       std::cerr << "Incompatible plugin detected\n";
       exit(2);
     }
-    ok = handler->installPlugin(metadata, tarball_path);
+    ok = handler->InstallPlugin(metadata, tarball_path);
     if (!ok) {
       std::cerr << "Error extracting import plugin tarball.\n";
       exit(2);
@@ -255,12 +254,12 @@ public:
     using namespace std;
     g_BasePlatform->GetSharedDataDir();  // See #2619
     wxImage::AddHandler(new wxPNGHandler());
-    auto handler = PluginHandler::getInstance();
-    auto plugins = handler->getAvailable();
+    auto handler = PluginHandler::GetInstance();
+    auto plugins = handler->GetAvailable();
     vector<PluginMetadata> found;
     copy_if(plugins.begin(), plugins.end(), back_inserter(found),
             [plugin, handler](const PluginMetadata& m) {
-              return m.name == plugin && handler->isCompatible(m);
+              return m.name == plugin && handler->IsCompatible(m);
             });
     if (found.size() == 0) {
       cerr << "No such plugin available\n";
@@ -273,35 +272,20 @@ public:
       cerr << "Cannot download data from " << found[0].tarball_url << "\n";
       exit(1);
     }
-    PluginHandler::getInstance()->installPlugin(path);
+    PluginHandler::GetInstance()->InstallPlugin(path);
     remove(path.c_str());
     exit(0);
   }
 
   void plugin_by_file(const std::string& filename) {
-    auto plugin = PluginHandler::getInstance()->getPluginByLibrary(filename);
+    auto plugin = PluginHandler::GetInstance()->GetPluginByLibrary(filename);
     std::cout << (plugin != "" ? plugin : "Not found") << "\n";
   }
 
   bool load_plugin(const std::string& plugin) {
-    auto loader = PluginLoader::getInstance();
+    auto loader = PluginLoader::GetInstance();
     wxImage::AddHandler(new wxPNGHandler());
     g_BasePlatform->GetSharedDataDir();  // See #2619
-    wxDEFINE_EVENT(EVT_FILE_NOTFOUND, wxCommandEvent);
-    ObservableListener file_notfound_listener;
-    file_notfound_listener.Listen(loader->evt_unreadable_plugin, this,
-                                  EVT_FILE_NOTFOUND);
-    Bind(EVT_FILE_NOTFOUND, [&](wxCommandEvent ev) {
-      std::cerr << "Cannot open file: " << ev.GetString() << "\n";
-    });
-
-    wxDEFINE_EVENT(EVT_BAD_VERSION, wxCommandEvent);
-    ObservableListener bad_version_listener;
-    bad_version_listener.Listen(loader->evt_version_incompatible_plugin, this,
-                                EVT_BAD_VERSION);
-    Bind(EVT_BAD_VERSION, [&](wxCommandEvent ev) {
-      std::cerr << "Incompatible plugin version " << ev.GetString() << "\n";
-    });
 
     auto container = loader->LoadPlugIn(plugin.c_str());
     ProcessPendingEvents();
@@ -389,8 +373,8 @@ public:
       url = std::string(DOWNLOAD_REPO_PROTO);
       ocpn::replace(url, "@branch@", catalog);
     }
-    auto path = PluginHandler::getInstance()->getMetadataPath();
-    auto cat_handler = CatalogHandler::getInstance();
+    auto path = PluginHandler::GetInstance()->GetMetadataPath();
+    auto cat_handler = CatalogHandler::GetInstance();
     auto status = cat_handler->DownloadCatalog(path, url);
     if (status != CatalogHandler::ServerStatus::OK) {
       std::cout << "Cannot update catalog\n";

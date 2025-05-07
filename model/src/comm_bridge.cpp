@@ -48,6 +48,7 @@
 #include "model/ocpn_types.h"
 #include "model/own_ship.h"
 #include "model/multiplexer.h"
+#include "model/notification_manager.h"
 
 //  comm event definitions
 wxDEFINE_EVENT(EVT_N2K_129029, ObservedEvt);
@@ -95,11 +96,11 @@ static BridgeLogCallbacks GetLogCallbacks() {
   BridgeLogCallbacks log_callbacks;
   log_callbacks.log_is_active = [&]() {
     auto log = GetDataMonitor();
-    return log && log->IsActive();
+    return log && log->IsVisible();
   };
   log_callbacks.log_message = [&](Logline ll) {
     NmeaLog* monitor = GetDataMonitor();
-    if (monitor && monitor->IsActive()) monitor->Add(ll);
+    if (monitor && monitor->IsVisible()) monitor->Add(ll);
   };
   return log_callbacks;
 }
@@ -195,6 +196,17 @@ void CommBridge::PresetWatchdogs() {
   m_watchdogs.satellite_watchdog = 20;
 }
 
+bool CommBridge::IsNextLowerPriorityAvailable(
+    const std::unordered_map<std::string, int>& map, PriorityContainer& pc) {
+  int best_prio = 100;
+  for (auto it = map.begin(); it != map.end(); it++) {
+    if (it->second > pc.active_priority) {
+      best_prio = wxMin(best_prio, it->second);
+    }
+  }
+  return best_prio != pc.active_priority;
+}
+
 void CommBridge::SelectNextLowerPriority(
     const std::unordered_map<std::string, int>& map, PriorityContainer& pc) {
   int best_prio = 100;
@@ -237,7 +249,10 @@ void CommBridge::OnWatchdogTimer(wxTimerEvent& event) {
 
     // Are there any other lower priority sources?
     // If so, adopt that one.
-    SelectNextLowerPriority(priority_map_position, active_priority_position);
+    if (IsNextLowerPriorityAvailable(priority_map_position,
+                                     active_priority_position)) {
+      SelectNextLowerPriority(priority_map_position, active_priority_position);
+    }
   }
 
   //  Update and check watchdog timer for SOG/COG data source
@@ -1213,38 +1228,37 @@ bool CommBridge::SaveConfig(void) {
 }
 
 std::string CommBridge::GetPriorityKey(std::shared_ptr<const NavMsg> msg) {
-  std::string source = msg->source->to_string();
-  std::string listener_key = msg->key();
+  std::string key;
 
   std::string this_identifier;
   std::string this_address("0");
   if (msg->bus == NavAddr::Bus::N0183) {
     auto msg_0183 = std::dynamic_pointer_cast<const Nmea0183Msg>(msg);
     if (msg_0183) {
+      std::string source = msg->source->to_string();
       this_identifier = msg_0183->talker;
       this_identifier += msg_0183->type;
+      key = source + ":" + this_address + ";" + this_identifier;
     }
   } else if (msg->bus == NavAddr::Bus::N2000) {
     auto msg_n2k = std::dynamic_pointer_cast<const Nmea2000Msg>(msg);
     if (msg_n2k) {
       this_identifier = msg_n2k->PGN.to_string();
       unsigned char n_source = msg_n2k->payload.at(7);
-      char ss[4];
-      sprintf(ss, "%d", n_source);
-      this_address = std::string(ss);
+      wxString km = wxString::Format("N2k device address: %d", n_source);
+      key = km.ToStdString() + " ; " + "PGN: " + this_identifier;
     }
   } else if (msg->bus == NavAddr::Bus::Signalk) {
     auto msg_sk = std::dynamic_pointer_cast<const SignalkMsg>(msg);
     if (msg_sk) {
       auto addr_sk =
           std::static_pointer_cast<const NavAddrSignalK>(msg->source);
-      source = addr_sk->to_string();
-      this_identifier = "signalK";
-      this_address = msg->source->iface;
+      std::string source = addr_sk->to_string();
+      key = source;  // Simplified, parsing sK for more info is expensive
     }
   }
 
-  return source + ":" + this_address + ";" + this_identifier;
+  return key;
 }
 
 bool CommBridge::EvalPriority(
@@ -1264,21 +1278,23 @@ bool CommBridge::EvalPriority(
   tka.GetNextToken();
   int source_address = atoi(tka.GetNextToken().ToStdString().c_str());
 
-  // Special case priority value linkage:
+  // Special case priority value linkage for N0183 messages:
   // If this is a "velocity" record, ensure that a "position"
   // report has been accepted from the same source before accepting the
   // velocity record.
   // This ensures that the data source is fully initialized, and is reporting
   // valid, sensible velocity data.
-  if (!strncmp(active_priority.pcclass.c_str(), "velocity", 8)) {
-    bool pos_ok = false;
-    if (!strcmp(active_priority_position.active_source.c_str(),
-                source.c_str())) {
-      if (active_priority_position.recent_active_time != -1) {
-        pos_ok = true;
+  if (msg->bus == NavAddr::Bus::N0183) {
+    if (!strncmp(active_priority.pcclass.c_str(), "velocity", 8)) {
+      bool pos_ok = false;
+      if (!strcmp(active_priority_position.active_source.c_str(),
+                  source.c_str())) {
+        if (active_priority_position.recent_active_time != -1) {
+          pos_ok = true;
+        }
       }
+      if (!pos_ok) return false;
     }
-    if (!pos_ok) return false;
   }
 
   // Fetch the established priority for the message
@@ -1418,6 +1434,21 @@ bool CommBridge::EvalPriority(
   active_priority.recent_active_time = now.GetTicks();
   if (debug_priority)
     printf("  Accepting high priority: %s %d\n", source.c_str(), this_priority);
+
+  if (active_priority.pcclass == "position") {
+    if (this_priority != m_last_position_priority) {
+      m_last_position_priority = this_priority;
+
+      wxString msg;
+      msg.Printf("GNSS position fix priority shift: %s\n %s \n -> %s",
+                 this_identifier.c_str(), m_last_position_source.c_str(),
+                 source.c_str());
+      auto& noteman = NotificationManager::GetInstance();
+      noteman.AddNotification(NotificationSeverity::kInformational,
+                              msg.ToStdString());
+    }
+    m_last_position_source = source;
+  }
 
   return true;
 }

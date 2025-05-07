@@ -39,7 +39,8 @@
 
 #include "observable.h"
 
-using NavmsgTimePoint = std::chrono::time_point<std::chrono::steady_clock>;
+using NavmsgClock = std::chrono::system_clock;
+using NavmsgTimePoint = std::chrono::time_point<NavmsgClock>;
 
 struct N2kPGN {
   uint64_t pgn;
@@ -226,6 +227,7 @@ public:
 class NavMsg : public KeyProvider {
 public:
   NavMsg() = delete;
+  virtual ~NavMsg() = default;
 
   /** Return unique key used by observable to notify/listen. */
   virtual std::string key() const = 0;
@@ -254,7 +256,7 @@ public:
 
 protected:
   NavMsg(const NavAddr::Bus& _bus, std::shared_ptr<const NavAddr> src)
-      : bus(_bus), source(src), created_at(std::chrono::steady_clock::now()) {};
+      : bus(_bus), source(src), created_at(NavmsgClock::now()) {};
 };
 
 /**

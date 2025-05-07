@@ -46,6 +46,7 @@
 #include "model/georef.h"
 #include "model/mdns_cache.h"
 #include "model/mdns_query.h"
+#include "model/navobj_db.h"
 #include "model/navutil_base.h"
 #include "model/own_ship.h"
 #include "model/route.h"
@@ -1965,6 +1966,11 @@ void RouteManagerDialog::OnTrkMenuSelected(wxCommandEvent &event) {
         mergeList.push_back(track);
       }
 
+      if (!mergeList.size()) {
+        ::wxEndBusyCursor();
+        break;
+      }
+
       std::sort(mergeList.begin(), mergeList.end(), CompareTracks);
 
       targetTrack = mergeList[0];
@@ -1984,11 +1990,11 @@ void RouteManagerDialog::OnTrkMenuSelected(wxCommandEvent &event) {
                                     tPoint->GetCreateTime());
 
           targetTrack->AddPoint(newPoint);
+          NavObj_dB::GetInstance().AddTrackPoint(targetTrack, newPoint);
 
           pSelect->AddSelectableTrackSegment(lastPoint->m_lat, lastPoint->m_lon,
                                              newPoint->m_lat, newPoint->m_lon,
                                              lastPoint, newPoint, targetTrack);
-
           lastPoint = newPoint;
         }
         deleteList.push_back(mergeTrack);
@@ -1996,7 +2002,7 @@ void RouteManagerDialog::OnTrkMenuSelected(wxCommandEvent &event) {
 
       for (auto const &deleteTrack : deleteList) {
         g_pAIS->DeletePersistentTrack(deleteTrack);
-        pConfig->DeleteConfigTrack(deleteTrack);
+        NavObj_dB::GetInstance().DeleteTrack(deleteTrack);
         RoutemanGui(*g_pRouteMan).DeleteTrack(deleteTrack);
       }
 
@@ -2235,7 +2241,7 @@ void RouteManagerDialog::OnTrkDeleteClick(wxCommandEvent &event) {
   bool busy = false;
   if (m_pTrkListCtrl->GetSelectedItemCount()) {
     ::wxBeginBusyCursor();
-    m_bNeedConfigFlush = true;
+    // m_bNeedConfigFlush = true;
     busy = true;
   }
 
@@ -2255,7 +2261,7 @@ void RouteManagerDialog::OnTrkDeleteClick(wxCommandEvent &event) {
       Track *track = list.at(i);
       if (track) {
         g_pAIS->DeletePersistentTrack(track);
-        pConfig->DeleteConfigTrack(track);
+        NavObj_dB::GetInstance().DeleteTrack(track);
         RoutemanGui(*g_pRouteMan).DeleteTrack(track);
       }
     }
@@ -2619,7 +2625,7 @@ void RouteManagerDialog::OnWptNewClick(wxCommandEvent &event) {
   pConfig->AddNewWayPoint(pWP, -1);  // use auto next num
   gFrame->RefreshAllCanvas();
 
-  // g_pMarkInfoDialog = MarkInfoImpl::getInstance( GetParent() );
+  // g_pMarkInfoDialog = MarkInfoImpl::GetInstance( GetParent() );
   // There is on global instance of the MarkProp Dialog
   if (!g_pMarkInfoDialog) g_pMarkInfoDialog = new MarkInfoDlg(GetParent());
 
@@ -3045,6 +3051,7 @@ void RouteManagerDialog::OnLayDeleteClick(wxCommandEvent &event) {
     if (pTrack->m_bIsInLayer && (pTrack->m_LayerID == layer->m_LayerID)) {
       pTrack->m_bIsInLayer = false;
       pTrack->m_LayerID = 0;
+      NavObj_dB::GetInstance().DeleteTrack(pTrack);
       RoutemanGui(*g_pRouteMan).DeleteTrack(pTrack);
     }
   }

@@ -511,7 +511,10 @@ message(STATUS "Building version ${PACKAGE_VERSION}")
 
 # Detect the Apple Version of the build machine
 if (APPLE)
-  exec_program(uname ARGS -v OUTPUT_VARIABLE DARWIN_VERSION)
+  execute_process(
+    COMMAND uname  -v
+    OUTPUT_VARIABLE DARWIN_VERSION
+  )
   string(REGEX MATCH "[0-9]+" DARWIN_VERSION ${DARWIN_VERSION})
   message(STATUS "*** Building on DARWIN_VERSION=${DARWIN_VERSION}")
   if (DARWIN_VERSION GREATER 11)
@@ -750,8 +753,8 @@ message(STATUS "*** Will install to ${CMAKE_INSTALL_PREFIX}  ***")
 
 set(GUI_HDR_DIR ${CMAKE_SOURCE_DIR}/gui/include/gui)
 set(GUI_HDRS
-    ${GUI_HDR_DIR}/AboutFrame.h
-    ${GUI_HDR_DIR}/AboutFrameImpl.h
+    ${GUI_HDR_DIR}/about_frame.h
+    ${GUI_HDR_DIR}/about_frame_impl.h
     ${GUI_HDR_DIR}/about.h
     ${GUI_HDR_DIR}/ais.h
     ${GUI_HDR_DIR}/ais_info_gui.h
@@ -874,8 +877,8 @@ set(GUI_HDRS
 set(GUI_SRC_DIR ${CMAKE_SOURCE_DIR}/gui/src)
 set(GUI_SRC
     ${GUI_SRC_DIR}/about.cpp
-    ${GUI_SRC_DIR}/AboutFrame.cpp
-    ${GUI_SRC_DIR}/AboutFrameImpl.cpp
+    ${GUI_SRC_DIR}/about_frame.cpp
+    ${GUI_SRC_DIR}/about_frame_impl.cpp
     ${GUI_SRC_DIR}/ais.cpp
     ${GUI_SRC_DIR}/ais_info_gui.cpp
     ${GUI_SRC_DIR}/AISTargetAlertDialog.cpp
@@ -901,7 +904,6 @@ set(GUI_SRC
     ${GUI_SRC_DIR}/connections_dlg.cpp
     ${GUI_SRC_DIR}/conn_params_panel.cpp
     ${GUI_SRC_DIR}/data_monitor.cpp
-    ${GUI_SRC_DIR}/data_monitor_src.cpp
     ${GUI_SRC_DIR}/DetailSlider.cpp
     ${GUI_SRC_DIR}/displays.cpp
     ${GUI_SRC_DIR}/download_mgr.cpp
@@ -1066,6 +1068,12 @@ elseif (QT_ANDROID)
   target_include_directories(_opencpn INTERFACE ${CMAKE_SOURCE_DIR}/android)
 endif ()
 add_library(ocpn::opencpn ALIAS _opencpn)
+
+if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang|GNU" AND NOT OCPN_PEDANTIC)
+  target_compile_options(
+    ${PACKAGE_NAME} PUBLIC -Werror -Wno-unknown-warning-option
+  )
+endif ()
 
 set_target_properties(
   ${PACKAGE_NAME}
@@ -1257,25 +1265,16 @@ if (OCPN_USE_CRASHREPORT)
   endif ()
 endif ()
 
-add_subdirectory("libs/sqlite")
-target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::sqlite)
-
 add_subdirectory("libs/SQLiteCpp")
 target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::sqlite_cpp)
 
-find_package(Shapelib)
-if (SHAPELIB_FOUND)
-  message(STATUS "Using system shapelib")
-else ()
-  message(STATUS "Using bundled shapelib")
-  add_subdirectory("libs/shapelib")
-endif ()
-target_link_libraries(${PACKAGE_NAME} PRIVATE shapelib::shapelib)
+add_subdirectory("libs/shapelib")
+target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::shapelib)
 
 add_subdirectory("libs/ShapefileCpp")
-target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::ShapefileCpp)
-target_include_directories(${PACKAGE_NAME} PRIVATE ${SHAPEFILECPP_INCLUDE_DIR})
-target_include_directories(${PACKAGE_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/libs/gdal/include/gdal)
+target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::shapefile_cpp)
+# target_include_directories(${PACKAGE_NAME} PRIVATE ${SHAPEFILECPP_INCLUDE_DIR})
+# target_include_directories(${PACKAGE_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/libs/gdal/include/gdal)
 
 if (NOT QT_ANDROID)
   add_subdirectory("libs/libdnet")
@@ -1577,6 +1576,24 @@ if (OCPN_BUNDLE_GSHHS)
   )
 endif ()
 
+find_program(ASCIIDOC_PROG NAMES asciidoc)
+if (ASCIIDOC_PROG)
+  add_custom_command(
+    OUTPUT ${CMAKE_BINARY_DIR}/Authors.html
+    COMMAND ${ASCIIDOC_PROG} -o ${CMAKE_BINARY_DIR}/Authors.html
+        ${CMAKE_SOURCE_DIR}/Authors.adoc
+    COMMENT "Generated Authors.html"
+  )
+else ()
+  add_custom_command(
+    OUTPUT ${CMAKE_BINARY_DIR}/Authors.html
+    COMMAND cmake -E copy ${CMAKE_SOURCE_DIR}/data/authors.html
+        ${CMAKE_BINARY_DIR}/Authors.html
+    COMMENT "Reused existing Authors.html"
+  )
+endif ()
+add_custom_target(authors ALL DEPENDS ${CMAKE_BINARY_DIR}/Authors.html)
+
 set(basemap_shp
         data/basemap_shp/basemap_crude_10x10.cpg
         data/basemap_shp/basemap_crude_10x10.prj
@@ -1651,7 +1668,9 @@ if (OCPN_BUNDLE_TCDATA)
   )
 endif ()
 
-# Mac has trouble finding libgobject-2.0.dylib We look for it explicitely
+set_source_files_properties(${CMAKE_BINARY_DIR}/Authors.html GENERATED)
+
+# Mac has trouble finding libgobject - 2.0.dylib We look for it explicitely
 if (xAPPLE)
   # Assume pkg-config is available.
   pkg_search_module(GOBJECT REQUIRED gobject-2.0)
@@ -1696,7 +1715,9 @@ if (APPLE)
   )
 
   set_source_files_properties(
-    data/authors.html PROPERTIES MACOSX_PACKAGE_LOCATION SharedSupport
+    ${CMAKE_BINARY_DIR}/Authors.html
+      GENERATED
+      PROPERTIES MACOSX_PACKAGE_LOCATION SharedSupport
   )
 
   set_source_files_properties(
@@ -1869,7 +1890,6 @@ if (APPLE)
             ${s57data}
             ${tcData}
             data/license.html
-            data/authors.html
             data/opencpn.png
             data/ocpn-plugins.xml
             data/CoC-909_2013-InlandECDIS_20170308s.pdf
@@ -1884,6 +1904,7 @@ if (APPLE)
             ${MUI_FLAT_SVG_FILES}
             ${DOC_FILES}
             ${CONFIG_FILES}
+            ${CMAKE_BINARY_DIR}/Authors.html
   )
   install(TARGETS ${PACKAGE_NAME} BUNDLE DESTINATION ${CMAKE_INSTALL_BINDIR})
 
@@ -1933,6 +1954,7 @@ add_subdirectory(libs/picosha2)
 add_subdirectory(libs/pugixml)
 add_subdirectory(libs/rapidjson)
 add_subdirectory(libs/s52plib)
+add_subdirectory(libs/sqlite)
 
 if (QT_ANDROID)
   set(SOUND_WX_INCLUDE_DIR "${ANDROID_WX_INCLUDES}" CACHE STRING "")
@@ -2010,7 +2032,7 @@ if (NOT APPLE)
   )
   install(FILES data/copyright DESTINATION ${PREFIX_DATA}/doc/${PACKAGE_NAME})
   install(FILES data/license.html DESTINATION ${PREFIX_PKGDATA})
-  install(FILES data/authors.html DESTINATION ${PREFIX_PKGDATA})
+  install(FILES ${CMAKE_BINARY_DIR}/Authors.html DESTINATION ${PREFIX_PKGDATA})
   install(FILES data/opencpn.png DESTINATION ${PREFIX_PKGDATA})
 
   if (PACKAGE_FORMAT EQUAL "DEB")
