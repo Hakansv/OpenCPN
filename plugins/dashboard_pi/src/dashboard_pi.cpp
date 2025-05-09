@@ -624,6 +624,13 @@ int dashboard_pi::Init(void) {
     SaveConfig();
   }
 
+  // Hakan. Update SumLog if file "my_trip_log.csv" is present
+  d_tripNM = 0.0;
+  logCount = 0;
+  myLogFileExist = false;
+  UpdateOwnTripLog(true, false);
+  // Hakan
+
   // initialize NavMsg listeners
   //-----------------------------
 
@@ -919,10 +926,15 @@ void dashboard_pi::Notify() {
     mALT_Watchdog = gps_watchdog_timeout_ticks;
   }
 
+  // Hakan only WD if no own SumLog file
   mLOG_Watchdog--;
   if (mLOG_Watchdog <= 0) {
-    SendSentenceToAllInstruments(OCPN_DBP_STC_VLW2, NAN, _T("-"));
-    mLOG_Watchdog = no_nav_watchdog_timeout_ticks;
+    if (myLogFileExist) {
+      UpdateOwnTripLog(true, false);
+    } else {
+      SendSentenceToAllInstruments(OCPN_DBP_STC_VLW2, NAN, _T("-"));
+      mLOG_Watchdog = no_nav_watchdog_timeout_ticks;
+    }
   }
   mTrLOG_Watchdog--;
   if (mTrLOG_Watchdog <= 0) {
@@ -3195,6 +3207,20 @@ void dashboard_pi::SetPositionFixEx(PlugIn_Position_Fix_Ex &pfix) {
     {
       devCOG = mCOGFilter.filter(pfix.Cog);
       devSOG = mSOGFilter.filter(pfix.Sog);
+    }
+
+    //  Hakan We read, notify, every second.
+    if (myLogFileExist) {
+      double logSOG = mSOGFilter.filter(pfix.Sog);
+      if (logSOG > 0.4) {
+        d_tripNM += logSOG / 3600;
+        // Update every minute when navigate
+        if (logCount++ > 60) {
+          UpdateOwnTripLog(false, true);
+          d_tripNM = 0.0;
+          logCount = 0;
+        }
+      }
     }
 
     dMagneticCOG = mCOGFilter.get() - pfix.Var;
@@ -6535,4 +6561,50 @@ void EditDialog::OnSetdefault(wxCommandEvent &event) {
   GetGlobalColor(_T("BLUE3"), &dummy);
   m_colourPicker4->SetColour(dummy);
   Update();
+}
+
+// Hakan. A function to read or write Trip-log data to file
+// Trip data is stored in a file: my_trip_log.csv
+// The file will be updated every minute while navigating
+void dashboard_pi::UpdateOwnTripLog(bool read, bool write) {
+  wxTextFile own_log_file;
+  wxStandardPathsBase &std_path = wxStandardPathsBase::Get();
+  wxString s = wxFileName::GetPathSeparator();
+  wxString stdPath = std_path.GetConfigDir();
+  wxString own_log_path = stdPath + s + "my_trip_log.csv";
+
+  if (write) {
+    // Open the log file read the value in the file
+    if (own_log_file.Open(own_log_path)) {
+      wxString &line = own_log_file.GetLine(0);
+      double loginfile;
+      if (line.ToDouble(&loginfile)) {
+        loginfile += d_tripNM;
+        line = wxString::Format("%5.3f", loginfile);
+        own_log_file.Write();
+      }
+      own_log_file.Close();
+      SendSentenceToAllInstruments(
+          OCPN_DBP_STC_VLW2,
+          toUsrDistance_Plugin(loginfile, g_iDashDistanceUnit),
+          getUsrDistanceUnit_Plugin(g_iDashDistanceUnit));
+      mLOG_Watchdog = 70;  // We update sumLog every minute
+    }
+  }
+
+  if (read) {
+    // Read the file and update sumlog instrument.
+    if (own_log_file.Open(own_log_path)) {
+      double log;
+      own_log_file.GetFirstLine().ToDouble(&log);
+      if (log) {
+        SendSentenceToAllInstruments(
+            OCPN_DBP_STC_VLW2, toUsrDistance_Plugin(log, g_iDashDistanceUnit),
+            getUsrDistanceUnit_Plugin(g_iDashDistanceUnit));
+        mLOG_Watchdog = no_nav_watchdog_timeout_ticks;
+      }
+      own_log_file.Close();
+      myLogFileExist = true;
+    }
+  }
 }

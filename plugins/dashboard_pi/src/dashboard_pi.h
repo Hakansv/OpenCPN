@@ -313,6 +313,13 @@ private:
   int mSatsInUse;
   int mSatsInView;
   double mHdm;
+
+  // Hakan
+  double d_tripNM;
+  int logCount;
+  bool myLogFileExist;
+  void UpdateOwnTripLog(bool, bool);
+
   /**
    * The current time in UTC.
    *
