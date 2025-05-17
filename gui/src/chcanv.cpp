@@ -3710,8 +3710,11 @@ void ChartCanvas::DoMovement(long dt) {
       }
     }
 
-    if (fabs(zoom_factor - 1) > 1e-4)
+    if (fabs(zoom_factor - 1) > 1e-4) {
       DoZoomCanvas(zoom_factor, m_bzooming_to_cursor);
+    } else {
+      StopMovement();
+    }
 
     if (m_wheelzoom_stop_oneshot > 0) {
       if (m_wheelstopwatch.Time() > m_wheelzoom_stop_oneshot) {
@@ -4630,6 +4633,7 @@ void ChartCanvas::GetCanvasPixPoint(double x, double y, double &lat,
 }
 
 void ChartCanvas::ZoomCanvasSimple(double factor) {
+  StopMovement();
   DoZoomCanvas(factor, false);
   extendedSectorLegs.clear();
 }
@@ -8582,7 +8586,7 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
       else {
         FindRoutePointsAtCursor(SelectRadius, true);  // Not creating Route
       }
-    }       // !g_btouch
+    }  // !g_btouch
     else {  // g_btouch
 
       if ((m_bMeasure_Active && m_nMeasureState) || (m_routeState)) {
@@ -13655,13 +13659,11 @@ void ChartCanvas::OnToolLeftClick(wxCommandEvent &event) {
 
   switch (event.GetId()) {
     case ID_ZOOMIN: {
-      StopMovement();
       ZoomCanvasSimple(g_plus_minus_zoom_factor);
       break;
     }
 
     case ID_ZOOMOUT: {
-      StopMovement();
       ZoomCanvasSimple(1.0 / g_plus_minus_zoom_factor);
       break;
     }
