@@ -1650,8 +1650,7 @@ void WayPointman::DestroyWaypoint(RoutePoint *pRp, bool b_update_changeset) {
     }
 
     // Now it is safe to delete the point
-    // NavObjectChanges::getInstance()->DeleteWayPoint(pRp);
-    // NavObjectChanges::getInstance()->m_bSkipChangeSetUpdate = false;
+    NavObj_dB::GetInstance().DeleteRoutePoint(pRp);
 
     pSelect->DeleteSelectableRoutePoint(pRp);
 
