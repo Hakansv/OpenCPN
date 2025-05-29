@@ -79,6 +79,10 @@ int g_iDashDistanceUnit;
 int g_iDashWindSpeedUnit;
 int g_iUTCOffset;
 double g_dDashDBTOffset;
+bool g_bUseInternSumLog;
+double g_dSumLog;
+double d_tripNM;
+int logCount, confprint;
 bool g_bDBtrueWindGround;
 double g_dHDT;
 double g_dSOG, g_dCOG;
@@ -629,12 +633,10 @@ int dashboard_pi::Init(void) {
     SaveConfig();
   }
 
-  // Hakan. Update SumLog if file "my_trip_log.csv" is present
   d_tripNM = 0.0;
-  logCount = 0;
-  myLogFileExist = false;
-  UpdateOwnTripLog(true, false);
-  // Hakan
+  logCount = confprint = 0;
+  // If use internal sumlog update its value
+  if (g_bUseInternSumLog) UpdateSumLog(false);
 
   // initialize NavMsg listeners
   //-----------------------------
@@ -931,11 +933,10 @@ void dashboard_pi::Notify() {
     mALT_Watchdog = gps_watchdog_timeout_ticks;
   }
 
-  // Hakan only WD if no own SumLog file
   mLOG_Watchdog--;
   if (mLOG_Watchdog <= 0) {
-    if (myLogFileExist) {
-      UpdateOwnTripLog(true, false);
+    if (g_bUseInternSumLog) {
+      UpdateSumLog(false);
     } else {
       SendSentenceToAllInstruments(OCPN_DBP_STC_VLW2, NAN, _T("-"));
       mLOG_Watchdog = no_nav_watchdog_timeout_ticks;
@@ -3221,17 +3222,15 @@ void dashboard_pi::SetPositionFixEx(PlugIn_Position_Fix_Ex &pfix) {
       devSOG = mSOGFilter.filter(pfix.Sog);
     }
 
-    //  Hakan We read, notify, every second.
-    if (myLogFileExist) {
-      double logSOG = mSOGFilter.filter(pfix.Sog);
-      if (logSOG > 0.4) {
-        d_tripNM += logSOG / 3600;
-        // Update every minute when navigate
-        if (logCount++ > 60) {
-          UpdateOwnTripLog(false, true);
-          d_tripNM = 0.0;
-          logCount = 0;
-        }
+    //  Collect distance to update SumLog every second.
+    double logSOG = mSOGFilter.filter(pfix.Sog);
+    if (logSOG > 0.4) {
+      d_tripNM += logSOG / 3600;
+      // Update SumLog instrument every minute when we are under way.
+      if (++logCount >= 60) {
+        UpdateSumLog(true);
+        d_tripNM = 0.0;
+        logCount = 0;
       }
     }
 
@@ -3691,6 +3690,8 @@ bool dashboard_pi::LoadConfig(void) {
     pConf->Read(_T("DistanceUnit"), &g_iDashDistanceUnit, 0);
     pConf->Read(_T("WindSpeedUnit"), &g_iDashWindSpeedUnit, 0);
     pConf->Read(_T("UseSignKtruewind"), &g_bDBtrueWindGround, 0);
+    pConf->Read("UseInternSumlog", &g_bUseInternSumLog, 0);
+    pConf->Read("SumLog", &g_dSumLog, 0.0);
     pConf->Read(_T("TemperatureUnit"), &g_iDashTempUnit, 0);
 
     pConf->Read(_T("UTCOffset"), &g_iUTCOffset, 0);
@@ -3929,6 +3930,8 @@ bool dashboard_pi::SaveConfig(void) {
     pConf->Write(_T("DepthOffset"), g_dDashDBTOffset);
     pConf->Write(_T("DistanceUnit"), g_iDashDistanceUnit);
     pConf->Write(_T("WindSpeedUnit"), g_iDashWindSpeedUnit);
+    pConf->Write("UseInternSumlog", g_bUseInternSumLog);
+    pConf->Write("SumLog", g_dSumLog);
     pConf->Write(_T("UTCOffset"), g_iUTCOffset);
     pConf->Write(_T("UseSignKtruewind"), g_bDBtrueWindGround);
     pConf->Write(_T("TemperatureUnit"), g_iDashTempUnit);
@@ -4781,6 +4784,16 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
   m_pChoiceTempUnit->SetSelection(g_iDashTempUnit);
   itemFlexGridSizer04->Add(m_pChoiceTempUnit, 0, wxALIGN_RIGHT | wxALL, 0);
 
+  m_pUseInternSumLog = new wxCheckBox(
+      itemPanelNotebook02, wxID_ANY,
+      _("Use internal Sumlog.") + "       " + _("Enter new value if desired:"));
+  itemFlexGridSizer04->Add(m_pUseInternSumLog, 1, wxALIGN_LEFT, border_size);
+  m_pUseInternSumLog->SetValue(g_bUseInternSumLog);
+
+  m_pSumLogValue = new wxTextCtrl(itemPanelNotebook02, wxID_ANY, "");
+  itemFlexGridSizer04->Add(m_pSumLogValue, 1, wxALIGN_LEFT, border_size);
+  m_pSumLogValue->SetValue(wxString::Format("%.1f", g_dSumLog));
+
   m_pUseTrueWinddata = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
                                       _("Use N2K & SignalK true wind data over "
                                         "ground.\n(Instead of through water)"));
@@ -4905,6 +4918,9 @@ void DashboardPreferencesDialog::SaveDashboardConfig() {
   g_iDashDepthUnit = m_pChoiceDepthUnit->GetSelection() + 3;
   g_iDashDistanceUnit = m_pChoiceDistanceUnit->GetSelection() - 1;
   g_iDashWindSpeedUnit = m_pChoiceWindSpeedUnit->GetSelection();
+
+  g_bUseInternSumLog = m_pUseInternSumLog->IsChecked();
+  m_pSumLogValue->GetValue().ToDouble(&g_dSumLog);
 
   b_IsDeviation = m_pSetDeviationBtn->IsChecked();  // Momo Dev table
 #ifdef __WXMSW__
@@ -5781,6 +5797,7 @@ void DashboardWindow::OnContextMenuSelect(wxCommandEvent &event) {
       // This method sets the correct size of the edited dashboard,
       // but if it's not specified, also a default floating_pos.
       ChangePaneOrientation(GetSizerOrientation(), true, fp.x, fp.y);
+      if (g_bUseInternSumLog) m_plugin->UpdateSumLog(false);
       return;  // Does it's own save.
     }
     case ID_DASH_RESIZE: {
@@ -6621,48 +6638,36 @@ void EditDialog::OnSetdefault(wxCommandEvent &event) {
   Update();
 }
 
-// Hakan. A function to read or write Trip-log data to file
-// Trip data is stored in a file: my_trip_log.csv
-// The file will be updated every minute while navigating
-void dashboard_pi::UpdateOwnTripLog(bool read, bool write) {
-  wxTextFile own_log_file;
-  wxStandardPathsBase &std_path = wxStandardPathsBase::Get();
-  wxString s = wxFileName::GetPathSeparator();
-  wxString stdPath = std_path.GetConfigDir();
-  wxString own_log_path = stdPath + s + "my_trip_log.csv";
-
+// Read or write SumLog data to config and update instrument if approropriate
+// The sumlog value will be updated every minute when we are under way.
+void dashboard_pi::UpdateSumLog(bool write) {
   if (write) {
-    // Open the log file read the value in the file
-    if (own_log_file.Open(own_log_path)) {
-      wxString &line = own_log_file.GetLine(0);
-      double loginfile;
-      if (line.ToDouble(&loginfile)) {
-        loginfile += d_tripNM;
-        line = wxString::Format("%5.3f", loginfile);
-        own_log_file.Write();
+    g_dSumLog += d_tripNM;
+    // Write to config every 10 minutes to ensure that the sumlog value
+    // is reasonably up to date even if O or the system crashes.
+    if (++confprint >= 10) {
+      wxFileConfig *logConf = (wxFileConfig *)m_pconfig;
+      if (logConf) {
+        logConf->SetPath("/PlugIns/Dashboard");
+        logConf->Write("SumLog", g_dSumLog);
+        logConf->Flush();
       }
-      own_log_file.Close();
+      confprint = 0;
+    }
+    // If internal sumlog is used, update the instrument.
+    if (g_bUseInternSumLog) {
       SendSentenceToAllInstruments(
           OCPN_DBP_STC_VLW2,
-          toUsrDistance_Plugin(loginfile, g_iDashDistanceUnit),
+          toUsrDistance_Plugin(g_dSumLog, g_iDashDistanceUnit),
           getUsrDistanceUnit_Plugin(g_iDashDistanceUnit));
       mLOG_Watchdog = 70;  // We update sumLog every minute
     }
-  }
-
-  if (read) {
-    // Read the file and update sumlog instrument.
-    if (own_log_file.Open(own_log_path)) {
-      double log;
-      own_log_file.GetFirstLine().ToDouble(&log);
-      if (log) {
-        SendSentenceToAllInstruments(
-            OCPN_DBP_STC_VLW2, toUsrDistance_Plugin(log, g_iDashDistanceUnit),
-            getUsrDistanceUnit_Plugin(g_iDashDistanceUnit));
-        mLOG_Watchdog = no_nav_watchdog_timeout_ticks;
-      }
-      own_log_file.Close();
-      myLogFileExist = true;
-    }
+  } else {
+    // Update sumlog instrument from config.
+    // This will only run if we use internal sumlog.
+    SendSentenceToAllInstruments(
+        OCPN_DBP_STC_VLW2, toUsrDistance_Plugin(g_dSumLog, g_iDashDistanceUnit),
+        getUsrDistanceUnit_Plugin(g_iDashDistanceUnit));
+    mLOG_Watchdog = no_nav_watchdog_timeout_ticks;
   }
 }

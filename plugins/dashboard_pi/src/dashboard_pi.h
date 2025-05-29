@@ -242,6 +242,7 @@ public:
   int GetToolbarItemId() { return m_toolbar_item_id; }
   int GetDashboardWindowShownCount();
   void SetPluginMessage(wxString &message_id, wxString &message_body);
+  void UpdateSumLog(bool);
 
 private:
   bool LoadConfig(void);
@@ -313,12 +314,6 @@ private:
   int mSatsInUse;
   int mSatsInView;
   double mHdm;
-
-  // Hakan
-  double d_tripNM;
-  int logCount;
-  bool myLogFileExist;
-  void UpdateOwnTripLog(bool, bool);
 
   /**
    * The current time in UTC.
@@ -409,6 +404,8 @@ public:
   wxSpinCtrlDouble *m_pSpinDBTOffset;
   wxChoice *m_pChoiceDistanceUnit;
   wxChoice *m_pChoiceWindSpeedUnit;
+  wxCheckBox *m_pUseInternSumLog;
+  wxTextCtrl *m_pSumLogValue;
   wxCheckBox *m_pUseTrueWinddata;
   wxChoice *m_pChoiceTempUnit;
 
