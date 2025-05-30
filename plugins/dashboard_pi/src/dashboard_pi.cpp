@@ -80,7 +80,7 @@ int g_iDashWindSpeedUnit;
 int g_iUTCOffset;
 double g_dDashDBTOffset;
 bool g_bUseInternSumLog;
-double g_dSumLog;
+double g_dSumLogNM;
 double d_tripNM;
 int logCount, confprint;
 bool g_bDBtrueWindGround;
@@ -3227,7 +3227,7 @@ void dashboard_pi::SetPositionFixEx(PlugIn_Position_Fix_Ex &pfix) {
     if (logSOG > 0.4) {
       d_tripNM += logSOG / 3600;
       // Update SumLog instrument every minute when we are under way.
-      if (++logCount >= 60) {
+      if (++logCount > 60) {
         UpdateSumLog(true);
         d_tripNM = 0.0;
         logCount = 0;
@@ -3691,7 +3691,7 @@ bool dashboard_pi::LoadConfig(void) {
     pConf->Read(_T("WindSpeedUnit"), &g_iDashWindSpeedUnit, 0);
     pConf->Read(_T("UseSignKtruewind"), &g_bDBtrueWindGround, 0);
     pConf->Read("UseInternSumlog", &g_bUseInternSumLog, 0);
-    pConf->Read("SumLog", &g_dSumLog, 0.0);
+    pConf->Read("SumLogNM", &g_dSumLogNM, 0.0);
     pConf->Read(_T("TemperatureUnit"), &g_iDashTempUnit, 0);
 
     pConf->Read(_T("UTCOffset"), &g_iUTCOffset, 0);
@@ -3931,7 +3931,7 @@ bool dashboard_pi::SaveConfig(void) {
     pConf->Write(_T("DistanceUnit"), g_iDashDistanceUnit);
     pConf->Write(_T("WindSpeedUnit"), g_iDashWindSpeedUnit);
     pConf->Write("UseInternSumlog", g_bUseInternSumLog);
-    pConf->Write("SumLog", g_dSumLog);
+    pConf->Write("SumLogNM", g_dSumLogNM);
     pConf->Write(_T("UTCOffset"), g_iUTCOffset);
     pConf->Write(_T("UseSignKtruewind"), g_bDBtrueWindGround);
     pConf->Write(_T("TemperatureUnit"), g_iDashTempUnit);
@@ -4787,13 +4787,15 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
 
   m_pUseInternSumLog = new wxCheckBox(
       itemPanelNotebook02, wxID_ANY,
-      _("Use internal Sumlog.") + "       " + _("Enter new value if desired:"));
+      _("Use internal Sumlog.") + "     " + _("Enter new value if desired") +
+          " (" + getUsrDistanceUnit_Plugin(g_iDashDistanceUnit) + "):");
   itemFlexGridSizer04->Add(m_pUseInternSumLog, 1, wxALIGN_LEFT, border_size);
   m_pUseInternSumLog->SetValue(g_bUseInternSumLog);
 
   m_pSumLogValue = new wxTextCtrl(itemPanelNotebook02, wxID_ANY, "");
   itemFlexGridSizer04->Add(m_pSumLogValue, 1, wxALIGN_LEFT, border_size);
-  m_pSumLogValue->SetValue(wxString::Format("%.1f", g_dSumLog));
+  m_pSumLogValue->SetValue(wxString::Format(
+      "%.1f", toUsrDistance_Plugin(g_dSumLogNM, g_iDashDistanceUnit)));
 
   m_pUseTrueWinddata = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
                                       _("Use N2K & SignalK true wind data over "
@@ -4897,6 +4899,14 @@ void DashboardPreferencesDialog::SaveDashboardConfig() {
   g_iDashSOGDamp = m_pSpinSOGDamp->GetValue();
   g_iDashAWADamp = m_pSpinAWADamp->GetValue();
   g_iDashAWSDamp = m_pSpinAWSDamp->GetValue();
+
+  g_bUseInternSumLog = m_pUseInternSumLog->IsChecked();
+  double ursDist;
+  // Must be here with the initialized distance unit
+  // if that happens to be changed some rows below.
+  m_pSumLogValue->GetValue().ToDouble(&ursDist);
+  g_dSumLogNM = fromUsrDistance_Plugin(ursDist, g_iDashDistanceUnit);
+
   g_iUTCOffset = m_pChoiceUTCOffset->GetSelection() - 24;
   g_iDashSpeedUnit = m_pChoiceSpeedUnit->GetSelection() - 1;
   double DashDBTOffset = m_pSpinDBTOffset->GetValue();
@@ -4920,10 +4930,8 @@ void DashboardPreferencesDialog::SaveDashboardConfig() {
   g_iDashDistanceUnit = m_pChoiceDistanceUnit->GetSelection() - 1;
   g_iDashWindSpeedUnit = m_pChoiceWindSpeedUnit->GetSelection();
 
-  g_bUseInternSumLog = m_pUseInternSumLog->IsChecked();
-  m_pSumLogValue->GetValue().ToDouble(&g_dSumLog);
-
-  b_IsDeviation = m_pSetDeviationBtn->IsChecked();  // Momo Dev table
+  // Hakan Momo Dev table
+  b_IsDeviation = m_pSetDeviationBtn->IsChecked();
 #ifdef __WXMSW__
   b_IsDevPrintSound = m_pSetDevSoundBtn->IsChecked();
 #endif
@@ -6643,14 +6651,14 @@ void EditDialog::OnSetdefault(wxCommandEvent &event) {
 // The sumlog value will be updated every minute when we are under way.
 void dashboard_pi::UpdateSumLog(bool write) {
   if (write) {
-    g_dSumLog += d_tripNM;
-    // Write to config every 10 minutes to ensure that the sumlog value
-    // is reasonably up to date even if O or the system crashes.
-    if (++confprint >= 10) {
+    g_dSumLogNM += d_tripNM;
+    // Write to config every 10 minutes to ensure that the sumlog value is
+    // reasonably up to date even if O or the system stops wo SaveConfig().
+    if (++confprint > 10) {
       wxFileConfig *logConf = (wxFileConfig *)m_pconfig;
       if (logConf) {
         logConf->SetPath("/PlugIns/Dashboard");
-        logConf->Write("SumLog", g_dSumLog);
+        logConf->Write("SumLogNM", g_dSumLogNM);
         logConf->Flush();
       }
       confprint = 0;
@@ -6659,7 +6667,7 @@ void dashboard_pi::UpdateSumLog(bool write) {
     if (g_bUseInternSumLog) {
       SendSentenceToAllInstruments(
           OCPN_DBP_STC_VLW2,
-          toUsrDistance_Plugin(g_dSumLog, g_iDashDistanceUnit),
+          toUsrDistance_Plugin(g_dSumLogNM, g_iDashDistanceUnit),
           getUsrDistanceUnit_Plugin(g_iDashDistanceUnit));
       mLOG_Watchdog = 70;  // We update sumLog every minute
     }
@@ -6667,7 +6675,8 @@ void dashboard_pi::UpdateSumLog(bool write) {
     // Update sumlog instrument from config.
     // This will only run if we use internal sumlog.
     SendSentenceToAllInstruments(
-        OCPN_DBP_STC_VLW2, toUsrDistance_Plugin(g_dSumLog, g_iDashDistanceUnit),
+        OCPN_DBP_STC_VLW2,
+        toUsrDistance_Plugin(g_dSumLogNM, g_iDashDistanceUnit),
         getUsrDistanceUnit_Plugin(g_iDashDistanceUnit));
     mLOG_Watchdog = no_nav_watchdog_timeout_ticks;
   }
