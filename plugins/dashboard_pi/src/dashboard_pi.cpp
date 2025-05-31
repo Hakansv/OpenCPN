@@ -4216,6 +4216,8 @@ void dashboard_pi::ShowDashboard(size_t id, bool visible) {
  *
  */
 
+wxString sumlogChkBoxLabel;
+
 DashboardPreferencesDialog::DashboardPreferencesDialog(
     wxWindow *parent, wxWindowID id, wxArrayOfDashboard config)
     : wxDialog(parent, id, _("Dashboard preferences"), wxDefaultPosition,
@@ -4750,6 +4752,10 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
   m_pChoiceDistanceUnit->SetSize(szDistanceUnit);
   m_pChoiceDistanceUnit->SetSelection(g_iDashDistanceUnit + 1);
   itemFlexGridSizer04->Add(m_pChoiceDistanceUnit, 0, wxALIGN_RIGHT | wxALL, 0);
+  m_pChoiceDistanceUnit->Connect(
+      wxEVT_COMMAND_CHOICE_SELECTED,
+      wxCommandEventHandler(DashboardPreferencesDialog::OnDistanceUnitSelect),
+      NULL, this);
 
   wxStaticText *itemStaticText0a =
       new wxStaticText(itemPanelNotebook02, wxID_ANY, _("Wind speed units:"),
@@ -4785,23 +4791,25 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
   m_pChoiceTempUnit->SetSelection(g_iDashTempUnit);
   itemFlexGridSizer04->Add(m_pChoiceTempUnit, 0, wxALIGN_RIGHT | wxALL, 0);
 
-  m_pUseInternSumLog = new wxCheckBox(
-      itemPanelNotebook02, wxID_ANY,
-      _("Use internal Sumlog.") + "     " + _("Enter new value if desired") +
-          " (" + getUsrDistanceUnit_Plugin(g_iDashDistanceUnit) + "):");
+  sumlogChkBoxLabel =
+      _("Use internal Sumlog.") + "     " + _("Enter new value if desired");
+  m_pUseInternSumLog =
+      new wxCheckBox(itemPanelNotebook02, wxID_ANY,
+                     sumlogChkBoxLabel + " (" +
+                         getUsrDistanceUnit_Plugin(g_iDashDistanceUnit) + "):");
   itemFlexGridSizer04->Add(m_pUseInternSumLog, 1, wxALIGN_LEFT, border_size);
   m_pUseInternSumLog->SetValue(g_bUseInternSumLog);
 
   m_pSumLogValue = new wxTextCtrl(itemPanelNotebook02, wxID_ANY, "");
-  itemFlexGridSizer04->Add(m_pSumLogValue, 1, wxALIGN_LEFT, border_size);
+  itemFlexGridSizer04->Add(m_pSumLogValue, 1, wxALIGN_LEFT, 1);
   m_pSumLogValue->SetValue(wxString::Format(
       "%.1f", toUsrDistance_Plugin(g_dSumLogNM, g_iDashDistanceUnit)));
 
   m_pUseTrueWinddata = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
                                       _("Use N2K & SignalK true wind data over "
                                         "ground.\n(Instead of through water)"));
-  m_pUseTrueWinddata->SetValue(g_bDBtrueWindGround);
   itemFlexGridSizer04->Add(m_pUseTrueWinddata, 1, wxALIGN_LEFT, border_size);
+  m_pUseTrueWinddata->SetValue(g_bDBtrueWindGround);
 
   // Hakan Deviation help file
   // Hack: Add a empty textbox to fill column 2 and move to next row
@@ -4902,8 +4910,6 @@ void DashboardPreferencesDialog::SaveDashboardConfig() {
 
   g_bUseInternSumLog = m_pUseInternSumLog->IsChecked();
   double ursDist;
-  // Must be here with the initialized distance unit
-  // if that happens to be changed some rows below.
   m_pSumLogValue->GetValue().ToDouble(&ursDist);
   g_dSumLogNM = fromUsrDistance_Plugin(ursDist, g_iDashDistanceUnit);
 
@@ -5330,6 +5336,16 @@ void DashboardPreferencesDialog::OnInstrumentDown(wxCommandEvent &event) {
                                        wxLIST_STATE_SELECTED);
 
   UpdateButtonsState();
+}
+
+void DashboardPreferencesDialog::OnDistanceUnitSelect(wxCommandEvent &event) {
+  // Distance unit is changed so we need to update the SunLog value control.
+  g_iDashDistanceUnit = m_pChoiceDistanceUnit->GetSelection() - 1;
+  m_pUseInternSumLog->SetLabel(sumlogChkBoxLabel + " (" +
+                               getUsrDistanceUnit_Plugin(g_iDashDistanceUnit) +
+                               "):");
+  m_pSumLogValue->SetValue(wxString::Format(
+      "%.1f", toUsrDistance_Plugin(g_dSumLogNM, g_iDashDistanceUnit)));
 }
 
 //----------------------------------------------------------------

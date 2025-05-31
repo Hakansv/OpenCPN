@@ -385,6 +385,7 @@ public:
   void OnInstrumentUp(wxCommandEvent &event);
   void OnInstrumentDown(wxCommandEvent &event);
   void OnDashboarddefaultFont(wxCommandEvent &event);
+  void OnDistanceUnitSelect(wxCommandEvent &event);
   void SaveDashboardConfig();
   void RecalculateSize(void);
 
