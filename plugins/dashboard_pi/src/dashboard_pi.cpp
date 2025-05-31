@@ -4791,53 +4791,68 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
   m_pChoiceTempUnit->SetSelection(g_iDashTempUnit);
   itemFlexGridSizer04->Add(m_pChoiceTempUnit, 0, wxALIGN_RIGHT | wxALL, 0);
 
-  sumlogChkBoxLabel =
-      _("Use internal Sumlog.") + "     " + _("Enter new value if desired");
-  m_pUseInternSumLog =
-      new wxCheckBox(itemPanelNotebook02, wxID_ANY,
-                     sumlogChkBoxLabel + " (" +
-                         getUsrDistanceUnit_Plugin(g_iDashDistanceUnit) + "):");
-  itemFlexGridSizer04->Add(m_pUseInternSumLog, 1, wxALIGN_LEFT, border_size);
+  // New static box to include a 3 column flexgrid sizer
+  wxStaticBox *itemStaticBox05 =
+      new wxStaticBox(itemPanelNotebook02, wxID_ANY, _("Other selections"));
+  wxStaticBoxSizer *itemStaticBoxSizer05 =
+      new wxStaticBoxSizer(itemStaticBox05, wxHORIZONTAL);
+  itemBoxSizer05->Add(itemStaticBoxSizer05, 0, wxEXPAND | wxALL, border_size);
+
+  wxFlexGridSizer *itemFlexGridSizer05 = new wxFlexGridSizer(3);
+  itemFlexGridSizer05->AddGrowableCol(1);
+  itemStaticBoxSizer05->Add(itemFlexGridSizer05, 1, wxEXPAND | wxALL, 0);
+
+  m_pUseInternSumLog = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
+                                      _("Use internal Sumlog.") + "          " +
+                                          _("Enter new value if desired"));
+  itemFlexGridSizer05->Add(m_pUseInternSumLog, 1, wxALIGN_LEFT, border_size);
   m_pUseInternSumLog->SetValue(g_bUseInternSumLog);
 
+  m_SumLogUnit =
+      new wxStaticText(itemPanelNotebook02, wxID_ANY,
+                       getUsrDistanceUnit_Plugin(g_iDashDistanceUnit) + ": ",
+                       wxDefaultPosition, wxDefaultSize, 0);
+  itemFlexGridSizer05->Add(m_SumLogUnit, 1, wxALIGN_RIGHT, 0);
+
   m_pSumLogValue = new wxTextCtrl(itemPanelNotebook02, wxID_ANY, "");
-  itemFlexGridSizer04->Add(m_pSumLogValue, 1, wxALIGN_LEFT, 1);
+  itemFlexGridSizer05->Add(m_pSumLogValue, 1, wxALIGN_LEFT, 1);
   m_pSumLogValue->SetValue(wxString::Format(
       "%.1f", toUsrDistance_Plugin(g_dSumLogNM, g_iDashDistanceUnit)));
 
   m_pUseTrueWinddata = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
                                       _("Use N2K & SignalK true wind data over "
                                         "ground.\n(Instead of through water)"));
-  itemFlexGridSizer04->Add(m_pUseTrueWinddata, 1, wxALIGN_LEFT, border_size);
+  itemFlexGridSizer05->Add(m_pUseTrueWinddata, 1, wxALIGN_LEFT, border_size);
   m_pUseTrueWinddata->SetValue(g_bDBtrueWindGround);
 
   // Hakan Deviation help file
   // Hack: Add a empty textbox to fill column 2 and move to next row
   wxStaticText *movetonextrow = new wxStaticText(
       itemPanelNotebook02, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, 0);
-  itemFlexGridSizer04->Add(movetonextrow, 1, wxALIGN_RIGHT, border_size);
+  itemFlexGridSizer05->Add(movetonextrow, 1, wxALIGN_RIGHT, border_size);
+  wxStaticText *movetonextrow1 = new wxStaticText(
+      itemPanelNotebook02, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, 0);
+  itemFlexGridSizer05->Add(movetonextrow1, 1, wxALIGN_RIGHT, border_size);
 
-  m_pSetDeviationBtn = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
-                                      wxT(" Spara deviationsdata till fil"),
-                                      wxDefaultPosition, wxDefaultSize);
+  m_pSetDeviationBtn =
+      new wxCheckBox(itemPanelNotebook02, wxID_ANY,
+                     wxT(" Spara deviationsdata till fil devdata.txt"),
+                     wxDefaultPosition, wxDefaultSize);
   m_pSetDeviationBtn->SetValue(b_IsDeviation);
-  itemFlexGridSizer04->Add(m_pSetDeviationBtn, 0, wxEXPAND | wxALL, 0);
+  itemFlexGridSizer05->Add(m_pSetDeviationBtn, 0, wxALIGN_LEFT, 0);
+
 #ifdef __WXMSW__
   m_pSetDevSoundBtn =
       new wxCheckBox(itemPanelNotebook02, wxID_ANY, wxT(" Beep at print"),
                      wxDefaultPosition, wxDefaultSize);
   m_pSetDevSoundBtn->SetValue(b_IsDevPrintSound);
-  itemFlexGridSizer04->Add(m_pSetDevSoundBtn, 0, wxEXPAND | wxALL, 0);
+  itemFlexGridSizer05->Add(m_pSetDevSoundBtn, 0, wxALIGN_LEFT, 0);
 #else
   // Hack: Add a empty textbox to fill column 2 and move to next row
   wxStaticText *movetonextrow2 = new wxStaticText(
       itemPanelNotebook02, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, 0);
-  itemFlexGridSizer04->Add(movetonextrow2, 1, wxALIGN_RIGHT, border_size);
+  itemFlexGridSizer05->Add(movetonextrow2, 1, wxALIGN_RIGHT, border_size);
 #endif
-  m_pDevfilename = new wxStaticText(itemPanelNotebook02, wxID_ANY,
-                                    _T("      in Log Directory - devdata.txt"),
-                                    wxDefaultPosition, wxDefaultSize);
-  itemFlexGridSizer04->Add(m_pDevfilename, 0, wxALIGN_LEFT | wxALL, 0);
   // End Hakan Dev.
 
   curSel = -1;
@@ -5341,9 +5356,7 @@ void DashboardPreferencesDialog::OnInstrumentDown(wxCommandEvent &event) {
 void DashboardPreferencesDialog::OnDistanceUnitSelect(wxCommandEvent &event) {
   // Distance unit is changed so we need to update the SunLog value control.
   g_iDashDistanceUnit = m_pChoiceDistanceUnit->GetSelection() - 1;
-  m_pUseInternSumLog->SetLabel(sumlogChkBoxLabel + " (" +
-                               getUsrDistanceUnit_Plugin(g_iDashDistanceUnit) +
-                               "):");
+  m_SumLogUnit->SetLabel(getUsrDistanceUnit_Plugin(g_iDashDistanceUnit) + ": ");
   m_pSumLogValue->SetValue(wxString::Format(
       "%.1f", toUsrDistance_Plugin(g_dSumLogNM, g_iDashDistanceUnit)));
 }

@@ -406,6 +406,7 @@ public:
   wxChoice *m_pChoiceDistanceUnit;
   wxChoice *m_pChoiceWindSpeedUnit;
   wxCheckBox *m_pUseInternSumLog;
+  wxStaticText *m_SumLogUnit;
   wxTextCtrl *m_pSumLogValue;
   wxCheckBox *m_pUseTrueWinddata;
   wxChoice *m_pChoiceTempUnit;
