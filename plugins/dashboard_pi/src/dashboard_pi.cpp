@@ -4827,30 +4827,29 @@ DashboardPreferencesDialog::DashboardPreferencesDialog(
   // Hack: Add a empty textbox to fill column 2 and move to next row
   wxStaticText *movetonextrow = new wxStaticText(
       itemPanelNotebook02, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, 0);
-  itemFlexGridSizer05->Add(movetonextrow, 1, wxALIGN_RIGHT, border_size);
-  wxStaticText *movetonextrow1 = new wxStaticText(
-      itemPanelNotebook02, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, 0);
-  itemFlexGridSizer05->Add(movetonextrow1, 1, wxALIGN_RIGHT, border_size);
+  itemFlexGridSizer04->Add(movetonextrow, 1, wxALIGN_RIGHT, border_size);
 
-  m_pSetDeviationBtn =
-      new wxCheckBox(itemPanelNotebook02, wxID_ANY,
-                     wxT(" Spara deviationsdata till fil devdata.txt"),
-                     wxDefaultPosition, wxDefaultSize);
+  m_pSetDeviationBtn = new wxCheckBox(itemPanelNotebook02, wxID_ANY,
+                                      wxT(" Spara deviationsdata till fil"),
+                                      wxDefaultPosition, wxDefaultSize);
   m_pSetDeviationBtn->SetValue(b_IsDeviation);
-  itemFlexGridSizer05->Add(m_pSetDeviationBtn, 0, wxALIGN_LEFT, 0);
-
+  itemFlexGridSizer04->Add(m_pSetDeviationBtn, 0, wxEXPAND | wxALL, 0);
 #ifdef __WXMSW__
   m_pSetDevSoundBtn =
       new wxCheckBox(itemPanelNotebook02, wxID_ANY, wxT(" Beep at print"),
                      wxDefaultPosition, wxDefaultSize);
   m_pSetDevSoundBtn->SetValue(b_IsDevPrintSound);
-  itemFlexGridSizer05->Add(m_pSetDevSoundBtn, 0, wxALIGN_LEFT, 0);
+  itemFlexGridSizer04->Add(m_pSetDevSoundBtn, 0, wxEXPAND | wxALL, 0);
 #else
   // Hack: Add a empty textbox to fill column 2 and move to next row
   wxStaticText *movetonextrow2 = new wxStaticText(
       itemPanelNotebook02, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, 0);
-  itemFlexGridSizer05->Add(movetonextrow2, 1, wxALIGN_RIGHT, border_size);
+  itemFlexGridSizer04->Add(movetonextrow2, 1, wxALIGN_RIGHT, border_size);
 #endif
+  m_pDevfilename = new wxStaticText(itemPanelNotebook02, wxID_ANY,
+                                    _T("      in Log Directory - devdata.txt"),
+                                    wxDefaultPosition, wxDefaultSize);
+  itemFlexGridSizer04->Add(m_pDevfilename, 0, wxALIGN_LEFT | wxALL, 0);
   // End Hakan Dev.
 
   curSel = -1;
