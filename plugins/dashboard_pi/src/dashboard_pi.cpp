@@ -4216,8 +4216,6 @@ void dashboard_pi::ShowDashboard(size_t id, bool visible) {
  *
  */
 
-wxString sumlogChkBoxLabel;
-
 DashboardPreferencesDialog::DashboardPreferencesDialog(
     wxWindow *parent, wxWindowID id, wxArrayOfDashboard config)
     : wxDialog(parent, id, _("Dashboard preferences"), wxDefaultPosition,
