@@ -6223,6 +6223,9 @@ void options::SetColorScheme(ColorScheme cs) {
   }
 
 #endif
+
+  //  Some panels need specific color change method
+  comm_dialog->SetColorScheme(cs);
 }
 
 void options::OnAISRolloverClick(wxCommandEvent& event) {
