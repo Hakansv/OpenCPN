@@ -99,7 +99,6 @@ bool UpdateAutopilotN0183(Routeman &routeman) {
 
   // RMB
   {
-    nmea0183.TalkerID = "EC";
     SENTENCE snt;
     nmea0183.Rmb.IsDataValid = bGPSValid ? NTrue : NFalse;
     nmea0183.Rmb.CrossTrackError =  // Hakan
@@ -144,8 +143,6 @@ bool UpdateAutopilotN0183(Routeman &routeman) {
 
   // RMC
   {
-    nmea0183.TalkerID = _T("EC");
-
     SENTENCE snt;
     nmea0183.Rmc.IsDataValid = NTrue;
     if (!bGPSValid) nmea0183.Rmc.IsDataValid = NFalse;
@@ -199,8 +196,6 @@ bool UpdateAutopilotN0183(Routeman &routeman) {
 
   // APB
   {
-    nmea0183.TalkerID = _T("EC");
-
     SENTENCE snt;
 
     nmea0183.Apb.IsLoranBlinkOK =
@@ -272,8 +267,6 @@ bool UpdateAutopilotN0183(Routeman &routeman) {
 
   // XTE
   {
-    nmea0183.TalkerID = _T("EC");
-
     SENTENCE snt;
 
     nmea0183.Xte.IsLoranBlinkOK =
