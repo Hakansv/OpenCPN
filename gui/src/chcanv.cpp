@@ -8899,6 +8899,7 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
           pRouteList->Append(m_pMouseRoute);
           r_rband.x = x;
           r_rband.y = y;
+          NavObj_dB::GetInstance().InsertRoute(m_pMouseRoute);
         }
 
         //    Check to see if there is a nearby point which may be reused
@@ -9000,9 +9001,6 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
                                        _T(""), wxEmptyString);
           pMousePoint->SetNameShown(false);
 
-          // pConfig->AddNewWayPoint(pMousePoint, -1);  // use auto next num
-          NavObj_dB::GetInstance().InsertRoutePoint(pMousePoint);
-
           pSelect->AddSelectableRoutePoint(rlat, rlon, pMousePoint);
 
           if (m_routeState > 1)
@@ -9013,6 +9011,8 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
         if (m_routeState == 1) {
           // First point in the route.
           m_pMouseRoute->AddPoint(pMousePoint);
+          NavObj_dB::GetInstance().UpdateRoute(m_pMouseRoute);
+
         } else {
           if (m_pMouseRoute->m_NextLegGreatCircle) {
             double rhumbBearing, rhumbDist, gcBearing, gcDist;
@@ -9057,9 +9057,6 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
                   gcPoint = new RoutePoint(gcCoord.y, gcCoord.x, _T("xmblue"),
                                            _T(""), wxEmptyString);
                   gcPoint->SetNameShown(false);
-                  // pConfig->AddNewWayPoint(gcPoint, -1);
-                  NavObj_dB::GetInstance().InsertRoutePoint(gcPoint);
-
                   pSelect->AddSelectableRoutePoint(gcCoord.y, gcCoord.x,
                                                    gcPoint);
                 } else {
@@ -9067,6 +9064,8 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
                 }
 
                 m_pMouseRoute->AddPoint(gcPoint);
+                NavObj_dB::GetInstance().UpdateRoute(m_pMouseRoute);
+
                 pSelect->AddSelectableRouteSegment(
                     prevGcPoint->m_lat, prevGcPoint->m_lon, gcPoint->m_lat,
                     gcPoint->m_lon, prevGcPoint, gcPoint, m_pMouseRoute);
@@ -9077,6 +9076,7 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
 
             } else {
               m_pMouseRoute->AddPoint(pMousePoint);
+              NavObj_dB::GetInstance().UpdateRoute(m_pMouseRoute);
               pSelect->AddSelectableRouteSegment(m_prev_rlat, m_prev_rlon, rlat,
                                                  rlon, m_prev_pMousePoint,
                                                  pMousePoint, m_pMouseRoute);
@@ -9085,6 +9085,8 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
           } else {
             // Ordinary rhumblinesegment.
             m_pMouseRoute->AddPoint(pMousePoint);
+            NavObj_dB::GetInstance().UpdateRoute(m_pMouseRoute);
+
             pSelect->AddSelectableRouteSegment(m_prev_rlat, m_prev_rlon, rlat,
                                                rlon, m_prev_pMousePoint,
                                                pMousePoint, m_pMouseRoute);
