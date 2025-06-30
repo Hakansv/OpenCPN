@@ -1619,9 +1619,10 @@ void PlugInManager::CloseAllPlugInPanels(int ok_apply_cancel) {
   }
 }
 
-int PlugInManager::AddCanvasContextMenuItem(wxMenuItem* pitem,
-                                            opencpn_plugin* pplugin,
-                                            const char* name) {
+int PlugInManager::AddCanvasContextMenuItemPIM(wxMenuItem* pitem,
+                                               opencpn_plugin* pplugin,
+                                               const char* name,
+                                               bool is_extended) {
   PlugInMenuItemContainer* pmic = new PlugInMenuItemContainer;
   pmic->pmenu_item = pitem;
   pmic->m_pplugin = pplugin;
@@ -1630,6 +1631,7 @@ int PlugInManager::AddCanvasContextMenuItem(wxMenuItem* pitem,
   pmic->b_viz = true;
   pmic->b_grey = false;
   pmic->m_in_menu = name;
+  pmic->extended = is_extended;
 
   m_PlugInMenuItems.Add(pmic);
 
@@ -1642,7 +1644,7 @@ void PlugInManager::RemoveCanvasContextMenuItem(int item, const char* name) {
   for (unsigned int i = 0; i < m_PlugInMenuItems.GetCount(); i++) {
     PlugInMenuItemContainer* pimis = m_PlugInMenuItems[i];
     {
-      if (pimis->id == item && !strcmp(name, pimis->m_in_menu)) {
+      if (pimis->id == item) {
         m_PlugInMenuItems.Remove(pimis);
         delete pimis;
         break;
@@ -3356,7 +3358,7 @@ void PluginPanel::SetEnabled(bool enabled) {
   if (m_is_safe_panel) return;
   PluginLoader::GetInstance()->SetEnabled(m_plugin.m_common_name, enabled);
   PluginLoader::GetInstance()->UpdatePlugIns();
-  NotifySetupOptionsPlugin(&m_plugin);
+  if (enabled) NotifySetupOptionsPlugin(&m_plugin);
   if (!enabled && !m_bSelected) {
     SetWindowFontStyle(m_pName, wxFONTSTYLE_ITALIC);
     SetWindowFontStyle(m_pVersion, wxFONTSTYLE_ITALIC);

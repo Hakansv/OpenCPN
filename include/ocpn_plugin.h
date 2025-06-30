@@ -224,7 +224,7 @@ class PlugIn_Position_Fix {
 public:
   double Lat;  //!< Latitude in decimal degrees
   double Lon;  //!< Longitude in decimal degrees
-  double Cog;  //!< Course over ground in degrees
+  double Cog;  //!< Course over ground in degrees [0-360).
   double Sog;  //!< Speed over ground in knots
   double Var;  //!< Magnetic variation in degrees, typically from RMC message
   time_t FixTime;  //!< UTC time of fix as time_t value
@@ -258,7 +258,9 @@ public:
    */
   double Lon;
 
-  /** Course over ground in degrees */
+  /**
+   * Course over ground in degrees [0-360).
+   */
   double Cog;
 
   /**
@@ -271,13 +273,13 @@ public:
   double Var;
 
   /**
-   * Heading magnetic in degrees.
+   * Heading magnetic in degrees [0-360).
    * May be NaN if heading sensor data is not available.
    */
   double Hdm;
 
   /**
-   * Heading true in degrees.
+   * Heading true in degrees [0-360).
    * May be NaN if true heading cannot be calculated (requires both magnetic
    * heading and variation).
    */
@@ -1526,19 +1528,25 @@ public:
   virtual void SetCurrentViewPort(PlugIn_ViewPort &vp);
 
   /**
-   * Updates plugin with current position fix data.
+   * Updates plugin with current position fix data at regular intervals.
    *
-   * Called by OpenCPN when a new position fix is received. Plugins can
-   * use this to track vessel position, course and speed.
+   * Called by OpenCPN approximately once per second (1 Hz), regardless of how
+   * frequently new position data is actually received from GPS/NMEA sources.
+   * This provides plugins with a steady, predictable update rate for navigation
+   * calculations and display updates.
+   *
+   * Plugins can use this to track vessel position, course and speed with
+   * consistent timing for smooth navigation displays and calculations.
    *
    * @param pfix Position fix data containing:
-   *   - Lat: Latitude in decimal degrees
-   *   - Lon: Longitude in decimal degrees
-   *   - Cog: Course over ground in degrees
-   *   - Sog: Speed over ground in knots
-   *   - Var: Magnetic variation in degrees
+   *   - Lat: Latitude in decimal degrees (-90.0 to +90.0, NaN if invalid)
+   *   - Lon: Longitude in decimal degrees (-180.0 to +180.0, NaN if invalid)
+   *   - Cog: Course over ground in degrees (0-360° true bearing, NaN if
+   * invalid)
+   *   - Sog: Speed over ground in knots (≥0.0, NaN if invalid)
+   *   - Var: Magnetic variation in degrees (NaN if unavailable)
    *   - FixTime: UTC timestamp of fix
-   *   - nSats: Number of satellites used in fix
+   *   - nSats: Number of satellites used in fix (0 if unavailable)
    *
    * @note Only called if plugin declares WANTS_NMEA_EVENTS capability
    * @note For extended data including heading, use SetPositionFixEx()
@@ -1743,18 +1751,24 @@ public:
   virtual void SetPluginMessage(wxString &message_id, wxString &message_body);
 
   /**
-   * Updates plugin with extended position fix data.
+   * Updates plugin with extended position fix data at regular intervals.
    *
-   * Called by OpenCPN when a new position fix with heading data is received.
-   * Extends SetPositionFix() by adding true heading information.
+   * Called by OpenCPN approximately once per second (1 Hz), regardless of how
+   * frequently new position data is actually received from GPS/NMEA sources.
+   * This provides plugins with a steady, predictable update rate for navigation
+   * calculations and display updates.
+   *
+   * Extends SetPositionFix() by adding magnetic and true heading information
+   * when available from HDM/HDT NMEA sentences.
    *
    * @param pfix Extended position fix data containing:
    *   - All basic position fix fields from SetPositionFix()
-   *   - Hdm: Magnetic heading in degrees
-   *   - Hdt: True heading in degrees
+   *   - Hdm: Magnetic heading in degrees (0-360°, NaN if unavailable)
+   *   - Hdt: True heading in degrees (0-360°, NaN if unavailable)
    *
    * @note Only called if plugin declares WANTS_NMEA_EVENTS capability
-   * @note HDT/HDM sentences must be available for heading data
+   *
+   * @see SetPositionFix() for basic position data without heading
    */
   virtual void SetPositionFixEx(PlugIn_Position_Fix_Ex &pfix);
 };
@@ -2021,6 +2035,10 @@ public:
 class DECL_EXP opencpn_plugin_120 : public opencpn_plugin_119 {
 public:
   opencpn_plugin_120(void *pmgr);
+
+  virtual void OnContextMenuItemCallbackExt(int id, std::string obj_ident,
+                                            std::string obj_type, double lat,
+                                            double lon);
 };
 
 //------------------------------------------------------------------
@@ -2528,30 +2546,53 @@ extern "C" DECL_EXP void JumpToPosition(double lat, double lon, double scale);
 /* Study the original OpenCPN source (georef.c) for functional definitions  */
 
 /**
- * Calculates destination point given start point, bearing and distance.
- * Uses Mercator projection math.
+ * Calculates destination point given starting point, bearing and distance.
  *
- * @param lat Start latitude in decimal degrees
- * @param lon Start longitude in decimal degrees
- * @param brg Bearing in degrees true
- * @param dist Distance in nautical miles
- * @param dlat Destination latitude (output)
- * @param dlon Destination longitude (output)
+ * Compute the destination coordinates when traveling from a
+ * starting position along a specified bearing for a given distance. Despite
+ * the name suggesting Mercator calculations, this function actually uses
+ * great circle (geodesic) calculations via the WGS84 ellipsoid model for
+ * maximum accuracy.
+ *
+ * @param lat Starting point latitude in decimal degrees (-90.0 to +90.0)
+ * @param lon Starting point longitude in decimal degrees (-180.0 to +180.0)
+ * @param brg Initial bearing in degrees true (0.0-359.9°, 0°=North, 90°=East)
+ * @param dist Distance to travel in nautical miles (≥0.0)
+ * @param dlat Pointer to store destination latitude in decimal degrees
+ *             Cannot be NULL
+ * @param dlon Pointer to store destination longitude in decimal degrees
+ *             in [-180,+180] range. Cannot be NULL
+ *
+ * @note Uses WGS84 ellipsoid great circle calculations, not rhumb line
+ * @note If dist=0.0, returns dlat=lat and dlon=lon (same position)
+ * @note Output longitude is automatically normalized to [-180,+180] range
+ * @note Handles all bearing values, including those ≥360° (automatically
+ * normalized)
  */
 extern "C" DECL_EXP void PositionBearingDistanceMercator_Plugin(
     double lat, double lon, double brg, double dist, double *dlat,
     double *dlon);
 /**
-
- * Calculates bearing and distance between two points.
- * Uses Mercator projection math.
+ * Calculates bearing and distance between two points using Mercator projection.
  *
- * @param lat0 Start latitude in decimal degrees
- * @param lon0 Start longitude in decimal degrees
- * @param lat1 End latitude in decimal degrees
- * @param lon1 End longitude in decimal degrees
- * @param brg Bearing in degrees true (output)
- * @param dist Distance in nautical miles (output)
+ * Compute the rhumb line (constant bearing) distance and initial
+ * bearing between two geographic positions using Mercator projection.
+ *
+ * The algorithm automatically handles dateline crossings by selecting the
+ * shortest route, adjusting longitude differences that exceed ±180°.
+ *
+ * @param lat0 Starting point latitude in decimal degrees (-90.0 to +90.0)
+ * @param lon0 Starting point longitude in decimal degrees (-180.0 to +180.0)
+ * @param lat1 Ending point latitude in decimal degrees (-90.0 to +90.0)
+ * @param lon1 Ending point longitude in decimal degrees (-180.0 to +180.0)
+ * @param brg Pointer to store initial bearing in degrees true [0.0-360.0°)
+ *            Can be NULL if bearing is not needed
+ * @param dist Pointer to store distance in nautical miles (≥0.0)
+ *             Can be NULL if distance is not needed
+ *
+ * @note If lat0/lon0 equals lat1/lon1, returns bearing=180.0° and distance=0.0
+ * NM
+ * @see DistGreatCircle_Plugin() for great circle distance calculations
  */
 extern "C" DECL_EXP void DistanceBearingMercator_Plugin(
     double lat0, double lon0, double lat1, double lon1, double *brg,
@@ -2915,7 +2956,7 @@ extern DECL_EXP double fromUsrDepth_Plugin(double usr_depth, int unit = -1);
 /**
  * Parse a formatted coordinate string to get decimal degrees.
  *
- * This function attempts to parse a wide variety of formatted coordinate
+ * Attempt to parse a wide variety of formatted coordinate
  * strings and convert them to decimal degrees. It handles formats like:
  * - 37°54.204' N
  * - N37 54 12
@@ -2933,7 +2974,7 @@ extern DECL_EXP double fromDMM_PlugIn(wxString sdms);
 /**
  * Configuration options for date and time formatting.
  *
- * This structure holds formatting options that determine how dates and times
+ * Formatting options that determine how dates and times
  * are displayed throughout the application. It allows configuring format
  * strings, timezone settings, and geographic reference for local time
  * calculations.
@@ -2943,8 +2984,10 @@ extern DECL_EXP double fromDMM_PlugIn(wxString sdms);
  * Timezone settings allow displaying times in UTC, system local time, or a
  * custom zone based on the vessel's current position.
  */
-struct DateTimeFormatOptions {
-  DateTimeFormatOptions() = default;
+struct DECL_EXP DateTimeFormatOptions {
+  DateTimeFormatOptions();
+  virtual ~DateTimeFormatOptions();
+
   /**
    * The format string for date/time.
    *
@@ -2964,7 +3007,7 @@ struct DateTimeFormatOptions {
    * For example, $short_date is resolved to "12/31/2021" in the US locale and
    * "31/12/2021" in the UK locale.
    */
-  wxString format_string = "$weekday_short_date_time";
+  wxString format_string;
 
   /**
    * The timezone to use when formatting the date/time. Supported options are:
@@ -2981,13 +3024,21 @@ struct DateTimeFormatOptions {
    *   case, longitude is required.
    * - Valid timezone name: the date/time is formatted in that timezone.
    */
-  wxString time_zone = wxEmptyString;
+  wxString time_zone;
+
+  /**
+   * Whether to show timezone information in the formatted date/time string.
+   * When true, the timezone abbreviation (e.g., "EDT", "UTC", "LMT") is
+   * appended to the date/time string. When false, no timezone information
+   * is included.
+   */
+  bool show_timezone;
 
   /**
    * The longitude to use when formatting the date/time in Local Mean Time
    * (LMT). The longitude is required when the time_zone is set to "LMT".
    */
-  double longitude = NAN;
+  double longitude;
 
   int version = 1;  // For future compatibility checks
 
@@ -3034,6 +3085,17 @@ struct DateTimeFormatOptions {
    */
   DateTimeFormatOptions &SetTimezone(const wxString &tz) {
     time_zone = tz;
+    return *this;
+  }
+
+  /**
+   * Sets whether to show timezone information in the formatted output.
+   *
+   * @param show Whether to show timezone information
+   * @return Reference to this object for method chaining
+   */
+  DateTimeFormatOptions &SetShowTimezone(bool show) {
+    show_timezone = show;
     return *this;
   }
 
@@ -4187,7 +4249,7 @@ extern DECL_EXP double fromDMM_Plugin(wxString sdms);
  *
  * Rotates the chart display by the specified angle.
  *
- * @param rotation Rotation angle in degrees (0-360)
+ * @param rotation Rotation angle in degrees [0-360)
  *                 0 = North up
  *                 90 = East up
  *                 etc.
@@ -4657,10 +4719,10 @@ enum OCPN_DLDialogStyle {
   30  // Recheck the Internet connection availability every ONLINE_CHECK_RETRY s
 
 /**
- * Synchronously downloads a file with progress dialog.
+ * Synchronously download a file with progress dialog.
  *
- * Downloads a file from a URL while showing a progress dialog. This function
- * blocks until the download completes or fails.
+ * Download a file from a URL while showing a progress dialog.
+ * Blocks until the download completes or fails.
  *
  * @param url URL to download from
  * @param outputFile Local file path to save to
@@ -4798,7 +4860,7 @@ extern DECL_EXP bool LaunchDefaultBrowser_Plugin(wxString url);
 /**
  * Renders AIS targets on a secondary OpenGL canvas.
  *
- * This function allows plugins to render AIS targets on additional OpenGL
+ * Allow plugins to render AIS targets on additional OpenGL
  * canvases beyond the main chart display. This is useful for creating auxiliary
  * navigation views that need to show vessel traffic.
  *
@@ -4911,19 +4973,18 @@ extern DECL_EXP void PlugInHandleAutopilotRoute(bool enable);
 // API 1.16
 //
 /**
- * Return the plugin data directory for a given directory name.
+ * Returns an installed plugin's data directory given a plugin name.
  *
- * On Linux, the returned data path is an existing directory ending in
- * "opencpn/plugins/<plugin_name>" where the last part is the plugin_name
- * argument. The prefix part is one of the directories listed in the
- * environment variable XDG_DATA_DIRS, by default
- * ~/.local/share:/usr/local/share:/usr/share.
+ * Platform-specific behavior:
+ * - On Linux: Searches directories from XDG_DATA_DIRS env variable for
+ *   "opencpn/plugins/<plugin_name>"
+ * - On other platforms: Checks GetSharedDataDir() + "/opencpn/plugins/" +
+ * plugin_name
  *
- * On other platforms, the returned value is GetSharedDataDir() +
- * "/opencpn/plugins/" + plugin_name (with native path separators)
- * if that path exists.
- *
- * Return "" if no existing directory is found.
+ * @param plugin_name The name of the plugin to find data for (e.g.,
+ * "weather_routing_pi")
+ * @return Path to the plugin's data directory if found, empty string if not
+ * found
  */
 extern DECL_EXP wxString GetPluginDataDir(const char *plugin_name);
 
@@ -6851,5 +6912,8 @@ public:
 
 extern DECL_EXP PI_Comm_Status GetConnState(const std::string &iface,
                                             PI_Conn_Bus _bus);
+
+extern "C" DECL_EXP int AddCanvasContextMenuItemExt(
+    wxMenuItem *pitem, opencpn_plugin *pplugin, const std::string object_type);
 
 #endif  //_PLUGIN_H_

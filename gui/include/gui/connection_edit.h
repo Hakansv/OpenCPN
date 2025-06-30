@@ -45,7 +45,7 @@ class ConnectionParamsPanel;
  * Dialog for editing connection parameters. Provides an interface for
  * creating new connections or editing existing connection parameters in detail.
  */
-class ConnectionEditDialog : public wxDialog {
+class ConnectionEditDialog : public wxPanel {
 public:
   const wxString DEFAULT_TCP_PORT = "10110";
   const wxString DEFAULT_UDP_PORT = "10110";
@@ -57,7 +57,10 @@ public:
   const wxString DEFAULT_UDP_OUT_ADDRESS = "255.255.255.255";
 
   ConnectionEditDialog();
-  ConnectionEditDialog(wxWindow *parent);
+  ConnectionEditDialog(
+      wxWindow *parent,
+      std::function<void(ConnectionParams *p, bool editing, bool ok_cancel)>
+          on_edit_click);
 
   ~ConnectionEditDialog();
 
@@ -85,7 +88,6 @@ public:
   void OnNetProtocolSelected(wxCommandEvent &event);
   void OnBaudrateChoice(wxCommandEvent &event) { OnConnValChange(event); }
   void OnProtocolChoice(wxCommandEvent &event);
-  void OnCrcCheck(wxCommandEvent &event) { OnConnValChange(event); }
   void OnRbAcceptInput(wxCommandEvent &event);
   void OnRbIgnoreInput(wxCommandEvent &event);
   void OnBtnIStcs(wxCommandEvent &event);
@@ -148,15 +150,27 @@ public:
   void CreateControls();
   void ConnectControls();
 
+  void SetNewMode(bool mode) { new_mode = mode; }
+
+  void AddOKCancelButtons();
+  wxStdDialogButtonSizer *m_btnSizer;
+  wxBoxSizer *m_btnSizerBox;
+
+  wxButton *m_btnOK;
+  wxButton *m_btnCancel;
+  bool new_mode;
+
+  void OnOKClick();
+  void OnCancelClick();
+
   // private:
   wxWindow *m_parent;
-  wxScrolledWindow *m_scrolledwin;
+  // wxScrolledWindow *m_scrolledwin;
 
   wxGridSizer *gSizerNetProps, *gSizerSerProps, *gSizerCanProps;
   wxTextCtrl *m_tNetAddress, *m_tNetPort, *m_tFilterSec, *m_tcInputStc;
   wxTextCtrl *m_tcOutputStc;
-  wxCheckBox *m_cbCheckCRC, *m_cbGarminHost, *m_cbGarminUploadHost,
-      *m_cbCheckSKDiscover;
+  wxCheckBox *m_cbGarminHost, *m_cbGarminUploadHost, *m_cbCheckSKDiscover;
   wxCheckBox *m_cbFurunoGP3X, *m_cbNMEADebug, *m_cbFilterSogCog, *m_cbInput;
   wxCheckBox *m_cbMultiCast, *m_cbAdvanced;
   wxCheckBox *m_cbOutput, *m_cbAPBMagnetic;
@@ -208,10 +222,11 @@ public:
   wxArrayString m_choice_CANSource_choices;
 
   ObsListener new_device_listener;
+  ConnectionParams *m_cp_original;
 
-  // DECLARE_EVENT_TABLE()
+  std::function<void(ConnectionParams *, bool, bool)> m_on_edit_click;
+
 protected:
-  ExpandableIcon m_expandable_icon;
   wxSizer *m_collapse_box;
 };
 

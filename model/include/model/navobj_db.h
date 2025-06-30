@@ -45,21 +45,49 @@ public:
 
   // Tracks
   bool LoadAllTracks();
-  bool AddNewTrack(Track *track);
+  bool InsertTrack(Track *track);
   bool AddTrackPoint(Track *track, TrackPoint *point);
   bool UpdateDBTrackAttributes(Track *track);
   bool DeleteTrack(Track *track);
 
+  // Routes
+  bool LoadAllRoutes();
+  bool InsertRoute(Route *route);
+  bool UpdateRoute(Route *route);
+  bool UpdateRouteViz(Route *route);
+
+  bool UpdateDBRouteAttributes(Route *route);
+  bool UpdateDBRoutePointAttributes(RoutePoint *point);
+  bool UpdateDBRoutePointViz(RoutePoint *point);
+  bool DeleteRoute(Route *route);
+
+  // RoutePoints
+  bool LoadAllPoints();
+  bool InsertRoutePoint(RoutePoint *point);
+  bool DeleteRoutePoint(RoutePoint *point);
+  bool UpdateRoutePoint(RoutePoint *point);
+
   // Legacy navobj import
-  bool ImportLegacyNavobj();
-  bool ImportLegacyTracks();
+  bool ImportLegacyNavobj(wxFrame *frame);
 
 private:
   NavObj_dB();
   ~NavObj_dB();
 
+  bool ImportLegacyTracks();
+  bool ImportLegacyRoutes();
+  bool ImportLegacyPoints();
+  void CountImportNavObjects();
+
   int m_open_result;
   sqlite3 *m_db;
+  bool m_importing;
+  int m_nimportPoints;
+  int m_nimportRoutes;
+  int m_nimportTracks;
+  int m_nImportObjects;
+  int m_import_progesscount;
+  wxProgressDialog *m_pImportProgress;
 };
 
 #endif
