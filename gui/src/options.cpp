@@ -7539,6 +7539,7 @@ void options::ApplyChanges(wxCommandEvent& event) {
         it = g_pAIS->m_persistent_tracks.find(pAISTarget->MMSI);
         if (it != g_pAIS->m_persistent_tracks.end())
           pAISTarget->b_show_track = true;
+        pAISTarget->b_show_track_old = g_bAISShowTracks;
       }
     }
   }
