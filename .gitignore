@@ -21,3 +21,6 @@ cscope.out
 data/doc/local/*
 index.sh
 tags
+
+# Ignore Build Dependency files
+*build-deps*
