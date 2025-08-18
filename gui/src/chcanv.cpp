@@ -316,6 +316,8 @@ extern wxString g_CmdSoundString;
 ShapeBaseChartSet gShapeBasemap;
 extern bool g_CanvasHideNotificationIcon;
 extern bool g_bhide_context_menus;
+extern bool g_bhide_depth_units;
+extern bool g_bhide_overzoom_flag;
 
 //  TODO why are these static?
 
@@ -8079,11 +8081,11 @@ bool ChartCanvas::MouseEventSetup(wxMouseEvent &event, bool b_handle_dclick) {
   return bret;
 }
 
-int ChartCanvas::PrepareContextSelections(int x, int y) {
+int ChartCanvas::PrepareContextSelections(double lat, double lon) {
   // On general Right Click
   // Look for selectable objects
-  double slat, slon;
-  GetCanvasPixPoint(x, y, slat, slon);
+  double slat = lat;
+  double slon = lon;
 
 #if defined(__WXMAC__) || defined(__ANDROID__)
   wxScreenDC sdc;
@@ -8375,7 +8377,7 @@ void ChartCanvas::CallPopupMenu(int x, int y) {
     return;
   }
 
-  int seltype = PrepareContextSelections(x, y);
+  int seltype = PrepareContextSelections(m_cursor_lat, m_cursor_lon);
 
   // If tide or current point is selected, then show the TC dialog immediately
   // without context menu
@@ -12804,8 +12806,9 @@ void ChartCanvas::DrawOverlayObjects(ocpnDC &dc, const wxRegion &ru) {
                                                 OVERLAY_OVER_SHIPS);
   }
 
-  DrawEmboss(dc, EmbossDepthScale());
-  DrawEmboss(dc, EmbossOverzoomIndicator(dc));
+  if (!g_bhide_depth_units) DrawEmboss(dc, EmbossDepthScale());
+  if (!g_bhide_overzoom_flag) DrawEmboss(dc, EmbossOverzoomIndicator(dc));
+
   if (g_pi_manager) {
     g_pi_manager->RenderAllCanvasOverlayPlugIns(dc, GetVP(), m_canvasIndex,
                                                 OVERLAY_OVER_EMBOSS);
