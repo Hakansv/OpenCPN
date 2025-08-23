@@ -56,6 +56,114 @@ static NmeaLog *GetNmeaLog() {
   return log;
 }
 
+static void SendRmc(NMEA0183 &nmea0183, Routeman &routeman) {
+  SENTENCE snt;
+  nmea0183.Rmc.IsDataValid = bGPSValid ? NTrue : NFalse;
+
+  nmea0183.Rmc.Position.Latitude.Set(std::fabs(gLat), gLat < 0 ? "S" : "N");
+  nmea0183.Rmc.Position.Longitude.Set(std::fabs(gLon), gLon < 0 ? "W" : "E");
+
+  nmea0183.Rmc.SpeedOverGroundKnots = std::isnan(gSog) ? 0.0 : gSog;
+  nmea0183.Rmc.TrackMadeGoodDegreesTrue = std::isnan(gCog) ? 0.0 : gCog;
+
+  if (!std::isnan(gVar)) {
+    nmea0183.Rmc.MagneticVariation = std::fabs(gVar);
+    nmea0183.Rmc.MagneticVariationDirection = gVar < 0 ? West : East;
+  } else {
+    // A signal to NMEA converter, gVAR is unknown
+    nmea0183.Rmc.MagneticVariation = 361.;
+  }
+
+  // Send GPS time to autopilot if available else send local system time
+  if (!gRmcTime.IsEmpty() && !gRmcDate.IsEmpty()) {
+    nmea0183.Rmc.UTCTime = gRmcTime;
+    nmea0183.Rmc.Date = gRmcDate;
+  } else {
+    wxDateTime now = wxDateTime::Now();
+    wxDateTime utc = now.ToUTC();
+    wxString time = utc.Format(_T("%H%M%S"));
+    nmea0183.Rmc.UTCTime = time;
+    wxString date = utc.Format(_T("%d%m%y"));
+    nmea0183.Rmc.Date = date;
+  }
+
+  nmea0183.Rmc.FAAModeIndicator = "A";
+  if (!bGPSValid) nmea0183.Rmc.FAAModeIndicator = "N";
+
+  nmea0183.Rmc.Write(snt);
+
+  BroadcastNMEA0183Message(snt.Sentence, GetNmeaLog(),
+                           routeman.GetMessageSentEventVar());
+}
+
+static void SendDummyRmb(NMEA0183 &nmea0183, Routeman &routeman) {
+  nmea0183.Rmb.IsDataValid = NTrue;
+  nmea0183.Rmb.CrossTrackError = 0;
+  nmea0183.Rmb.DirectionToSteer = Left;
+  nmea0183.Rmb.RangeToDestinationNauticalMiles = 0;
+  nmea0183.Rmb.BearingToDestinationDegreesTrue = 0;
+  nmea0183.Rmb.DestinationPosition.Latitude.Set(0, "N");
+  nmea0183.Rmb.DestinationPosition.Longitude.Set(0, "E");
+  nmea0183.Rmb.DestinationClosingVelocityKnots = 0;
+  nmea0183.Rmb.IsArrivalCircleEntered = NFalse;
+  nmea0183.Rmb.FAAModeIndicator = "A";
+  nmea0183.Rmb.To = "";
+  nmea0183.Rmb.From = "";
+
+  SENTENCE snt;
+  nmea0183.Rmb.Write(snt);
+  BroadcastNMEA0183Message(snt.Sentence, GetNmeaLog(),
+                           routeman.GetMessageSentEventVar());
+}
+
+static void SendRmb(NMEA0183 &nmea0183, Routeman &routeman) {
+  SENTENCE snt;
+  RoutePoint *pActivePoint = routeman.GetpActivePoint();
+  const int maxName = 6;
+
+  nmea0183.Rmb.IsDataValid = bGPSValid ? NTrue : NFalse;
+  nmea0183.Rmb.CrossTrackError = routeman.GetCurrentXTEToActivePoint();
+  nmea0183.Rmb.DirectionToSteer = routeman.GetXTEDir() < 0 ? Left : Right;
+  nmea0183.Rmb.RangeToDestinationNauticalMiles =
+      routeman.GetCurrentRngToActivePoint();
+  nmea0183.Rmb.BearingToDestinationDegreesTrue =
+      routeman.GetCurrentBrgToActivePoint();
+
+  using std::fabs;
+  const char *ns = pActivePoint->m_lat < 0 ? "S" : "N";
+  nmea0183.Rmb.DestinationPosition.Latitude.Set(fabs(pActivePoint->m_lat), ns);
+  const char *ew = pActivePoint->m_lon < 0 ? "W" : "E";
+  nmea0183.Rmb.DestinationPosition.Longitude.Set(fabs(pActivePoint->m_lon), ew);
+
+  double sog = std::isnan(gSog) ? 0.0 : gSog;
+  double cog = std::isnan(gCog) ? 0.0 : gCog;
+  nmea0183.Rmb.DestinationClosingVelocityKnots =
+      sog * cos((cog - routeman.GetCurrentBrgToActivePoint()) * PI / 180.0);
+  nmea0183.Rmb.IsArrivalCircleEntered = routeman.GetArrival() ? NTrue : NFalse;
+  nmea0183.Rmb.FAAModeIndicator = bGPSValid ? "A" : "N";
+  // RMB is close to NMEA0183 length limit
+  // Restrict WP names further if necessary
+  int wp_len = maxName;
+  do {
+    nmea0183.Rmb.To = pActivePoint->GetName().Truncate(wp_len);
+    nmea0183.Rmb.From =
+        routeman.GetpActiveRouteSegmentBeginPoint()->GetName().Truncate(wp_len);
+    nmea0183.Rmb.Write(snt);
+    wp_len -= 1;
+  } while (snt.Sentence.size() > 82 && wp_len > 0);
+
+  BroadcastNMEA0183Message(snt.Sentence, GetNmeaLog(),
+                           routeman.GetMessageSentEventVar());
+}
+
+bool SendNoRouteRmbRmc(Routeman &routeman) {
+  if (routeman.GetpActivePoint()) return false;
+  NMEA0183 nmea0183 = routeman.GetNMEA0183();
+  SendRmc(nmea0183, routeman);
+  SendDummyRmb(nmea0183, routeman);
+  return true;
+}
+
 bool UpdateAutopilotN0183(Routeman &routeman) {
   NMEA0183 nmea0183 = routeman.GetNMEA0183();
   RoutePoint *pActivePoint = routeman.GetpActivePoint();
@@ -84,6 +192,15 @@ bool UpdateAutopilotN0183(Routeman &routeman) {
     }
     if ((f_xte *= g_dXTE_multiplier) > 1.2) f_xte = 1.2;
   }
+
+  /*
+  nmea0183.Rmb.CrossTrackError =  // Hakan
+   g_bXTE_multiply ? f_xte : routeman.GetCurrentXTEToActivePoint();
+
+  nmea0183.Rmb.BearingToDestinationDegreesTrue =  // Hakan
+    g_bXTE_multiply ? f_brg : routeman.GetCurrentBrgToActivePoint();
+
+  */
   // Hakan
 
   // Set max WP name length
@@ -91,6 +208,7 @@ bool UpdateAutopilotN0183(Routeman &routeman) {
   if ((g_maxWPNameLength >= 3) && (g_maxWPNameLength <= 32))
     maxName = g_maxWPNameLength;
 
+<<<<<<< HEAD
   // Avoid a possible not initiated SOG/COG. APs can be confused if in NAV mode
   // wo valid GPS
   double r_Sog(0.0), r_Cog(0.0);
@@ -193,6 +311,10 @@ bool UpdateAutopilotN0183(Routeman &routeman) {
     BroadcastNMEA0183Message(snt.Sentence, GetNmeaLog(),
                              routeman.GetMessageSentEventVar());
   }
+=======
+  SendRmb(nmea0183, routeman);
+  SendRmc(nmea0183, routeman);
+>>>>>>> master
 
   // APB
   {
