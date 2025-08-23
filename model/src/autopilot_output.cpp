@@ -49,6 +49,16 @@
 #include "androidUTIL.h"
 #endif
 
+//>>> Hakan
+extern bool g_bXTE_multiply;
+extern double g_dXTE_multiplier;
+extern int wp30DevData[361];
+extern bool devfileNotfound;
+
+double f_brg(0.001);
+double f_xte(0.0);
+//<<< Hakan
+
 static NmeaLog *GetNmeaLog() {
   auto w = wxWindow::FindWindowByName(kDataMonitorWindowName);
   auto log = dynamic_cast<NmeaLog *>(w);
@@ -122,12 +132,23 @@ static void SendRmb(NMEA0183 &nmea0183, Routeman &routeman) {
   const int maxName = 6;
 
   nmea0183.Rmb.IsDataValid = bGPSValid ? NTrue : NFalse;
-  nmea0183.Rmb.CrossTrackError = routeman.GetCurrentXTEToActivePoint();
+
+  //>>> Hakan
+  // nmea0183.Rmb.CrossTrackError = routeman.GetCurrentXTEToActivePoint();
+  nmea0183.Rmb.CrossTrackError =
+      g_bXTE_multiply ? f_xte : routeman.GetCurrentXTEToActivePoint();
+  //<<< Hakan
+
   nmea0183.Rmb.DirectionToSteer = routeman.GetXTEDir() < 0 ? Left : Right;
   nmea0183.Rmb.RangeToDestinationNauticalMiles =
       routeman.GetCurrentRngToActivePoint();
-  nmea0183.Rmb.BearingToDestinationDegreesTrue =
-      routeman.GetCurrentBrgToActivePoint();
+
+  //>>> Hakan
+  // nmea0183.Rmb.BearingToDestinationDegreesTrue =
+  //  routeman.GetCurrentBrgToActivePoint();
+  nmea0183.Rmb.BearingToDestinationDegreesTrue =  // Hakan
+      g_bXTE_multiply ? f_brg : routeman.GetCurrentBrgToActivePoint();
+  //<<< Hakan
 
   using std::fabs;
   const char *ns = pActivePoint->m_lat < 0 ? "S" : "N";
@@ -168,14 +189,10 @@ bool UpdateAutopilotN0183(Routeman &routeman) {
   NMEA0183 nmea0183 = routeman.GetNMEA0183();
   RoutePoint *pActivePoint = routeman.GetpActivePoint();
 
-  // Hakan
-  extern bool g_bXTE_multiply;
-  extern double g_dXTE_multiplier;
-  extern int wp30DevData[361];
-  extern bool devfileNotfound;
+  //>>> Hakan
+  f_brg = routeman.GetCurrentBrgToActivePoint();
+  f_xte = routeman.GetCurrentXTEToActivePoint();
 
-  double f_brg = routeman.GetCurrentBrgToActivePoint();
-  double f_xte = routeman.GetCurrentXTEToActivePoint();
   // If active multiply XTE with given factor.
   if (g_bXTE_multiply) {
     // Fetch Momo AP wp30 deviation table once
@@ -192,129 +209,15 @@ bool UpdateAutopilotN0183(Routeman &routeman) {
     }
     if ((f_xte *= g_dXTE_multiplier) > 1.2) f_xte = 1.2;
   }
-
-  /*
-  nmea0183.Rmb.CrossTrackError =  // Hakan
-   g_bXTE_multiply ? f_xte : routeman.GetCurrentXTEToActivePoint();
-
-  nmea0183.Rmb.BearingToDestinationDegreesTrue =  // Hakan
-    g_bXTE_multiply ? f_brg : routeman.GetCurrentBrgToActivePoint();
-
-  */
-  // Hakan
+  //<<< Hakan
 
   // Set max WP name length
   int maxName = 6;
   if ((g_maxWPNameLength >= 3) && (g_maxWPNameLength <= 32))
     maxName = g_maxWPNameLength;
 
-<<<<<<< HEAD
-  // Avoid a possible not initiated SOG/COG. APs can be confused if in NAV mode
-  // wo valid GPS
-  double r_Sog(0.0), r_Cog(0.0);
-  if (!std::isnan(gSog)) r_Sog = gSog;
-  if (!std::isnan(gCog)) r_Cog = gCog;
-
-  // RMB
-  {
-    SENTENCE snt;
-    nmea0183.Rmb.IsDataValid = bGPSValid ? NTrue : NFalse;
-    nmea0183.Rmb.CrossTrackError =  // Hakan
-        g_bXTE_multiply ? f_xte : routeman.GetCurrentXTEToActivePoint();
-    nmea0183.Rmb.DirectionToSteer = routeman.GetXTEDir() < 0 ? Left : Right;
-    nmea0183.Rmb.RangeToDestinationNauticalMiles =
-        routeman.GetCurrentRngToActivePoint();
-    nmea0183.Rmb.BearingToDestinationDegreesTrue =  // Hakan
-        g_bXTE_multiply ? f_brg : routeman.GetCurrentBrgToActivePoint();
-
-    if (pActivePoint->m_lat < 0.)
-      nmea0183.Rmb.DestinationPosition.Latitude.Set(-pActivePoint->m_lat, "S");
-    else
-      nmea0183.Rmb.DestinationPosition.Latitude.Set(pActivePoint->m_lat, "N");
-
-    if (pActivePoint->m_lon < 0.)
-      nmea0183.Rmb.DestinationPosition.Longitude.Set(-pActivePoint->m_lon, "W");
-    else
-      nmea0183.Rmb.DestinationPosition.Longitude.Set(pActivePoint->m_lon, "E");
-
-    nmea0183.Rmb.DestinationClosingVelocityKnots =
-        r_Sog *
-        cos((r_Cog - routeman.GetCurrentBrgToActivePoint()) * PI / 180.0);
-    nmea0183.Rmb.IsArrivalCircleEntered =
-        routeman.GetArrival() ? NTrue : NFalse;
-    nmea0183.Rmb.FAAModeIndicator = bGPSValid ? "A" : "N";
-    // RMB is close to NMEA0183 length limit
-    // Restrict WP names further if necessary
-    int wp_len = maxName;
-    do {
-      nmea0183.Rmb.To = pActivePoint->GetName().Truncate(wp_len);
-      nmea0183.Rmb.From =
-          routeman.GetpActiveRouteSegmentBeginPoint()->GetName().Truncate(
-              wp_len);
-      nmea0183.Rmb.Write(snt);
-      wp_len -= 1;
-    } while (snt.Sentence.size() > 82 && wp_len > 0);
-
-    BroadcastNMEA0183Message(snt.Sentence, GetNmeaLog(),
-                             routeman.GetMessageSentEventVar());
-  }
-
-  // RMC
-  {
-    SENTENCE snt;
-    nmea0183.Rmc.IsDataValid = NTrue;
-    if (!bGPSValid) nmea0183.Rmc.IsDataValid = NFalse;
-
-    if (gLat < 0.)
-      nmea0183.Rmc.Position.Latitude.Set(-gLat, _T("S"));
-    else
-      nmea0183.Rmc.Position.Latitude.Set(gLat, _T("N"));
-
-    if (gLon < 0.)
-      nmea0183.Rmc.Position.Longitude.Set(-gLon, _T("W"));
-    else
-      nmea0183.Rmc.Position.Longitude.Set(gLon, _T("E"));
-
-    nmea0183.Rmc.SpeedOverGroundKnots = r_Sog;
-    nmea0183.Rmc.TrackMadeGoodDegreesTrue = r_Cog;
-
-    if (!std::isnan(gVar)) {
-      if (gVar < 0.) {
-        nmea0183.Rmc.MagneticVariation = -gVar;
-        nmea0183.Rmc.MagneticVariationDirection = West;
-      } else {
-        nmea0183.Rmc.MagneticVariation = gVar;
-        nmea0183.Rmc.MagneticVariationDirection = East;
-      }
-    } else
-      nmea0183.Rmc.MagneticVariation =
-          361.;  // A signal to NMEA converter, gVAR is unknown
-
-    // Send GPS time to autopilot if available else send local system time
-    if (!gRmcTime.IsEmpty() && !gRmcDate.IsEmpty()) {
-      nmea0183.Rmc.UTCTime = gRmcTime;
-      nmea0183.Rmc.Date = gRmcDate;
-    } else {
-      wxDateTime now = wxDateTime::Now();
-      wxDateTime utc = now.ToUTC();
-      wxString time = utc.Format(_T("%H%M%S"));
-      nmea0183.Rmc.UTCTime = time;
-      wxString date = utc.Format(_T("%d%m%y"));
-      nmea0183.Rmc.Date = date;
-    }
-
-    nmea0183.Rmc.FAAModeIndicator = "A";
-    if (!bGPSValid) nmea0183.Rmc.FAAModeIndicator = "N";
-
-    nmea0183.Rmc.Write(snt);
-
-    BroadcastNMEA0183Message(snt.Sentence, GetNmeaLog(),
-                             routeman.GetMessageSentEventVar());
-  }
-=======
   SendRmb(nmea0183, routeman);
   SendRmc(nmea0183, routeman);
->>>>>>> master
 
   // APB
   {
