@@ -26,6 +26,8 @@
 #include <windows.h>
 #endif
 
+#include <algorithm>
+
 #include <wx/tokenzr.h>
 
 #include "config.h"
@@ -338,9 +340,6 @@ OCPNConfigObject::~OCPNConfigObject() {}
 
 void OCPNConfigObject::Init() { m_canvasConfig = 0; }
 
-#include <wx/listimpl.cpp>
-WX_DEFINE_LIST(ConfigObjectList);
-
 //--------------------------------------------------------------------
 //   Private ( XML encoded ) catalog of available configurations
 //--------------------------------------------------------------------
@@ -505,7 +504,7 @@ ConfigMgr::ConfigMgr() {
 }
 
 ConfigMgr::~ConfigMgr() {
-  configList->Clear();
+  configList->clear();
   delete configList;
 }
 
@@ -568,9 +567,8 @@ bool ConfigMgr::LoadCatalog() {
           wxString::FromUTF8(object.attribute("GUID").as_string());
 
       bool bFound = false;
-      for (ConfigObjectList::Node *node = configList->GetFirst(); node;
-           node = node->GetNext()) {
-        OCPNConfigObject *look = node->GetData();
+      for (auto it = configList->begin(); it != configList->end(); ++it) {
+        OCPNConfigObject *look = *it;
         if (look->m_GUID == testGUID) {
           bFound = true;
           break;
@@ -590,7 +588,7 @@ bool ConfigMgr::LoadCatalog() {
             wxString::FromUTF8(object.attribute("templateFile").as_string());
 
         // Add to the class list of configs
-        configList->Append(newConfig);
+        configList->push_back(newConfig);
       }
     }
   }
@@ -646,7 +644,7 @@ wxString ConfigMgr::CreateNamedConfig(const wxString &title,
   }
 
   // Add to the class list of configs
-  configList->Append(pConfig);
+  configList->push_back(pConfig);
 
   if (UUID.IsEmpty()) SaveCatalog();
 
@@ -666,9 +664,9 @@ bool ConfigMgr::DeleteConfig(wxString GUID) {
 
   if (rv) SaveCatalog();
 
-  //  Remove the config from the member list
-  bool bDel = configList->DeleteObject(cfg);
-  if (bDel) delete cfg;
+  //  Remove the config from the member list without deleting it
+  auto found = std::find(configList->begin(), configList->end(), cfg);
+  if (found != configList->end()) configList->erase(found);
 
   return rv;
 }
@@ -689,40 +687,34 @@ wxPanel *ConfigMgr::GetConfigPanel(wxWindow *parent, wxString GUID) {
 
 OCPNConfigObject *ConfigMgr::GetConfig(wxString GUID) {
   // Find the GUID-matching config in the member list
-  for (ConfigObjectList::Node *node = configList->GetFirst(); node;
-       node = node->GetNext()) {
-    OCPNConfigObject *look = node->GetData();
+  for (auto it = configList->begin(); it != configList->end(); ++it) {
+    OCPNConfigObject *look = *it;
     if (look->m_GUID == GUID) {
       return look;
       break;
     }
   }
-
   return NULL;
 }
 
 wxString ConfigMgr::GetTemplateTitle(wxString GUID) {
-  for (ConfigObjectList::Node *node = configList->GetFirst(); node;
-       node = node->GetNext()) {
-    OCPNConfigObject *look = node->GetData();
+  for (auto it = configList->begin(); it != configList->end(); ++it) {
+    OCPNConfigObject *look = *it;
     if (look->m_GUID == GUID) {
       return look->m_title;
       break;
     }
   }
-
   return wxEmptyString;
 }
 
 wxArrayString ConfigMgr::GetConfigGUIDArray() {
   wxArrayString ret_val;
 
-  for (ConfigObjectList::Node *node = configList->GetFirst(); node;
-       node = node->GetNext()) {
-    OCPNConfigObject *look = node->GetData();
+  for (auto it = configList->begin(); it != configList->end(); ++it) {
+    OCPNConfigObject *look = *it;
     ret_val.Add(look->m_GUID);
   }
-
   return ret_val;
 }
 

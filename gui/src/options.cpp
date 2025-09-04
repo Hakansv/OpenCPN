@@ -300,6 +300,8 @@ extern wxString GetShipNameFromFile(int);
 WX_DEFINE_ARRAY_PTR(ChartCanvas*, arrayofCanvasPtr);
 extern arrayofCanvasPtr g_canvasArray;
 
+using CBList = std::list<wxCheckBox*>;
+
 #if wxUSE_XLOCALE
 static int lang_list[] = {
     wxLANGUAGE_DEFAULT, wxLANGUAGE_ABKHAZIAN, wxLANGUAGE_AFAR,
@@ -701,8 +703,6 @@ static bool LoadAllPlugIns(bool load_enabled) {
   return b;
 }
 
-WX_DECLARE_LIST(wxCheckBox, CBList);
-
 class OCPNCheckedListCtrl : public wxScrolledWindow {
 public:
   OCPNCheckedListCtrl() {}
@@ -725,7 +725,7 @@ public:
 
   unsigned int Append(wxString& label, bool benable = true,
                       bool bsizerLayout = true);
-  unsigned int GetCount() { return m_list.GetCount(); }
+  unsigned int GetCount() { return m_list.size(); }
 
   void RunLayout();
 
@@ -738,9 +738,6 @@ private:
 
   CBList m_list;
 };
-
-#include <wx/listimpl.cpp>
-WX_DEFINE_LIST(CBList);
 
 bool OCPNCheckedListCtrl::Create(wxWindow* parent, wxWindowID id,
                                  const wxPoint& pt, const wxSize& sz,
@@ -767,32 +764,31 @@ unsigned int OCPNCheckedListCtrl::Append(wxString& label, bool benable,
   m_sizer->Add(cb);
   if (bsizerLayout) m_sizer->Layout();
 
-  m_list.Append(cb);
+  m_list.push_back(cb);
 
-  return m_list.GetCount() - 1;
+  return m_list.size() - 1;
 }
 
 void OCPNCheckedListCtrl::Check(int index, bool val) {
-  CBList::Node* node = m_list.Item(index);
-  wxCheckBox* cb = node->GetData();
+  auto it = m_list.begin();
+  std::advance(it, index);
+  wxCheckBox* cb = *it;
 
   if (cb) cb->SetValue(val);
 }
 
 bool OCPNCheckedListCtrl::IsChecked(int index) {
-  CBList::Node* node = m_list.Item(index);
-  wxCheckBox* cb = node->GetData();
+  auto it = m_list.begin();
+  std::advance(it, index);
+  wxCheckBox* cb = *it;
 
-  if (cb)
-    return cb->GetValue();
-  else
-    return false;
+  return cb ? cb->GetValue() : false;
 }
 
 void OCPNCheckedListCtrl::RunLayout() { m_sizer->Layout(); }
 
 void OCPNCheckedListCtrl::Clear() {
-  WX_CLEAR_LIST(CBList, m_list);
+  m_list.clear();
   Scroll(0, 0);
 }
 
