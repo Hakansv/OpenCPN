@@ -2972,9 +2972,10 @@ void UI_ImportGPX(wxWindow *parent, bool islayer, wxString dirpath,
 
     wxFileName fn(path);
     g_gpx_path = fn.GetPath();
-    if (path.IsEmpty())  // Return from SAF processing, expecting callback
+    if (path.IsEmpty()) {  // Return from SAF processing, expecting callback
+      PrepareImportAndroid(islayer, isPersistent);
       return;
-    else
+    } else
       file_array.Add(path);  // Return from safe app arena access
 
 #endif
@@ -3077,6 +3078,7 @@ void ImportFileArray(const wxArrayString &file_array, bool islayer,
         pSet->LoadAllGPXObjects(
             !pSet->IsOpenCPN(),
             wpt_dups);  // Import with full visibility of names and objects
+#ifndef __ANDROID__
         if (wpt_dups > 0) {
           OCPNMessageBox(
               NULL,
@@ -3085,6 +3087,7 @@ void ImportFileArray(const wxArrayString &file_array, bool islayer,
                                wpt_dups),
               _("OpenCPN Info"), wxICON_INFORMATION | wxOK, 10);
         }
+#endif
       }
       delete pSet;
     }
