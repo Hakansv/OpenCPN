@@ -1081,7 +1081,7 @@ void AISTargetListDialog::OnEditFindTarget(wxCommandEvent &event) {
         wxString s = pAISTarget->GetFullName();
         if (name == s) {
           found = true;
-          unsigned int selMMSI = pAISTarget->MMSI;
+          int selMMSI = pAISTarget->MMSI;
           if (selMMSI != -1) {
             // Loop the display list to find position for the MMSI
             for (unsigned int i = 0; i < m_pMMSI_array->GetCount(); i++) {
@@ -1101,9 +1101,9 @@ void AISTargetListDialog::OnEditFindTarget(wxCommandEvent &event) {
         auto pAISTarget = it.second;
         if (NULL != pAISTarget) {
           wxString s = pAISTarget->GetFullName();
-          if (s.find(name) != wxNOT_FOUND) {
+          if (s.Find(name) != wxNOT_FOUND) {
             found = true;
-            unsigned int selMMSI = pAISTarget->MMSI;
+            int selMMSI = pAISTarget->MMSI;
             if (selMMSI != -1) {
               // Loop the display list to find position for the MMSI
               for (unsigned int i = 0; i < m_pMMSI_array->GetCount(); i++) {
