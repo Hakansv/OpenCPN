@@ -85,7 +85,7 @@
 #include "config_mgr.h"
 #include "dychart.h"
 #include "font_mgr.h"
-#include "Layer.h"
+#include "layer.h"
 #include "navutil.h"
 #include "nmea0183.h"
 #include "observable_globvar.h"
@@ -362,7 +362,6 @@ extern wxString g_ObjQFileExt;
 
 MyConfig *pConfig;
 bool g_bLayersLoaded;
-bool g_bShowMuiZoomButtons = true;
 
 int g_mouse_zoom_sensitivity_ui;
 
@@ -1771,7 +1770,7 @@ void MyConfig::CreateConfigGroups(ChartGroupArray *pGroupArray) {
   }
 }
 
-void MyConfig::DestroyConfigGroups(void) {
+void MyConfig::DestroyConfigGroups() {
   DeleteGroup(_T ( "/Groups" ));  // zap
 }
 
