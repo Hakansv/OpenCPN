@@ -2834,7 +2834,7 @@ void ExportGPX(wxWindow *parent, bool bviz_only, bool blayer) {
   ::wxBeginBusyCursor();
 
   wxGenericProgressDialog *pprog = nullptr;
-  int count = pWayPointMan->GetWaypointList()->GetCount();
+  int count = pWayPointMan->GetWaypointList()->size();
   int progStep = count / 32;
   if (count > 200) {
     pprog = new wxGenericProgressDialog(
@@ -2848,9 +2848,7 @@ void ExportGPX(wxWindow *parent, bool bviz_only, bool blayer) {
   // WPTs
   int ic = 1;
 
-  wxRoutePointListNode *node = pWayPointMan->GetWaypointList()->GetFirst();
-  RoutePoint *pr;
-  while (node) {
+  for (RoutePoint *pr : *pWayPointMan->GetWaypointList()) {
     if (pprog && !(ic % progStep)) {
       wxString msg;
       msg.Printf("%d/%d", ic, count);
@@ -2858,33 +2856,21 @@ void ExportGPX(wxWindow *parent, bool bviz_only, bool blayer) {
     }
     ic++;
 
-    pr = node->GetData();
-
     bool b_add = true;
-
     if (bviz_only && !pr->m_bIsVisible) b_add = false;
 
     if (pr->m_bIsInLayer && !blayer) b_add = false;
     if (b_add) {
       if (pr->IsShared() || !WptIsInRouteList(pr)) pgpx->AddGPXWaypoint(pr);
     }
-
-    node = node->GetNext();
   }
   // RTEs and TRKs
-  wxRouteListNode *node1 = pRouteList->GetFirst();
-  while (node1) {
-    Route *pRoute = node1->GetData();
-
+  for (Route *pRoute : *pRouteList) {
     bool b_add = true;
-
     if (bviz_only && !pRoute->IsVisible()) b_add = false;
-
     if (pRoute->m_bIsInLayer && !blayer) b_add = false;
 
     if (b_add) pgpx->AddGPXRoute(pRoute);
-
-    node1 = node1->GetNext();
   }
 
   for (Track *pTrack : g_TrackList) {
