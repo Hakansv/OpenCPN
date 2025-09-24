@@ -50,11 +50,6 @@
 #endif
 
 //>>> Hakan
-extern bool g_bXTE_multiply;
-extern double g_dXTE_multiplier;
-extern int wp30DevData[361];
-extern bool devfileNotfound;
-
 double f_brg(0.001);
 double f_xte(0.0);
 //<<< Hakan

@@ -54,6 +54,7 @@
 #include <wx/utils.h>
 #include <wx/window.h>
 
+#include "model/base_platform.h"
 #include "model/config_vars.h"
 #include "model/gui_vars.h"
 #include "model/own_ship.h"
@@ -83,10 +84,10 @@
 #include "mipmap/mipmap.h"
 #include "mui_bar.h"
 #include "navutil.h"
-#include "OCPNPlatform.h"
+#include "ocpn_platform.h"
 #include "piano.h"
 #include "pluginmanager.h"
-#include "Quilt.h"
+#include "quilt.h"
 #include "RolloverWin.h"
 #include "route_gui.h"
 #include "route_point_gui.h"
@@ -172,10 +173,6 @@ private:
   timespec tp;
 };
 #endif
-
-// In ocpn_app, we dont want to include that
-// FIXME (leamas) Find a new home
-extern bool GetMemoryStatus(int *mem_total, int *mem_used);
 
 // extern GLenum g_texture_rectangle_format;
 
@@ -3075,7 +3072,7 @@ void glChartCanvas::RenderRasterChartRegionGL(ChartBase *chart, ViewPort &vp,
   int mem_used = 0;
   if (g_memCacheLimit > 0) {
     // GetMemoryStatus is slow on linux
-    GetMemoryStatus(0, &mem_used);
+    platform::GetMemoryStatus(0, &mem_used);
   }
 
   glTexTile **tiles = pTexFact->GetTiles(numtiles);
