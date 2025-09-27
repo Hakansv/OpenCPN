@@ -155,8 +155,6 @@ extern "C" void glOrthof(float left, float right, float bottom, float top,
 #include "model/notification_manager.h"
 #endif
 
-wxStopWatch g_glstopwatch;
-
 #if defined(__UNIX__) && !defined(__WXOSX__)
 // high resolution stopwatch for profiling
 class OCPNStopWatch {
@@ -3811,8 +3809,8 @@ void glChartCanvas::Render() {
 
   if (!g_true_zoom && m_binPinch) return;
 
-  if (m_binPinch) printf("    %ld Render Start\n", g_glstopwatch.Time());
-  long render_start_time = g_glstopwatch.Time();
+  if (m_binPinch) printf("    %ld Render Start\n", m_glstopwatch.Time());
+  long render_start_time = m_glstopwatch.Time();
 
 #if defined(USE_ANDROID_GLES2) || defined(ocpnUSE_GLSL)
   loadShaders(GetCanvasIndex());
@@ -4368,7 +4366,7 @@ void glChartCanvas::Render() {
 
   if (m_binPinch)
     printf("        Render Charts Done  %ld\n",
-           g_glstopwatch.Time() - render_start_time);
+           m_glstopwatch.Time() - render_start_time);
 
   // Done with base charts.
   // Now the overlays
@@ -4572,7 +4570,7 @@ void glChartCanvas::Render() {
 
   if (m_binPinch)
     printf("    Render Finished:  %ld\n",
-           g_glstopwatch.Time() - render_start_time);
+           m_glstopwatch.Time() - render_start_time);
 
   n_render++;
 }
@@ -5446,7 +5444,7 @@ void glChartCanvas::OnEvtZoomGesture(wxZoomGestureEvent &event) {
     double projected_scale = m_cache_vp.chart_scale;
 
     if (event.IsGestureStart()) {
-      g_glstopwatch.Start();
+      m_glstopwatch.Start();
       printf("\nStart--------------\n");
       m_binPinch = true;
       m_pParentCanvas->m_inPinch = true;
@@ -5535,12 +5533,14 @@ void glChartCanvas::OnEvtZoomGesture(wxZoomGestureEvent &event) {
           m_step_zoom_val = m_step_zoom_val * (1 + zoom_step);
           printf("   Partial zoom: %6g\n", 1 + zoom_step);
           m_pParentCanvas->ZoomCanvasSimple(1 + zoom_step);
+          SetCurrent(*m_pcontext);
           Render();
         } else {
           if (fabs(inc_zoom_val - 1.) > zoom_trigger) {
             m_step_zoom_val = m_total_zoom_val;
             printf("   Zoom: %6g\n", inc_zoom_val);
             m_pParentCanvas->ZoomCanvasSimple(inc_zoom_val);
+            SetCurrent(*m_pcontext);
             Render();
           }
         }
