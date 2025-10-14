@@ -18,15 +18,20 @@
 /**
  * \file
  *
- * Implement select_item.h -- a single, selected generic item.
+ * Sound loader factory function.
  */
 
-#include "model/select_item.h"
+#ifndef SOUND_LOADER_FACTORY_H
+#define SOUND_LOADER_FACTORY_H
 
-SelectItem::SelectItem() {}
+#include "sound_file_loader.h"
 
-SelectItem::~SelectItem() {}
+namespace o_sound_private {
 
-int SelectItem::GetUserData() { return m_Data4; }
+/** Return the sound loader to use as configured by cmake. */
+AbstractSoundLoader* SoundLoaderFactory();
 
-void SelectItem::SetUserData(int data) { m_Data4 = data; }
+}  // namespace
+
+
+#endif  // SOUND_LOADER_FACTORY_H
