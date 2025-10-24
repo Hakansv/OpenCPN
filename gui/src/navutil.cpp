@@ -589,6 +589,7 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   Read("SENC_LOD_Pixels", &g_SENC_LOD_pixels);
 
   Read("SkewCompUpdatePeriod", &g_SkewCompUpdatePeriod);
+  Read("SetSystemTime", &s_bSetSystemTime);
 
 #ifdef __WXMSW__
   // HAS for boat PC
@@ -599,7 +600,6 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   }
 #endif
 
-  Read("SetSystemTime", &s_bSetSystemTime);
   Read("EnableKioskStartup", &g_kiosk_startup);
   Read("ShowStatusBar", &g_bShowStatusBar);
 #ifndef __WXOSX__
