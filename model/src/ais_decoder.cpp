@@ -1021,30 +1021,33 @@ static bool Parse_VDXBitstring(AisBitstring *bstr,
 
             parse_result = true;
 
-            if (x.Find("379") != wxNOT_FOUND) {  // METEO 379 Måvholmsbådan
-              auto wt = ptd->met_data.water_temp;
-              wt = wt < 50 ? wt : NAN;
-              wxString nmea;
-              nmea.Printf(
-                  "$MB,Mavholmsbadan_temp, %.1f C Dag: %02i Tid: %02i:%02i\r\n",
-                  wt, ptd->met_data.day, ptd->met_data.hour,
-                  ptd->met_data.minute);
-              // PushNMEABuffer(nmea);
+            if (0) {
+              if (x.Find("379") != wxNOT_FOUND) {  // METEO 379 Måvholmsbådan
+                auto wt = ptd->met_data.water_temp;
+                wt = wt < 50 ? wt : NAN;
+                wxString nmea;
+                nmea.Printf(
+                    "$MB,Mavholmsbadan_temp, %.1f C Dag: %02i Tid: "
+                    "%02i:%02i\r\n",
+                    wt, ptd->met_data.day, ptd->met_data.hour,
+                    ptd->met_data.minute);
+                // PushNMEABuffer(nmea);
 
-              wxStandardPathsBase &std_path = wxStandardPathsBase::Get();
-              wxString s = wxFileName::GetPathSeparator();
-              wxString stdPath = std_path.GetDocumentsDir();
+                wxStandardPathsBase &std_path = wxStandardPathsBase::Get();
+                wxString s = wxFileName::GetPathSeparator();
+                wxString stdPath = std_path.GetDocumentsDir();
 #ifndef __WXMSW__
-              stdPath = "/home/pi/Desktop";  // Gunnar
-              // stdPath = "/home/rpi5/Desktop";  // Hakan
+                stdPath = "/home/pi/Desktop";  // Gunnar
+                // stdPath = "/home/rpi5/Desktop";  // Hakan
 #endif
-              wxString tempDataPath = stdPath + s + "temp.txt";
-              std::ofstream outfile(tempDataPath.mb_str(),
-                                    std::ios_base::trunc);  // wx_str()
-              if (outfile.is_open()) {
-                outfile << nmea;
+                wxString tempDataPath = stdPath + s + "temp.txt";
+                std::ofstream outfile(tempDataPath.mb_str(),
+                                      std::ios_base::trunc);  // wx_str()
+                if (outfile.is_open()) {
+                  outfile << nmea;
+                }
+                outfile.close();
               }
-              outfile.close();
             }
           }
         }
