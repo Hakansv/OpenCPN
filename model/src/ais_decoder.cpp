@@ -1026,11 +1026,13 @@ static bool Parse_VDXBitstring(AisBitstring *bstr,
               if (x.Find("379") != wxNOT_FOUND) {  // METEO 379 Måvholmsbådan
                 auto wt = ptd->met_data.water_temp;
                 wt = wt < 50 ? wt : NAN;
+                auto wl = ptd->met_data.water_lev_dev;
+                wl = wl < 30 ? wl : NAN;
                 wxString nmea;
                 nmea.Printf(
-                    "$MB,Mavholmsbadan_temp, %.1f C Dag: %02i Tid: "
-                    "%02i:%02i\r\n",
-                    wt, ptd->met_data.day, ptd->met_data.hour,
+                    "$MB,Mavholmsbadan, wlevel, %.1f m temp, %.1f C Dag: %02i "
+                    "Tid: %02i:%02i\r\n",
+                    wl, wt, ptd->met_data.day, ptd->met_data.hour,
                     ptd->met_data.minute);
                 // PushNMEABuffer(nmea);
 
