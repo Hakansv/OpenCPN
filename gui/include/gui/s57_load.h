@@ -1,5 +1,5 @@
-/**************************************************************************
- *   Copyright (C) 2024 Alec Leamas                                        *
+/***************************************************************************
+ *   Copyright (C) 2010 - 2025 by David S. Register                        *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -15,23 +15,10 @@
  *   along with this program; if not, see <https://www.gnu.org/licenses/>. *
  **************************************************************************/
 
-/**
- * \file
- *
- * Hooks into gui available in model.
- */
+#ifndef S_57_LoaD_h
+#define S_57_LoaD_h
 
-#ifndef ModEl_gUi_H
-#define ModEl_gUi_H
+/** Load the s57 stuff and make global ps52plib ready to be used. */
+void LoadS57();
 
-#include <wx/window.h>
-#include <model/nmea_log.h>
-
-static const char* const kTopLevelWindowName = "MainWindow";
-static const char* const kNmeaLogWindowName = "TtyPanel";
-static const char* const kDataMonitorWindowName = "DataMonitor";
-
-/** Return the top level window a k a gFrame. */
-wxWindow* GetTopWindow();
-
-#endif  //  ModEl_gUi_H
+#endif  // S_57_LoaD_h

@@ -34,6 +34,7 @@
 #include <wx/dir.h>
 
 #include <model/base_platform.h>
+#include <model/ocpn_utils.h>
 
 #include "dychart.h"
 #include "config.h"
@@ -43,7 +44,7 @@
 #include "mbtiles.h"
 #include "canvas_config.h"
 #include "config_mgr.h"
-#include "ocpn_frame.h"  //FIXME (dave) LoadS57
+#include "s57_load.h"
 #ifdef __ANDROID__
 #include "androidUTIL.h"
 #endif
@@ -61,6 +62,7 @@
 
 #include "s57chart.h"
 #include "cm93.h"
+#include "user_colors.h"
 
 extern ColorScheme GetColorScheme();  // library dependency
 
@@ -73,6 +75,18 @@ std::vector<std::string> ChartDirectoryExcludedVector;
 
 bool G_FloatPtInPolygon(MyFlPoint *rgpts, int wnumpts, float x, float y);
 
+static bool IsSingleChart(ChartBase *chart) {
+  if (chart == nullptr) return false;
+
+  // ..For each canvas...
+  for (unsigned int i = 0; i < g_canvasArray.GetCount(); i++) {
+    ChartCanvas *cc = g_canvasArray.Item(i);
+    if (cc && cc->m_singleChart == chart) {
+      return true;
+    }
+  }
+  return false;
+}
 // ============================================================================
 // ChartStack implementation
 // ============================================================================
@@ -1017,7 +1031,7 @@ CacheEntry *ChartDB::FindOldestDeleteCandidate(bool blog) {
     for (unsigned int i = 0; i < nCache; i++) {
       CacheEntry *pce = (CacheEntry *)(pChartCache->Item(i));
       if (pce->RecentTime < LRUTime && !pce->n_lock) {
-        if (!isSingleChart((ChartBase *)(pce->pChart))) {
+        if (!IsSingleChart((ChartBase *)(pce->pChart))) {
           LRUTime = pce->RecentTime;
           iOldest = i;
         }
@@ -1028,7 +1042,7 @@ CacheEntry *ChartDB::FindOldestDeleteCandidate(bool blog) {
     CacheEntry *pce = (CacheEntry *)(pChartCache->Item(iOldest));
     ChartBase *pDeleteCandidate = (ChartBase *)(pce->pChart);
 
-    if (!pce->n_lock && !isSingleChart(pDeleteCandidate)) {
+    if (!pce->n_lock && !IsSingleChart(pDeleteCandidate)) {
       if (blog)
         wxLogMessage("Oldest unlocked cache index is %d, delta t is %d",
                      iOldest, dt);
@@ -1288,7 +1302,7 @@ ChartBase *ChartDB::OpenChartUsingCache(int dbindex, ChartInitFlag init_flag) {
         wxLogMessage(wxString::Format("Initializing Chart %s", msg_fn.c_str()));
 
         ir = Ch->Init(ChartFullPath, init_flag);  // using the passed flag
-        Ch->SetColorScheme(/*pParent->*/ GetColorScheme());
+        Ch->SetColorScheme(user_colors::GetColorScheme());
       } else {
         wxLogMessage(wxString::Format("   No PLIB, Skipping vector chart  %s",
                                       msg_fn.c_str()));
@@ -1437,7 +1451,7 @@ bool ChartDB::DeleteCacheChart(ChartBase *pDeleteCandidate) {
   bool retval = false;
 
   if (wxMUTEX_NO_ERROR == m_cache_mutex.Lock()) {
-    if (!isSingleChart(pDeleteCandidate)) {
+    if (!IsSingleChart(pDeleteCandidate)) {
       // Find the chart in the cache
       CacheEntry *pce = NULL;
       for (unsigned int i = 0; i < pChartCache->GetCount(); i++) {

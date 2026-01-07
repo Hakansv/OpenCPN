@@ -54,7 +54,6 @@
 #include "observable_evtvar.h"
 #include "observable.h"
 #include "ocp_cursor.h"
-#include "ocpn_frame.h"
 #include "ocpn_pixel.h"
 #include "ocpn_plugin.h"
 #include "piano.h"
@@ -63,6 +62,8 @@
 #include "s57_sector.h"
 #include "tc_win.h"
 #include "undo.h"
+
+WX_DEFINE_ARRAY_PTR(ChartCanvas *, arrayofCanvasPtr);
 
 class canvasConfig;        // circular
 class CanvasMenuHandler;   // circular
@@ -73,11 +74,10 @@ class Quilt;               // circular
 class TCWin;               // circular
 class Undo;                // circular
 
-class ChartCanvas;                    // forward
-extern ChartCanvas *g_overlayCanvas;  ///< Global instance
-extern ChartCanvas *g_focusCanvas;    ///< Global instance
-
-WX_DEFINE_ARRAY_PTR(ChartCanvas *, arrayofCanvasPtr);
+class ChartCanvas;                      // forward
+extern ChartCanvas *g_overlayCanvas;    ///< Global instance
+extern ChartCanvas *g_focusCanvas;      ///< Global instance
+extern arrayofCanvasPtr g_canvasArray;  ///< Global instance
 
 //    Useful static routines
 void ShowAISTargetQueryDialog(wxWindow *parent, int mmsi);

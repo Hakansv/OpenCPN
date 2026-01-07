@@ -886,6 +886,7 @@ set(GUI_HDRS
     ${GUI_HDR_DIR}/tooltip.h
     ${GUI_HDR_DIR}/update_mgr.h
     ${GUI_HDR_DIR}/usb_devices.h
+    ${GUI_HDR_DIR}/user_colors.h
     ${GUI_HDR_DIR}/user_colors_dlg.h
     ${GUI_HDR_DIR}/viewport.h
     ${GUI_HDR_DIR}/waypointman_gui.h
@@ -981,6 +982,7 @@ set(GUI_SRC
     ${GUI_SRC_DIR}/route_validator.cpp
     ${GUI_SRC_DIR}/route_prop_dlg.cpp
     ${GUI_SRC_DIR}/route_prop_dlg_impl.cpp
+    ${GUI_SRC_DIR}/s57_load.cpp
     ${GUI_SRC_DIR}/s57obj.cpp
     ${GUI_SRC_DIR}/s57chart.cpp
     ${GUI_SRC_DIR}/s57_query_dlg.cpp
@@ -1009,6 +1011,7 @@ set(GUI_SRC
     ${GUI_SRC_DIR}/tooltip.cpp
     ${GUI_SRC_DIR}/update_mgr.cpp
     ${GUI_SRC_DIR}/user_colors_dlg.cpp
+    ${GUI_SRC_DIR}/user_colors.cpp
     ${GUI_SRC_DIR}/viewport.cpp
     ${GUI_SRC_DIR}/waypointman_gui.cpp
 
