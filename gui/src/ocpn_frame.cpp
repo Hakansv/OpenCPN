@@ -84,6 +84,7 @@
 #include "model/navutil_base.h"
 #include "model/notification_manager.h"
 #include "model/own_ship.h"
+#include "model/ocpn_utils.h"
 #include "model/plugin_comm.h"
 #include "model/plugin_loader.h"
 #include "model/routeman.h"
@@ -285,6 +286,15 @@ static void LaunchLocalHelp() {
 #endif
 }
 
+static wxString _menuText(wxString name, wxString shortcut) {
+  wxString menutext;
+  menutext << name;
+#ifndef __ANDROID__
+  menutext << "\t" << shortcut;
+#endif
+  return menutext;
+}
+
 static void DoHelpDialog() {
 #ifndef __ANDROID__
   if (!g_pAboutDlg) {
@@ -324,7 +334,7 @@ static void DoHelpDialog() {
 //              Fwd Refs
 //------------------------------------------------------------------------------
 
-void BuildiENCToolbar(bool bnew) {
+void BuildiENCToolbar(bool bnew, ToolbarDlgCallbacks callbacks) {
   if (g_bInlandEcdis) {
     if (bnew) {
       if (g_iENCToolbar) {
@@ -363,9 +373,8 @@ void BuildiENCToolbar(bool bnew) {
 
       double tool_scale_factor =
           g_Platform->GetToolbarScaleFactor(g_GUIScaleFactor);
-
-      g_iENCToolbar =
-          new iENCToolbar(gFrame, posn, wxTB_HORIZONTAL, tool_scale_factor);
+      g_iENCToolbar = new iENCToolbar(gFrame, posn, wxTB_HORIZONTAL,
+                                      tool_scale_factor, callbacks);
       g_iENCToolbar->SetColorScheme(global_color_scheme);
       g_iENCToolbar->EnableSubmerge(false);
     }
@@ -551,6 +560,15 @@ MyFrame::MyFrame(const wxString &title, const wxPoint &pos, const wxSize &size,
   InitTimer.SetOwner(this, INIT_TIMER);
   m_iInitCount = 0;
   m_initializing = false;
+  m_toolbar_callbacks.render_gl_textures =
+#ifdef ocpnUSE_GL
+      [&](ocpnDC &dc, float *coords, float *uv) {
+        GetPrimaryCanvas()->GetglCanvas()->RenderTextures(
+            dc, coords, uv, 4, &GetPrimaryCanvas()->GetVP());
+      };
+#else
+      [&](ocpnDC &dc, float *coords, float *uv) {};
+#endif
 
   //      Redirect the global heartbeat timer to this frame
   FrameTimer1.SetOwner(this, FRAME_TIMER_1);
@@ -1070,8 +1088,6 @@ void MyFrame::CancelAllMouseRoute() {
   }
 }
 
-void MyFrame::NotifyChildrenResize() {}
-
 void MyFrame::CreateCanvasLayout(bool b_useStoredSize) {
   //  Clear the cache, and thus close all charts to avoid memory leaks
   if (ChartData) ChartData->PurgeCache();
@@ -1271,7 +1287,7 @@ void MyFrame::RequestNewToolbars(bool bforcenew) {
     return;
   }
 
-  BuildiENCToolbar(bforcenew);
+  BuildiENCToolbar(bforcenew, m_toolbar_callbacks);
   PositionIENCToolbar();
 
 #ifdef __ANDROID__
@@ -3491,15 +3507,6 @@ void MyFrame::ApplyGlobalSettings(bool bnewtoolbar) {
   if (bnewtoolbar) UpdateAllToolbars(global_color_scheme);
 }
 
-wxString _menuText(wxString name, wxString shortcut) {
-  wxString menutext;
-  menutext << name;
-#ifndef __ANDROID__
-  menutext << "\t" << shortcut;
-#endif
-  return menutext;
-}
-
 void MyFrame::BuildMenuBar() {
   /*
    * Menu Bar - add or remove it if necessary, and update the state of the menu
@@ -3981,8 +3988,15 @@ void MyFrame::DoOptionsDialog() {
 #ifdef __WXOSX__
     optionsParent = GetPrimaryCanvas();
 #endif
-    g_options = new options(optionsParent, -1, _("Options"), wxPoint(-1, -1),
-                            wxSize(sx, sy));
+    OptionsCallbacks callbacks;
+    callbacks.prepare_close = [&](options *me, int changes) {
+      PrepareOptionsClose(me, changes);
+    };
+    callbacks.process_dialog = [&](int changes, ArrayOfCDI *workdir_list) {
+      ProcessOptionsDialog(changes, workdir_list);
+    };
+    g_options = new options(optionsParent, callbacks, -1, _("Options"),
+                            wxPoint(-1, -1), wxSize(sx, sy));
 
     AbstractPlatform::HideBusySpinner();
   }
@@ -4693,7 +4707,7 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
       // -1),
       //                         wxSize(sx, sy));
 
-      BuildiENCToolbar(true);
+      BuildiENCToolbar(true, m_toolbar_callbacks);
 
       break;
     }
@@ -5478,7 +5492,7 @@ void MyFrame::ProcessAnchorWatch() {
                             pAnchorWatchPoint1->m_lon, gLat, gLon, &brg, &dist);
     double d = g_nAWMax;
     (pAnchorWatchPoint1->GetName()).ToDouble(&d);
-    d = AnchorDistFix(d, AnchorPointMinDist, g_nAWMax);
+    d = ocpn::AnchorDistFix(d, AnchorPointMinDist, g_nAWMax);
     bool toofar = false;
     bool tooclose = false;
     if (d >= 0.0) toofar = (dist * 1852. > d);
@@ -5499,7 +5513,7 @@ void MyFrame::ProcessAnchorWatch() {
 
     double d = g_nAWMax;
     (pAnchorWatchPoint2->GetName()).ToDouble(&d);
-    d = AnchorDistFix(d, AnchorPointMinDist, g_nAWMax);
+    d = ocpn::AnchorDistFix(d, AnchorPointMinDist, g_nAWMax);
     bool toofar = false;
     bool tooclose = false;
     if (d >= 0) toofar = (dist * 1852. > d);
@@ -6813,7 +6827,8 @@ void MyFrame::RequestNewMasterToolbar(bool bforcenew) {
     toolbarParent = GetPrimaryCanvas();
 #endif
     g_MainToolbar = new ocpnFloatingToolbarDialog(
-        toolbarParent, wxPoint(-1, -1), orient, g_toolbar_scalefactor);
+        toolbarParent, wxPoint(-1, -1), orient, g_toolbar_scalefactor,
+        m_toolbar_callbacks);
     g_MainToolbar->SetBackGroundColorString("GREY3");
     g_MainToolbar->SetToolbarHideMethod(TOOLBAR_HIDE_TO_FIRST_TOOL);
     g_MainToolbar->SetToolConfigString(g_toolbarConfig);
@@ -7065,8 +7080,6 @@ bool MyFrame::AddDefaultPositionPlugInTools() {
  *
  *************************************************************************/
 
-wxColour GetGlobalColor(wxString colorName);  // -> color_handler
-
 #ifdef __WXMSW__
 
 #define NCOLORS 40
@@ -7150,46 +7163,6 @@ void SetSystemColors(ColorScheme cs) {  //---------------
 #endif
 }
 
-wxColor GetDimColor(wxColor c) {
-  if ((global_color_scheme == GLOBAL_COLOR_SCHEME_DAY) ||
-      (global_color_scheme == GLOBAL_COLOR_SCHEME_RGB))
-    return c;
-
-  float factor = 1.0;
-  if (global_color_scheme == GLOBAL_COLOR_SCHEME_DUSK) factor = 0.5;
-  if (global_color_scheme == GLOBAL_COLOR_SCHEME_NIGHT) factor = 0.25;
-
-  wxImage::RGBValue rgb(c.Red(), c.Green(), c.Blue());
-  wxImage::HSVValue hsv = wxImage::RGBtoHSV(rgb);
-  hsv.value = hsv.value * factor;
-  wxImage::RGBValue nrgb = wxImage::HSVtoRGB(hsv);
-
-  return wxColor(nrgb.red, nrgb.green, nrgb.blue);
-}
-
-//               A helper function to check for proper parameters of anchor
-//               watch
-//
-double AnchorDistFix(double const d, double const AnchorPointMinDist,
-                     double const AnchorPointMaxDist)  //  pjotrc 2010.02.22
-{
-  if (d >= 0.0)
-    if (d < AnchorPointMinDist)
-      return AnchorPointMinDist;
-    else if (d > AnchorPointMaxDist)
-      return AnchorPointMaxDist;
-    else
-      return d;
-
-  else
-    // if ( d < 0.0 )
-    if (d > -AnchorPointMinDist)
-      return -AnchorPointMinDist;
-    else if (d < -AnchorPointMaxDist)
-      return -AnchorPointMaxDist;
-    else
-      return d;
-}
 //      Console supporting printf functionality for Windows GUI app
 
 #ifdef __WXMSW__
@@ -7249,43 +7222,7 @@ void RedirectIOToConsole()
   // ios::sync_with_stdio();
 }
 
-// #endif
 #endif
-
-#ifdef __WXMSW__
-bool TestGLCanvas(wxString prog_dir) {
-#ifdef __MSVC__
-  wxString test_app = prog_dir;
-  test_app += "ocpn_gltest1.exe";
-
-  if (::wxFileExists(test_app)) {
-    long proc_return = ::wxExecute(test_app, wxEXEC_SYNC);
-    printf("OpenGL Test Process returned %0X\n", proc_return);
-    if (proc_return == 0)
-      printf("GLCanvas OK\n");
-    else
-      printf("GLCanvas failed to start, disabling OpenGL.\n");
-
-    return (proc_return == 0);
-  } else
-    return true;
-#else
-  /* until we can get the source to ocpn_gltest1 assume true for mingw */
-  return true;
-#endif
-}
-#endif
-
-bool ReloadLocale() {
-  bool ret = false;
-
-#if wxUSE_XLOCALE
-  ret =
-      (!g_Platform->ChangeLocale(g_locale, plocale_def_lang, &plocale_def_lang)
-            .IsEmpty());
-#endif
-  return ret;
-}
 
 void ApplyLocale() {
   FontMgr::Get().SetLocale(g_locale);
