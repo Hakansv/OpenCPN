@@ -71,7 +71,6 @@
 #include "mygeom.h"
 #include "navutil.h"  // for LogMessageOnce
 #include "ocpndc.h"
-#include "ocpn_frame.h"
 #include "ocpn_pixel.h"
 #include "ocpn_platform.h"
 #include "ogr_s57.h"
@@ -84,6 +83,8 @@
 #include "s57class_registrar.h"
 #include "senc_manager.h"
 #include "setjmp.h"
+#include "top_frame.h"
+#include "user_colors.h"
 
 #ifdef ocpnUSE_GL
 #include "gl_chart_canvas.h"
@@ -95,6 +96,8 @@
 #endif
 
 #define S57_THUMB_SIZE 200
+
+#include <wx/arrimpl.cpp>
 
 WX_DEFINE_OBJARRAY(ArrayOfS57Obj);
 
@@ -3129,7 +3132,6 @@ bool s57chart::BuildThumbnail(const wxString &bmpname) {
   return ret_code;
 }
 
-#include <wx/arrimpl.cpp>
 WX_DEFINE_ARRAY_PTR(float *, MyFloatPtrArray);
 static int depth = 0;  // Tracks re-entry depth
 static bool isProcessing = false;
@@ -4125,7 +4127,7 @@ int s57chart::BuildRAZFromSENCFile(const wxString &FullPath) {
   //    Create a hash map of VE_Element pointers as a chart class member
   int n_ve_elements = VEs.size();
 
-  double scale = gFrame->GetBestVPScale(this);
+  double scale = top_frame::Get()->GetBestVPScale(this);
   int nativescale = GetNativeScale();
 
   for (int i = 0; i < n_ve_elements; i++) {
