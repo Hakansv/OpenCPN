@@ -1231,7 +1231,8 @@ void dashboard_pi::SetNMEASentence(wxString &sentence) {
                 if (printdelay > 6) {
                   wxStandardPathsBase &std_path = wxStandardPathsBase::Get();
                   wxString s = wxFileName::GetPathSeparator();
-                  wxString stdPath = std_path.GetConfigDir();
+                  wxString stdPath =
+                      std_path.GetUserDataDir();  // GetConfigDir();
                   int mHdt = mHdm + mVar;
                   wxString tid = wxDateTime::Now().Format(
                       wxT("%Y-%m-%d %H:%M:%S"), wxDateTime::CET);
