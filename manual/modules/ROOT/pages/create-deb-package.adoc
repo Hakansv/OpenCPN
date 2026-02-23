@@ -54,30 +54,27 @@ PPA.
 
 The Debian tools creates things in the parent directory. To handle this,
 create  new, empty directory and put the OpenCPN tree there. Then,
-get all necessary three branches:
+get all necessary branches:
 
 
     $ mkdir OpenCPN
     $ cd OpenCPN
     $ git clone --origin upstream  https://github.com/OpenCPN/OpenCPN.git
     $ cd OpenCPN
-    $ git fetch --tags upstream upstream/latest:upstream/latest
-    $ git fetch upstream pristine-tar:pristine-tar
     $ git fetch upstream ubuntu/numbat:ubuntu/numbat
     $ git checkout ubuntu/numbat
     $ git checkout .; git clean -fxd
+    $ gbp pull upstream
 
 `ubuntu/numbat` is the branch to use when building Ubuntu Numbat (24.04)
 packages.
-Alternatives includes  `ubuntu/jammy`, `ubuntu/focal` and `debian/sid`.
+Alternatives includes  `ubuntu/jammy` and `debian/sid`.
 The latter builds packages for the rolling Sid distribution.
 
 To update an existing clone:
 
-    $ git fetch upstream upstream/latest:upstream/latest
-    $ git fetch upstream pristine-tar:pristine-tar
     $ git checkout ubuntu/numbat
-    $ git pull upstream ubuntu/numbat
+    $ gbp pull upstream
 
 [#import-version]
 == Import a new opencpn version into packaging branches.
@@ -171,11 +168,18 @@ For each release do:
 1. Initiate the environment as described <<setup, above>>.
 2. Clone and checkout all branches, or update existing clone.
    See <<create-clone, above>>.
-3. Make sure the repo is synchronized: `git clean -fxd; git checkout .`
-4. Create the upstream source tarball: `gbp export-orig`
-5. Create the source package: `debuild --no-lintian -S`
-6.  List all available source packages using `ls -lt ../*source.changes`.
-7. Push the most recent package to a PPA using something like:
+3. Optionally, mark the package as released by you:
++
+```
+  $ dch -r    # complete changelog entry in editor
+  $ git add debian/changelog
+  $ git commit -m "<changelog version>"
+```
+4. Make sure the repo is synchronized: `git clean -fxd; git checkout .`
+5. Create the upstream source tarball: `gbp export-orig`
+6. Create the source package: `debuild --no-lintian -d -S -sa`
+7. List all available source packages using `ls -lt ../*source.changes`. Push the 
+   most recent package to a PPA using something like:
 +
 ```
   $ dput ppa:leamas-alec/opencpn \
@@ -302,3 +306,15 @@ by one rather than as a big patch.
 
 It is also possible to edit existing patches using the standard
 git tools, in particular `git rebase -i`
+
+
+
+
+
+
+
+
+
+
+
+
