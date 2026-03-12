@@ -476,7 +476,6 @@ ChartCanvas::ChartCanvas(wxFrame *frame, int canvasIndex, wxWindow *nmea_log)
   VPoint.view_scale_ppm = 1;
   VPoint.Invalidate();
   m_nMeasureState = 0;
-  m_ignore_next_leftup = false;
 
   m_canvas_scale_factor = 1.;
 
@@ -629,7 +628,7 @@ ChartCanvas::ChartCanvas(wxFrame *frame, int canvasIndex, wxWindow *nmea_log)
   m_Compass->SetScaleFactor(g_compass_scalefactor);
   m_Compass->Show(m_bShowCompassWin && g_bShowCompassWin);
 
-  if (IsPrimaryCanvas()) {
+  if (IsPrimaryCanvas() && !g_disableNotifications) {
     m_notification_button = new NotificationButton(this);
     m_notification_button->SetScaleFactor(g_compass_scalefactor);
     m_notification_button->Show(true);
@@ -9198,8 +9197,15 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
 
       if (m_routeState)  // creating route?
       {
-        if (m_ignore_next_leftup) {
-          m_ignore_next_leftup = false;
+        // Check displacement from touchdown to distinguish taps from pans.
+        // On touchscreens, even a "tap" can have several pixels of jitter,
+        // so use a generous threshold (20px) to avoid false positives.
+        int dx = x - m_touchdownPos.x;
+        int dy = y - m_touchdownPos.y;
+        int dist2 = dx * dx + dy * dy;
+        bool wasPan = (dist2 > 20 * 20);
+
+        if (wasPan) {
           return false;
         }
 
@@ -9483,9 +9489,11 @@ bool ChartCanvas::MouseEventProcessObjects(wxMouseEvent &event) {
           return false;
         }
 
-        if (m_ignore_next_leftup) {
-          m_ignore_next_leftup = false;
-          return false;
+        // Skip if user panned (same logic as route handler above)
+        {
+          int mdx = x - m_touchdownPos.x;
+          int mdy = y - m_touchdownPos.y;
+          if (mdx * mdx + mdy * mdy > 20 * 20) return false;
         }
 
         if (m_nMeasureState == 1) {
@@ -10334,6 +10342,7 @@ bool ChartCanvas::MouseEventProcessCanvas(wxMouseEvent &event) {
     }
 
     last_drag.x = x, last_drag.y = y;
+    m_touchdownPos = wxPoint(x, y);
     panleftIsDown = true;
   }
 
@@ -10470,8 +10479,7 @@ bool ChartCanvas::MouseEventProcessCanvas(wxMouseEvent &event) {
     // Handle some special cases
     if (g_btouch) {
       if ((m_bMeasure_Active && m_nMeasureState) || (m_routeState)) {
-        // deactivate next LeftUp to ovoid creating an unexpected point
-        m_ignore_next_leftup = true;
+        // LeftUp handler uses displacement check to distinguish taps from pans.
         m_DoubleClickTimer->Start();
         singleClickEventIsValid = false;
       }
@@ -12930,13 +12938,15 @@ void ChartCanvas::DrawOverlayObjects(ocpnDC &dc, const wxRegion &ru) {
     if (!g_CanvasHideNotificationIcon) {
       if (IsPrimaryCanvas()) {
         auto &noteman = NotificationManager::GetInstance();
-        if (noteman.GetNotificationCount()) {
-          m_notification_button->SetIconSeverity(noteman.GetMaxSeverity());
-          if (m_notification_button->UpdateStatus()) Refresh();
-          m_notification_button->Show(true);
-          m_notification_button->Paint(dc);
-        } else {
-          m_notification_button->Show(false);
+        if (m_notification_button) {
+          if (noteman.GetNotificationCount()) {
+            m_notification_button->SetIconSeverity(noteman.GetMaxSeverity());
+            if (m_notification_button->UpdateStatus()) Refresh();
+            m_notification_button->Show(true);
+            m_notification_button->Paint(dc);
+          } else {
+            m_notification_button->Show(false);
+          }
         }
       }
     }
