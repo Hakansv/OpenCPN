@@ -614,16 +614,6 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
 
   Read("SkewCompUpdatePeriod", &g_SkewCompUpdatePeriod);
   Read("SetSystemTime", &s_bSetSystemTime);
-
-#ifdef __WXMSW__
-  // HAS for boat PC
-  wxString PC = ::wxGetHostName();
-  if (PC == "MomoR61") {
-    s_bSetSystemTime = true;
-    wxLogMessage(wxString::Format(_T("PC is %s SetSystemTime is set."), PC));
-  }
-#endif
-
   Read("EnableKioskStartup", &g_kiosk_startup);
   Read("DisableNotifications", &g_disableNotifications, 0);
   Read("ShowStatusBar", &g_bShowStatusBar);
