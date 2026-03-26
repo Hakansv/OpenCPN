@@ -13351,6 +13351,7 @@ double ChartCanvas::GetAnchorWatchRadiusPixels(RoutePoint *pAnchorWatchPoint) {
 //------------------------------------------------------------------------------------------
 void ChartCanvas::RebuildTideSelectList(LLBBox &BBox) {
   if (!ptcmgr) return;
+  if (this != wxWindow::FindFocus()) return;
 
   pSelectTC->DeleteAllSelectableTypePoints(SELTYPE_TIDEPOINT);
 
