@@ -134,6 +134,7 @@ extern bool g_useMUI;
 extern bool s_bSetSystemTime;
 extern bool g_kiosk_startup;
 extern bool g_disableNotifications;
+extern bool g_enable_basemap_tiles;
 
 extern bool g_bXTE_multiply;      // Hakan
 extern double g_dXTE_multiplier;  // Hakan
