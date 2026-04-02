@@ -3913,6 +3913,7 @@ void MyFrame::UpdateCanvasConfigDescriptors() {
         cc->bShowGrid = chart->GetShowGrid();
         cc->bShowOutlines = chart->GetShowOutlines();
         cc->bShowDepthUnits = chart->GetShowDepthUnits();
+        cc->bEnableBasemapTile = chart->GetbEnableBasemapTile();
 
         cc->bFollow = chart->m_bFollow;
         cc->bLookahead = chart->m_bLookAhead;
@@ -4804,7 +4805,8 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
           cc->CreateMUIBar();
           cc->CheckGroupValid();
           cc->GetCompass()->SetScaleFactor(g_compass_scalefactor);
-          cc->SetShowGPSCompassWindow(true);
+          // Honor any settings by plugin made during LateInit() call
+          cc->SetShowGPSCompassWindow(cc->GetShowGPSCompassWindow());
         }
       }
 
