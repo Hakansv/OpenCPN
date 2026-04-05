@@ -1231,6 +1231,7 @@ void MyFrame::CreateCanvasLayout(bool b_useStoredSize) {
       cc->SetColorScheme(global_color_scheme);
       cc->SetShowGPS(true);
       cc->CreateMUIBar();
+      cc->SetShowGPSCompassWindow(true);
 
       g_pauimgr->AddPane(cc);
       g_pauimgr->GetPane(cc).Name("ChartCanvas2");
@@ -4805,8 +4806,7 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
           cc->CreateMUIBar();
           cc->CheckGroupValid();
           cc->GetCompass()->SetScaleFactor(g_compass_scalefactor);
-          // Honor any settings by plugin made during LateInit() call
-          cc->SetShowGPSCompassWindow(cc->GetShowGPSCompassWindow());
+          cc->SetShowGPSCompassWindow(true);
         }
       }
 
