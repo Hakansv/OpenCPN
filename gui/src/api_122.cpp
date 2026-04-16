@@ -1,5 +1,5 @@
 /**************************************************************************
- *   Copyright (C) 2026 by David S. Register                               *
+ *   Copyright (C) 2024 by David S. Register                               *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -12,43 +12,18 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
+ *   along with this program; if not, write to the                         *
  *   along with this program; if not, see <https://www.gnu.org/licenses/>. *
- ***************************************************************************/
+ **************************************************************************/
 
 /**
  * \file
  *
- * Implement threaded chart database creation
+ * ocpn_plugin.h HostApi122 implementation
  */
+#include "ocpn_plugin.h"
 
-#include <wx/wx.h>
-
-#include "chartdb.h"
-#include "chartdbs.h"
-#include "chartdb_thread.h"
-
-wxDEFINE_EVENT(wxEVT_OCPN_CHARTTABLEENTRYTHREAD,
-               OCPN_ChartTableEntryThreadEvent);
-
-// Static globals
-extern ChartDB *ChartData;
-
-//  ChartTableEntryJobTicket implementation
-
-// Seems like a gcc 16 false positive in handling ChartTableEntry.
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Warray-bounds"
-
-bool ChartTableEntryJobTicket::DoJob() {
-  // printf("DoJob\n");
-  ChartDatabase *db = dynamic_cast<ChartDatabase *>(ChartData);
-  ChartTableEntry *pnewChartTableEntry =
-      db->CreateChartTableEntry(m_ChartPath, m_ChartPath, chart_desc);
-  if (pnewChartTableEntry) {
-    std::shared_ptr<ChartTableEntry> safe_ptr(pnewChartTableEntry);
-    m_chart_table_entry = safe_ptr;  // class member
-  }
-
-  return true;
+// FIXME (leamas) find new home.
+std::unique_ptr<HostApi> GetHostApi() {
+  return std::make_unique<HostApi122>(HostApi122());
 }
-#pragma GCC diagnostic pop
