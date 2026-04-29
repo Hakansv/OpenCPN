@@ -189,18 +189,23 @@ bool UpdateAutopilotN0183(Routeman &routeman) {
 
   // If active multiply XTE with given factor.
   if (g_bXTE_multiply) {
+    // Momo WP30 has outdated Var. Possible 0.
     // Fetch Momo AP wp30 deviation table once
     if (!devfileNotfound && wp30DevData[0] == 0) Routeman::UpdateWP30DevData();
     if (wp30DevData[0] != 0) {  // flag: updated file
       int brg = routeman.GetCurrentBrgToActivePoint();
       if (brg < 361 && brg >= 0) {
-        f_brg += wp30DevData[brg];
-        if (f_brg > 360.0)
-          f_brg -= 360.;
-        else if (f_brg < 0.)
-          f_brg += 360.;
+        // Adjust what's sent by deviation and Var.
+        f_brg += std::isnan(gVar) ? wp30DevData[brg] : wp30DevData[brg] - gVar;
       }
+    } else {  // No deviation data
+      f_brg -= std::isnan(gVar) ? 0.0 : gVar;
     }
+    if (f_brg > 360.0)
+      f_brg -= 360.;
+    else if (f_brg < 0.)
+      f_brg += 360.;
+    // Max xte accepted by the WP30 is 1.2
     if ((f_xte *= g_dXTE_multiplier) > 1.2) f_xte = 1.2;
   }
   //<<< Hakan
