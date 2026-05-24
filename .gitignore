@@ -6,6 +6,7 @@
 .idea
 .vs
 .vscode
+.qtcreator/CMakeLists.txt.user
 build
 buildwin
 buildwin/NSIS_Unicode/Include/Langstrings_*.nsh
