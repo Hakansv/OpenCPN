@@ -3139,7 +3139,7 @@ void dashboard_pi::updateSKItem(wxJSONValue &item, wxString &talker,
           OCPN_DBP_STC_VLW1, toUsrDistance_Plugin(m_tlog, g_iDashDistanceUnit),
           getUsrDistanceUnit_Plugin(g_iDashDistanceUnit));
       mTrLOG_Watchdog = no_nav_watchdog_timeout_ticks;
-    } else if (update_path == "navigation.log") {  // m
+    } else if (update_path == "navigation.log" && !g_bUseInternSumLog) {
       double m_slog = GetJsonDouble(value);
       if (std::isnan(m_slog)) return;
 
