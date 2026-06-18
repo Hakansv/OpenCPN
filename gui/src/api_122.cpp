@@ -21,9 +21,21 @@
  *
  * ocpn_plugin.h HostApi122 implementation
  */
+
+#include <wx/app.h>
+
 #include "ocpn_plugin.h"
 
 // FIXME (leamas) find new home.
 std::unique_ptr<HostApi> GetHostApi() {
-  return std::make_unique<HostApi122>(HostApi122());
+  auto impl = dynamic_cast<Api122Impl*>(wxTheApp);
+  assert(impl && "wxTheApp does not implement Api122Impl");
+  return std::make_unique<HostApi122>(HostApi122(impl));
+}
+
+void HostApi122::RegisterApiEventCallback(
+    const std::string& plugin_name, std::function<void(EventType)> callback) {
+  auto impl = dynamic_cast<Api122Impl*>(wxTheApp);
+  assert(impl && "wxTheApp does not implement Api122Impl");
+  impl->RegisterApiEventCallback(plugin_name, callback);
 }
