@@ -1,10 +1,4 @@
-/***************************************************************************
- *
- * Project:  OpenCPN
- * Purpose:  OpenCPN Main wxWidgets Program
- * Author:   David Register
- *
- ***************************************************************************
+/**************************************************************************
  *   Copyright (C) 2022 by David S. Register                               *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -18,13 +12,19 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
+ *   along with this program; if not, see <https://www.gnu.org/licenses/>. *
  **************************************************************************/
+
+/**
+ * \file
+ *
+ * OpenCPN main program
+ */
 
 #ifndef _OCPN_APP_H
 #define _OCPN_APP_H
+
+#include <string>
 
 #include <wx/wxprec.h>
 
@@ -34,22 +34,29 @@
 #include <wx/event.h>
 #endif  // precompiled headers
 
-#include "model/instance_check.h"
-
 #include "model/comm_bridge.h"
+#include "model/instance_check.h"
 #include "model/local_api.h"
 #include "model/rest_server.h"
+#include "model/track.h"
 #include "model/usb_watch_daemon.h"
+
 #include "data_monitor.h"
+#include "ocpn_plugin.h"
 
-class Track;
+using CallbacksByPlugin =
+    std::unordered_map<std::string, std::function<void(HostApi122::EventType)>>;
 
-class MyApp : public wxApp {
+class MyApp : public wxApp, public Api122Impl {
 public:
   MyApp();
   ~MyApp() {};
 
   bool OnInit() override;
+  void BuildMainFrame();
+  void LoadChartDatabase();
+
+  void OnWallpaperStable();
   int OnExit() override;
 #ifndef __ANDROID__
   void OnInitCmdLine(wxCmdLineParser& parser) override;
@@ -60,6 +67,11 @@ public:
 
   void OnActivateApp(wxActivateEvent& event);
   bool OpenFile(const std::string& path);
+  void OnUnhandledException() override;
+
+  void RegisterApiEventCallback(
+      const std::string& plugin_name,
+      std::function<void(HostApi122::EventType what)> callback) override;
 
 #ifdef LINUX_CRASHRPT
   //! fatal exeption handling
@@ -73,7 +85,6 @@ public:
 #endif
 
   InstanceCheck& m_checker;
-  CommBridge m_comm_bridge;
 
   RestServer m_rest_server;
   UsbWatchDaemon& m_usb_watcher;
@@ -93,8 +104,14 @@ private:
   int m_exitcode;  ///< by default -2. Otherwise, forces exit(exit_code)
 
   void InitRestListeners();
+
+  void OnNewMsgTypes();
+
   ObsListener rest_activate_listener;
   ObsListener rest_reverse_listener;
+  ObsListener new_msg_type_listener;
+
+  CallbacksByPlugin m_api_events_callbacks;
 };
 
 wxDECLARE_APP(MyApp);

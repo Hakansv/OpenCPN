@@ -12,9 +12,7 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
+ *   along with this program; if not, see <https://www.gnu.org/licenses/>. *
  **************************************************************************/
 
 /**
@@ -73,11 +71,11 @@ or Remove to delete it prior to create.)";
 
 static const std::unordered_map<NavmsgStatus::Direction, std::string>
     kStringByDirection = {{NavmsgStatus::Direction::kInput, "Input"},
-                          {NavmsgStatus::Direction::kReceived, "Received"},
+                          {NavmsgStatus::Direction::kHandled, "Handled"},
                           {NavmsgStatus::Direction::kOutput, "Output"},
                           {NavmsgStatus::Direction::kInternal, "Internal"}};
 
-/** Return window with given id (which must exist) casted to T*. */
+/** Return window with given id (which must exist) cast to T*. */
 template <typename T>
 T* GetWindowById(int id) {
   return dynamic_cast<T*>(wxWindow::FindWindowById(id));
@@ -130,6 +128,14 @@ public:
   SelectFilterDlg(wxWindow*)
       : wxSingleChoiceDialog(wxTheApp->GetTopWindow(), _("Edit filter (name):"),
                              _("Edit filter"), GetUserFilters()) {}
+};
+
+class RenameFilterChoiceDlg : public wxSingleChoiceDialog {
+public:
+  RenameFilterChoiceDlg(wxWindow*)
+      : wxSingleChoiceDialog(wxTheApp->GetTopWindow(),
+                             _("Rename filter (name):"), _("Rename filter"),
+                             GetUserFilters()) {}
 };
 
 class BadFilterNameDlg : public wxMessageDialog {
@@ -533,7 +539,7 @@ public:
 
 private:
   wxArrayString GetChoices() const {
-    static const char* choices[] = {"Input", "Received", "Output", "Internal"};
+    static const char* choices[] = {"Input", "Handled", "Output", "Internal"};
     return {4, choices};
   }
 };
@@ -663,6 +669,25 @@ void RemoveFilterDlg(wxWindow* parent) {
                             _("Cannot remove filter"));
     msg_dlg.ShowModal();
   }
+}
+
+void RenameFilterDlg(wxWindow* parent) {
+  if (GetUserFilters().empty()) {
+    wxMessageDialog dlg(wxTheApp->GetTopWindow(), _("No filters to rename"));
+    dlg.ShowModal();
+    return;
+  }
+  RenameFilterChoiceDlg dlg(parent);
+  int sts = dlg.ShowModal();
+  if (sts != wxID_OK) return;
+
+  fs::path old_name(dlg.GetStringSelection().ToStdString());
+  wxString caption = wxString(_("Renaming ")) + old_name.string();
+  auto new_name_dlg = new wxTextEntryDialog(parent, _("New name:"), caption);
+  int result = new_name_dlg->ShowModal();
+  if (result != wxID_OK) return;
+  filters_on_disk::Rename(old_name.string(),
+                          new_name_dlg->GetValue().ToStdString());
 }
 
 void EditOneFilterDlg(wxWindow* parent, const std::string& filter) {

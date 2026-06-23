@@ -40,6 +40,8 @@
 #include <wx/matrix.h>
 
 #include <QtAndroidExtras/QAndroidJniObject>
+#include <QtAndroidExtras/QAndroidJniEnvironment>
+#include "o_sound/o_sound.h"
 
 #include "model/ais_state_vars.h"
 #include "model/cmdline.h"
@@ -48,6 +50,7 @@
 #include "model/comm_drv_n0183_serial.h"
 #include "model/comm_navmsg_bus.h"
 #include "model/config_vars.h"
+#include "model/gui_vars.h"
 #include "model/idents.h"
 #include "model/logger.h"
 #include "model/multiplexer.h"
@@ -59,38 +62,38 @@
 #include "model/select.h"
 
 #include "about.h"
-#include "AISTargetAlertDialog.h"
-#include "AISTargetListDialog.h"
-#include "AISTargetQueryDialog.h"
-#include "AndroidSound.h"
+#include "ais_target_alert_dlg.h"
+#include "ais_target_list_dlg.h"
+#include "ais_target_query_dlg.h"
 #include "androidUTIL.h"
-#include "CanvasOptions.h"
+#include "canvas_options.h"
 #include "chartdb.h"
 #include "chartdbs.h"
 #include "chcanv.h"
 #include "config.h"
 #include "dychart.h"
-#include "glChartCanvas.h"
+#include "gl_chart_canvas.h"
 #include "gui_lib.h"
-#include "iENCToolbar.h"
-#include "MarkInfo.h"
-#include "MUIBar.h"
+#include "ienc_toolbar.h"
+#include "mark_info.h"
+#include "mui_bar.h"
 #include "navutil.h"
 #include "nmea0183.h"
 #include "model/nmea_ctx_factory.h"
-#include "OCPNPlatform.h"
+#include "ocpn_frame.h"
+#include "ocpn_platform.h"
 #include "ocpn_plugin.h"
 #include "options.h"
 #include "routemanagerdialog.h"
-#include "RoutePropDlgImpl.h"
+#include "route_prop_dlg_impl.h"
 #include "s52plib.h"
 #include "s52s57.h"
 #include "s52utils.h"
-#include "S57QueryDialog.h"
-#include "TCWin.h"
+#include "s57_query_dlg.h"
+#include "tc_win.h"
 #include "toolbar.h"
 #include "toolbar.h"
-#include "TrackPropDlg.h"
+#include "track_prop_dlg.h"
 #ifdef HAVE_DIRENT_H
 #include "dirent.h"
 #endif
@@ -204,8 +207,6 @@ extern bool g_bConfirmObjectDelete;
 extern wxLocale *plocale_def_lang;
 #endif
 
-// extern OCPN_Sound        g_anchorwatch_sound;
-
 extern bool g_fog_overzoom;
 extern double g_overzoom_emphasis_base;
 extern bool g_oz_vector_scale;
@@ -263,7 +264,6 @@ extern bool g_bAutoAnchorMark;
 extern wxAuiManager *g_pauimgr;
 extern wxString g_AisTargetList_perspective;
 
-WX_DEFINE_ARRAY_PTR(ChartCanvas *, arrayofCanvasPtr);
 extern arrayofCanvasPtr g_canvasArray;
 
 wxString callActivityMethod_vs(const char *method);
@@ -271,9 +271,8 @@ wxString callActivityMethod_is(const char *method, int parm);
 
 //      Globals, accessible only to this module
 
-bool b_androidBusyShown;
-double g_androidDPmm;
-double g_androidDensity;
+static bool b_androidBusyShown;
+static double g_androidDensity;
 
 bool g_bExternalApp;
 
@@ -285,6 +284,7 @@ wxString g_androidExtStorageDir;
 wxString g_androidGetFilesDirs0;
 wxString g_androidGetFilesDirs1;
 wxString g_androidDownloadDirectory;
+wxString g_androidDocumentsDirectory;
 wxString g_android_Device_Model;
 
 int g_mask;
@@ -327,6 +327,10 @@ int g_orientation;
 int g_Android_SDK_Version;
 MigrateAssistantDialog *g_migrateDialog;
 
+bool g_android_import_active;
+bool g_android_import_islayer;
+bool g_android_import_ispersistent;
+
 //      Some dummy devices to ensure plugins have static access to these classes
 //      not used elsewhere
 wxFontPickerEvent g_dummy_wxfpe;
@@ -345,6 +349,7 @@ wxTransformMatrix g_dummy_transform;
 
 #define SCHEDULED_EVENT_CLEAN_EXIT 5498
 #define ID_CMD_PERSIST_DATA 5499
+#define SCHEDULED_EVENT_UPDATE_RMD 5500
 
 // Implement a small function missing from Android API 16, or so.
 // FIXME This can go away when Android MIN_SDK is raised to 19 (KitKat)
@@ -463,17 +468,11 @@ void androidUtilHandler::handle_N0183_MSG(AndroidNMEAEvent &event) {
     // We notify based on full message, including the Talker ID
     identifier = full_sentence.substr(1, 5);
 
-    // notify message listener and also "ALL" N0183 messages, to support plugin
-    // API using original talker id
-
+    // notify message listener
     auto address = std::make_shared<NavAddr>(NavAddr0183("Android_RAW"));
-
     auto msg =
         std::make_shared<const Nmea0183Msg>(identifier, full_sentence, address);
-    auto msg_all = std::make_shared<const Nmea0183Msg>(*msg, "ALL");
-
     m_listener.Notify(std::move(msg));
-    m_listener.Notify(std::move(msg_all));
   }
 }
 
@@ -936,11 +935,16 @@ void androidUtilHandler::onStressTimer(wxTimerEvent &event) {
 void androidUtilHandler::OnScheduledEvent(wxCommandEvent &event) {
   switch (event.GetId()) {
     case SCHEDULED_EVENT_CLEAN_EXIT:
-      //             gFrame->FrameTimer1.Stop();
-      //             gFrame->FrameCOGTimer.Stop();
-      //
-      //             doAndroidPersistState();
-      //             androidTerminate();
+      qDebug() << "SCHEDULED_EVENT_CLEAN_EXIT";
+      gFrame->FrameTimer1.Stop();
+      gFrame->FrameCOGTimer.Stop();
+      doAndroidPersistState();
+      break;
+
+    case SCHEDULED_EVENT_UPDATE_RMD:
+      qDebug() << "SCHEDULED_EVENT_UPDATE_RMD";
+      if (pRouteManagerDialog && pRouteManagerDialog->IsShown())
+        pRouteManagerDialog->UpdateLists();
       break;
 
     case ID_CMD_PERSIST_DATA:
@@ -1025,6 +1029,8 @@ bool androidUtilInit(void) {
 
     token = tk.GetNextToken();
     g_androidDownloadDirectory = token;
+    token = tk.GetNextToken();
+    g_androidDocumentsDirectory = token;
   }
 
   g_mask = -1;
@@ -1048,6 +1054,12 @@ bool androidUtilInit(void) {
   }
 
   return true;
+}
+
+void PrepareImportAndroid(bool isLayer, bool isPersistent) {
+  g_android_import_active = true;
+  g_android_import_islayer = isLayer;
+  g_android_import_ispersistent = isPersistent;
 }
 
 wxString androidGetIpV4Address(void) {
@@ -1094,10 +1106,33 @@ JNIEXPORT jint JNICALL Java_org_opencpn_OCPNNativeLib_test(JNIEnv *env,
 extern "C" {
 JNIEXPORT jint JNICALL Java_org_opencpn_OCPNNativeLib_onSoundDone(
     JNIEnv *env, jobject obj, long soundPtr) {
-  auto sound = reinterpret_cast<AndroidSound *>(soundPtr);
+  auto sound = reinterpret_cast<o_sound::Sound *>(soundPtr);
   DEBUG_LOG << "on SoundDone, ptr: " << soundPtr;
   sound->OnSoundDone();
   return 57;
+}
+}
+
+extern "C" {
+JNIEXPORT void JNICALL Java_org_opencpn_OCPNNativeLib_ImportTmpGPX(
+    JNIEnv *env, jobject obj, jstring filePath, bool isLayer,
+    bool isPersistent) {
+  if (!g_android_import_active) return;
+  wxArrayString file_array;
+  const char *string = env->GetStringUTFChars(filePath, NULL);
+  file_array.Add(wxString(string));
+  ImportFileArray(file_array, g_android_import_islayer,
+                  g_android_import_ispersistent, "");
+  g_android_import_active = false;
+  g_android_import_islayer = false;
+  g_android_import_ispersistent = false;
+
+  // Update the RouteManagerDialog on the wx event loop
+  wxCommandEvent evt(wxEVT_COMMAND_MENU_SELECTED);
+  evt.SetId(SCHEDULED_EVENT_UPDATE_RMD);
+  if (gFrame && gFrame->GetEventHandler()) {
+    g_androidUtilHandler->AddPendingEvent(evt);
+  }
 }
 }
 
@@ -1363,9 +1398,11 @@ JNIEXPORT jint JNICALL Java_org_opencpn_OCPNNativeLib_onConfigChange(
   //         evts.SetId( ID_CMD_STOP_RESIZE );
   //             g_androidUtilHandler->AddPendingEvent(evts);
 
-  wxCommandEvent evt(wxEVT_COMMAND_MENU_SELECTED);
-  evt.SetId(ID_CMD_TRIGGER_RESIZE);
-  g_androidUtilHandler->AddPendingEvent(evt);
+  if (g_androidUtilHandler) {
+    wxCommandEvent evt(wxEVT_COMMAND_MENU_SELECTED);
+    evt.SetId(ID_CMD_TRIGGER_RESIZE);
+    g_androidUtilHandler->AddPendingEvent(evt);
+  }
 
   return 77;
 }
@@ -1415,6 +1452,28 @@ JNIEXPORT jint JNICALL Java_org_opencpn_OCPNNativeLib_onStop(JNIEnv *env,
   g_running = false;
 
   qDebug() << "onStop return 98";
+  return 98;
+}
+}
+
+extern "C" {
+JNIEXPORT jint JNICALL Java_org_opencpn_OCPNNativeLib_cleanExit(JNIEnv *env,
+                                                                jobject obj) {
+  qDebug() << "cleanExit";
+  wxLogMessage(_T("cleanExit"));
+
+  //  App may be summarily killed after this point due to OOM condition.
+  //  So we need to persist some dynamic data.
+
+  wxCommandEvent evt(wxEVT_COMMAND_MENU_SELECTED);
+  evt.SetId(SCHEDULED_EVENT_CLEAN_EXIT);
+  if (gFrame && gFrame->GetEventHandler()) {
+    g_androidUtilHandler->AddPendingEvent(evt);
+  }
+
+  g_running = false;
+
+  qDebug() << "cleanExit return 98";
   return 98;
 }
 }
@@ -1877,12 +1936,7 @@ void androidDisplayToast(wxString message) {
   callActivityMethod_ss("showToast", message);
 }
 
-void androidEnableRotation(void) {
-  //    if(g_detect_smt590)
-  //        return;
-
-  callActivityMethod_vs("EnableRotation");
-}
+void androidEnableRotation(void) { callActivityMethod_vs("EnableRotation"); }
 
 void androidDisableRotation(void) { callActivityMethod_vs("DisableRotation"); }
 
@@ -2186,7 +2240,7 @@ androidGetCacheDir()  // Used for raster_texture_cache, mmsitoname.csv, etc
 
 wxString androidGetExtStorageDir()  // Used for Chart storage, typically
 {
-  if (g_Android_SDK_Version >= 30)
+  if (g_Android_SDK_Version >= 29)
     return g_androidExtFilesDir;  // Scoped storage model
   else
     return g_androidExtStorageDir;
@@ -2248,6 +2302,8 @@ void androidEnableMulticast(bool benable) {
 
 void androidLastCall(void) {
   CheckMigrateCharts();
+  DoImportGPX();
+
   callActivityMethod_is("lastCallOnInit", 1);
 }
 
@@ -2514,11 +2570,6 @@ wxSize getAndroidDisplayDimensions(void) {
     if (token.ToLong(&abh)) sz_ret.y -= abh;
   }
 
-  // Samsung sm-t590/Android 10 has some display problems in portrait mode.....
-  if (g_detect_smt590) {
-    if (sz_ret.x < sz_ret.y) sz_ret.y = 1650;
-  }
-
   // qDebug() << "getAndroidDisplayDimensions" << sz_ret.x << sz_ret.y;
 
   return sz_ret;
@@ -2720,6 +2771,69 @@ bool androidStopGPS() {
   return true;
 }
 
+wxString androidGetLocalizedDateTime(const DateTimeFormatOptions &options,
+                                     wxDateTime time) {
+  wxDateTime t(time);
+  wxString effective_time_zone = options.time_zone;
+  if (effective_time_zone == wxEmptyString) {
+    effective_time_zone = ::g_datetime_format;
+  }
+  if (effective_time_zone == wxEmptyString) {
+    effective_time_zone = "UTC";
+  }
+
+  wxString tzName;
+  if (effective_time_zone == "Local Time") {
+    wxDateTime now = wxDateTime::Now();
+    if ((now == (now.ToGMT())) &&
+        t.IsDST())  // bug in wxWingets 3.0 for UTC meridien ?
+      t.Add(wxTimeSpan(1, 0, 0, 0));
+    if (options.show_timezone) {
+      tzName = _("LOC");
+    }
+  } else if (effective_time_zone == "LMT") {
+    // Local mean solar time at the current location.
+    t.MakeUTC();
+    tzName = _("LMT");
+    if (std::isnan(options.longitude)) {
+      t = wxInvalidDateTime;
+    } else {
+      t.Add(wxTimeSpan(0, 0, wxLongLong(options.longitude * 3600. / 15.)));
+    }
+  } else {
+    // UTC, or fallback to UTC if the timezone is not recognized.
+    t.MakeUTC();
+    tzName = _("UTC");
+  }
+
+  // If $ARCH is ARMHF, we cannot reliably use "long" over the JNI bridge
+  // So use "int", and live with it until 2038 rolls around.
+  int epoch_seconds = (int)t.GetTicks();
+
+  wxString format = options.format_string;
+  wxString formattedDate;
+
+  wxStringTokenizer tk(format, "$");
+  while (tk.HasMoreTokens()) {
+    wxString token = tk.GetNextToken();
+    if (token.Length()) {
+      token.Trim();
+      wxString partial_result = callActivityMethod_ssi(
+          "getLocalizedDateTime", "$" + token, epoch_seconds);
+      if (partial_result.Length()) {
+        if (!formattedDate.IsEmpty()) formattedDate += "  ";
+        formattedDate += partial_result;
+      }
+    }
+  }
+
+  if (options.show_timezone) {
+    return formattedDate + " " + tzName;
+  } else {
+    return formattedDate;
+  }
+}
+
 wxString androidGPSService(int parm) {
   if (!java_vm) return "NOK";
 
@@ -2897,57 +3011,138 @@ bool androidWriteSerial(wxString &portname, wxString &message) {
   return true;
 }
 
+#include <atomic>
+#include <string>
+#include <functional>
+#include <thread>
+
+#include <wx/event.h>
+
+#include <QtAndroidExtras/QAndroidJniObject>
+#include <QtAndroidExtras/QAndroidJniEnvironment>
+
+std::atomic<bool> AndroidFileDialog::g_done(false);
+std::string AndroidFileDialog::g_result;
+
+// Synchronous wxWidgets-style file dialog
+std::string AndroidFileDialog::Show(const std::string &startDir,
+                                    bool allowCreate = true) {
+  g_done = false;
+  g_result.clear();
+
+  // Call Java dialog (Java handles runOnUiThread internally)
+  showDialogJNI(startDir, allowCreate);
+
+  // Spin loop to emulate synchronous dialog
+  auto start = std::chrono::steady_clock::now();
+  while (!g_done.load(std::memory_order_acquire)) {
+    if (std::chrono::steady_clock::now() - start > std::chrono::seconds(60))
+      break;
+    wxYield();
+    std::this_thread::sleep_for(std::chrono::milliseconds(5));
+  }
+
+  if (!g_done.load()) return "cancel";
+
+  return g_result;
+}
+
+void AndroidFileDialog::CallbackFromJava(const std::string &path) {
+  g_result = path;
+  g_done.store(true, std::memory_order_release);
+}
+
+void AndroidFileDialog::showDialogJNI(const std::string &startDir,
+                                      bool allowCreate) {
+  QAndroidJniEnvironment env;
+
+  // Obtain Qt Android Activity
+  QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
+      "org/qtproject/qt5/android/QtNative", "activity",
+      "()Landroid/app/Activity;");
+
+  if (!activity.isValid()) return;
+
+  // --- Hide keyboard (prevents IME finishComposingText deadlock) ---
+
+  QAndroidJniObject serviceName = QAndroidJniObject::getStaticObjectField(
+      "android/content/Context", "INPUT_METHOD_SERVICE", "Ljava/lang/String;");
+
+  QAndroidJniObject imm = activity.callObjectMethod(
+      "getSystemService", "(Ljava/lang/String;)Ljava/lang/Object;",
+      serviceName.object<jstring>());
+
+  if (imm.isValid()) {
+    QAndroidJniObject window =
+        activity.callObjectMethod("getWindow", "()Landroid/view/Window;");
+
+    QAndroidJniObject decor =
+        window.callObjectMethod("getDecorView", "()Landroid/view/View;");
+
+    QAndroidJniObject token =
+        decor.callObjectMethod("getWindowToken", "()Landroid/os/IBinder;");
+
+    imm.callMethod<jboolean>("hideSoftInputFromWindow",
+                             "(Landroid/os/IBinder;I)Z",
+                             token.object<jobject>(), 0);
+  }
+
+  // --- Create callback proxy ---
+  QAndroidJniObject callback("org/opencpn/FileDialogCallbackProxy", "()V");
+
+  QAndroidJniObject jStartDir =
+      QAndroidJniObject::fromString(QString::fromStdString(startDir));
+
+  // --- Call Java dialog ---
+  QAndroidJniObject::callStaticMethod<void>(
+      "org/opencpn/OCPNFileDialog", "showFileDialog",
+      "(Landroid/app/Activity;Ljava/lang/String;Lorg/opencpn/"
+      "OCPNFileDialog$Callback;Z)V",
+      activity.object<jobject>(), jStartDir.object<jstring>(),
+      callback.object<jobject>(), allowCreate ? JNI_TRUE : JNI_FALSE);
+
+  if (env->ExceptionCheck()) {
+    env->ExceptionDescribe();
+    env->ExceptionClear();
+  }
+}
+
+extern "C" JNIEXPORT void JNICALL
+Java_org_opencpn_FileDialogCallbackProxy_nativeFileDialogFinished(
+    JNIEnv *env, jclass, jstring jPath) {
+  const char *pathChars = env->GetStringUTFChars(jPath, nullptr);
+  std::string path(pathChars);
+  env->ReleaseStringUTFChars(jPath, pathChars);
+
+  AndroidFileDialog::CallbackFromJava(path);
+}
+
 int androidFileChooser(wxString *result, const wxString &initDir,
                        const wxString &title, const wxString &suggestion,
                        const wxString &wildcard, bool dirOnly, bool addFile) {
-  wxString tresult;
-
-  //  Start a timer to poll for results
-  if (g_androidUtilHandler) {
-    g_androidUtilHandler->m_eventTimer.Stop();
-    g_androidUtilHandler->m_done = false;
-
-    wxString activityResult;
-    if (dirOnly)
-      activityResult = callActivityMethod_s2s2i("DirChooserDialog", initDir,
-                                                title, addFile, 0);
-
-    else
+  if (dirOnly) {
+    std::string file = AndroidFileDialog::Show(initDir.ToStdString());
+    if (file == "cancel") {
+      return wxID_CANCEL;
+    } else {
+      wxString sfile(file.c_str());
+      *result = sfile.AfterFirst(':');
+      return wxID_OK;
+    }
+  } else {
+    if (g_androidUtilHandler) {
+      wxString activityResult;
       activityResult = callActivityMethod_s4s("FileChooserDialog", initDir,
                                               title, suggestion, wildcard);
 
-    if (activityResult == _T("OK")) {
-      // qDebug() << "ResultOK, starting spin loop";
-      g_androidUtilHandler->m_action = ACTION_FILECHOOSER_END;
-      g_androidUtilHandler->m_eventTimer.Start(1000, wxTIMER_CONTINUOUS);
-
-      //  Spin, waiting for result
-      while (!g_androidUtilHandler->m_done) {
-        wxMilliSleep(50);
-        wxSafeYield(NULL, true);
-      }
-
-      // qDebug() << "out of spin loop";
-      g_androidUtilHandler->m_action = ACTION_NONE;
-      g_androidUtilHandler->m_eventTimer.Stop();
-
-      tresult = g_androidUtilHandler->GetStringResult();
-
-      if (tresult.StartsWith(_T("cancel:"))) {
-        // qDebug() << "Cancel1";
+      if (activityResult == _T("OK")) {
+        return wxID_OK;
+      } else if (activityResult == "cancel:") {
         return wxID_CANCEL;
-      } else if (tresult.StartsWith(_T("file:"))) {
-        if (result) {
-          *result = tresult.AfterFirst(':');
-          // qDebug() << "OK";
-          return wxID_OK;
-        } else {
-          // qDebug() << "Cancel2";
-          return wxID_CANCEL;
-        }
+      } else {
+        *result = activityResult.AfterFirst(':');
+        return wxID_OK;
       }
-    } else {
-      // qDebug() << "Result NOT OK";
     }
   }
 
@@ -3738,7 +3933,7 @@ wxString getFontQtStylesheet(wxFont *font) {
   return qstyle;
 }
 
-bool androidPlaySound(const wxString soundfile, AndroidSound *sound) {
+bool androidPlaySound(const wxString soundfile, o_sound::Sound *sound) {
   DEBUG_LOG << "androidPlaySound";
   std::ostringstream oss;
   oss << sound;
@@ -4384,6 +4579,10 @@ bool AndroidSecureCopyFile(wxString in, wxString out) {
   return bret;
 }
 
+void AndroidRemoveSystemFile(wxString file) {
+  callActivityMethod_ss("RemoveSystemFile", file);
+}
+
 int doAndroidPersistState() {
   qDebug() << "doAndroidPersistState() starting...";
   wxLogMessage(_T("doAndroidPersistState() starting..."));
@@ -4395,10 +4594,10 @@ int doAndroidPersistState() {
       wxAuiPaneInfo &pane = g_pauimgr->GetPane(g_pAISTargetList);
       g_AisTargetList_perspective = g_pauimgr->SavePaneInfo(pane);
       g_pauimgr->DetachPane(g_pAISTargetList);
-
-      pConfig->SetPath(_T ( "/AUI" ));
-      pConfig->Write(_T ( "AUIPerspective" ), g_pauimgr->SavePerspective());
     }
+
+    pConfig->SetPath(_T ( "/AUI" ));
+    pConfig->Write(_T ( "AUIPerspective" ), g_pauimgr->SavePerspective());
   }
 
   //    Deactivate the PlugIns, allowing them to save state
@@ -4432,11 +4631,8 @@ int doAndroidPersistState() {
     {
       //    First, delete any single anchorage waypoint closer than 0.25 NM from
       //    this point This will prevent clutter and database congestion....
-
-      wxRoutePointListNode *node = pWayPointMan->GetWaypointList()->GetFirst();
-      while (node) {
-        RoutePoint *pr = node->GetData();
-        if (pr->GetName().StartsWith(_T("Anchorage"))) {
+      for (RoutePoint *pr : *pWayPointMan->GetWaypointList()) {
+        if (pr->GetName().StartsWith("Anchorage")) {
           double a = gLat - pr->m_lat;
           double b = gLon - pr->m_lon;
           double l = sqrt((a * a) + (b * b));
@@ -4449,8 +4645,6 @@ int doAndroidPersistState() {
             break;
           }
         }
-
-        node = node->GetNext();
       }
 
       wxString name = ocpn::toUsrDateTimeFormat(now);
@@ -4535,13 +4729,43 @@ Java_org_opencpn_OCPNNativeLib_ScheduleCleanExit(JNIEnv *env, jobject obj) {
 }
 }
 
+void DoImportGPX() {
+  //  Look for importable GPX files
+  wxString import_dir = g_androidGetFilesDirs0;
+  import_dir += "/import";
+  wxArrayString file_list;
+  wxDir::GetAllFiles(import_dir, &file_list);
+  for (size_t i = 0; i < file_list.GetCount(); i++) {
+    wxFileName fn(file_list[i]);
+    if ((fn.GetExt().IsSameAs("GPX") || fn.GetExt().IsSameAs("gpx"))) {
+      // Query the user
+      wxString msg(_("Import GPX file:"));
+      msg += "        \n";
+      msg += fn.GetFullName();
+      if (androidShowSimpleYesNoDialog(_T("OpenCPN"), msg)) {
+        NavObjectCollection1 *pSet = new NavObjectCollection1;
+        if (pSet->load_file(fn.GetFullPath().fn_str()).status !=
+            pugi::xml_parse_status::status_ok) {
+          wxLogMessage("Error loading GPX file " + fn.GetFullPath());
+          pSet->reset();
+          delete pSet;
+        } else {
+          int wpt_dups;
+          pSet->LoadAllGPXObjects(
+              !pSet->IsOpenCPN(),
+              wpt_dups);  // Import with full visibility of names and objects
+          delete pSet;
+          ::wxRemoveFile(fn.GetFullPath());
+        }
+      }
+    }
+  }
+}
+
 void CheckMigrateCharts() {
   qDebug() << "CheckMigrateCharts";
   if (g_Android_SDK_Version < 30)  // Only on Android/11 +
     return;
-
-  // Force access to correct home directory, as a hint....
-  pInit_Chart_Dir->Clear();
 
   // Scan the config file chart directory array.
   wxArrayString chartDirs =
@@ -4567,6 +4791,10 @@ void CheckMigrateCharts() {
   if (!migrateDirs.GetCount()) return;
 
   // Run the chart migration assistant
+
+  // Force access to correct home directory, as a hint....
+  pInit_Chart_Dir->Clear();
+
   g_migrateDialog = new MigrateAssistantDialog(gFrame, false);
   g_migrateDialog->SetSize(gFrame->GetSize());
   g_migrateDialog->Centre();
@@ -4575,6 +4803,8 @@ void CheckMigrateCharts() {
 }
 
 wxString androidGetDownloadDirectory() { return g_androidDownloadDirectory; }
+
+wxString androidGetDocumentsDirectory() { return g_androidDocumentsDirectory; }
 
 wxString WrapText(wxWindow *win, const wxString &text, int widthMax) {
   class HardBreakWrapper : public wxTextWrapper {

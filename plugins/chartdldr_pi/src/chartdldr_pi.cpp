@@ -110,6 +110,49 @@ bool getDisplayMetrics();
 
 #define CHART_DIR "Charts"
 
+// Helper function to check if a path is safely inside the target directory
+// Returns true if normalizedPath is inside targetDir, false otherwise (path
+// traversal attempt)
+static bool IsPathInsideDir(const wxString &targetDir,
+                            const wxString &entryName, wxString &outFullPath) {
+  // Construct the full path
+  wxString combinedPath = targetDir;
+  if (!combinedPath.EndsWith(wxFileName::GetPathSeparator())) {
+    combinedPath += wxFileName::GetPathSeparator();
+  }
+  combinedPath += entryName;
+
+  // Normalize the combined path to resolve any ".." components
+  wxFileName fn(combinedPath);
+  fn.Normalize(wxPATH_NORM_DOTS | wxPATH_NORM_ABSOLUTE | wxPATH_NORM_LONG);
+  outFullPath = fn.GetFullPath();
+
+  // Normalize target dir for comparison
+  wxFileName targetFn(targetDir);
+  targetFn.Normalize(wxPATH_NORM_DOTS | wxPATH_NORM_ABSOLUTE |
+                     wxPATH_NORM_LONG);
+  wxString normalizedTarget = targetFn.GetFullPath();
+
+  // Ensure target ends with separator for proper prefix matching
+  if (!normalizedTarget.EndsWith(wxFileName::GetPathSeparator())) {
+    normalizedTarget += wxFileName::GetPathSeparator();
+  }
+
+  // Check if the normalized path starts with the target directory
+  // This catches all path traversal attempts including "../", absolute paths,
+  // etc.
+  if (outFullPath.StartsWith(normalizedTarget)) {
+    return true;
+  }
+
+  // Also allow if it's exactly the target directory (for directory entries)
+  if (outFullPath == targetFn.GetFullPath()) {
+    return true;
+  }
+
+  return false;
+}
+
 static wxString FormatBytes(double bytes) {
   if (bytes <= 0) return "?";
   return wxString::Format(_T("%.1fMB"), bytes / 1024 / 1024);
@@ -787,14 +830,28 @@ bool ChartSource::IsNewerThanLocal(wxString chart_number, wxString filename,
                                    wxDateTime validDate) {
   wxStringTokenizer tk(filename, _T("."));
   wxString file = tk.GetNextToken().MakeLower();
+  time_t validTime = validDate.GetTicks();
   if (!m_update_data.empty()) {
-    if (m_update_data[std::string(chart_number.Lower().mbc_str())] <
-            validDate.GetTicks() &&
-        m_update_data[std::string(file.mbc_str())] < validDate.GetTicks())
-      return true;
-    else
-      return false;
+    time_t chartNumberTime =
+        m_update_data[std::string(chart_number.Lower().mbc_str())];
+    time_t updateFileTime = m_update_data[std::string(file.mbc_str())];
+    bool needsUpdate =
+        chartNumberTime < validTime && updateFileTime < validTime;
+    if (wxLOG_Debug <= wxLog::GetLogLevel()) {
+      // Show these only if user has selected loglevel debug, otherwise save a
+      // few cpu cycles
+      wxLogInfo("Latest Zip File Date: %sZ",
+                validDate.ToUTC().FormatISOCombined());
+      wxLogInfo("Local File: %s, Date: %sZ", filename,
+                wxDateTime(updateFileTime).ToUTC().FormatISOCombined());
+      wxLogInfo("Chart Number %s DOB: Date: %sZ", chart_number,
+                wxDateTime(chartNumberTime).ToUTC().FormatISOCombined());
+      wxLogInfo("Chart Number %s Needs update: %s", chart_number,
+                needsUpdate ? wxString("true") : wxString("false"));
+    }
+    return needsUpdate;
   }
+
   bool update_candidate = false;
 
   for (size_t i = 0; i < m_localfiles.Count(); i++) {
@@ -1090,7 +1147,7 @@ void ChartSource::LoadUpdateData() {
   std::ifstream infile(fn.mb_str());
 
   std::string key;
-  long value;
+  time_t value(0);
 
   while (infile >> key >> value) m_update_data[key] = value;
 
@@ -1807,90 +1864,177 @@ bool chartdldr_pi::ExtractLibArchiveFiles(const wxString &aArchiveFile,
                                           bool aStripPath, wxDateTime aMTime,
                                           bool aRemoveArchive) {
 #ifndef __ANDROID__
-  struct archive *a;
-  struct archive *ext;
-  struct archive_entry *entry;
-  int flags;
-  int r;
+  struct archive *a = NULL;
+  struct archive *ext = NULL;
+  bool ok = false;
 
-  /* Select which attributes we want to restore. */
-  flags = ARCHIVE_EXTRACT_TIME;
-  /*
-  flags |= ARCHIVE_EXTRACT_PERM;
-  flags |= ARCHIVE_EXTRACT_ACL;
-  flags |= ARCHIVE_EXTRACT_FFLAGS;
-  */
+  int flags = ARCHIVE_EXTRACT_TIME;
+#ifdef ARCHIVE_EXTRACT_SECURE_NODOTDOT
+  flags |= ARCHIVE_EXTRACT_SECURE_NODOTDOT;
+#endif
+#ifdef ARCHIVE_EXTRACT_SECURE_SYMLINKS
+  flags |= ARCHIVE_EXTRACT_SECURE_SYMLINKS;
+#endif
 
   a = archive_read_new();
+  ext = archive_write_disk_new();
+
+  if (!a || !ext) {
+    wxLogError(_T("Chartdldr_pi: Failed to create libarchive objects."));
+    goto cleanup;
+  }
+
   archive_read_support_format_all(a);
   archive_read_support_filter_all(a);
+#if !defined(__clang__)
   archive_read_support_compression_all(a);
-  ext = archive_write_disk_new();
+#endif
+
   archive_write_disk_set_options(ext, flags);
   archive_write_disk_set_standard_lookup(ext);
-  if ((r = archive_read_open_filename(a, aArchiveFile.c_str(), 10240))) {
-    return false;
+
+#ifdef _WIN32
+  if (archive_read_open_filename_w(a, aArchiveFile.wc_str(), 10240) !=
+      ARCHIVE_OK) {
+    wxLogError(wxString::Format("Chartdldr_pi: LibArchive open error: %s",
+                                archive_error_string(a)));
+    goto cleanup;
   }
+#else
+  {
+    if (archive_read_open_filename(a, aArchiveFile.mb_str().data(), 10240) !=
+        ARCHIVE_OK) {
+      wxLogError(wxString::Format("Chartdldr_pi: LibArchive open error: %s",
+                                  archive_error_string(a)));
+      goto cleanup;
+    }
+  }
+#endif
+
   for (;;) {
-    r = archive_read_next_header(a, &entry);
-    if (r == ARCHIVE_EOF) break;
-    if (r < ARCHIVE_OK)
-      // fprintf(stderr, "%s\n", archive_error_string(a));
+    struct archive_entry *entry = NULL;
+    int r = archive_read_next_header(a, &entry);
+
+    if (r == ARCHIVE_EOF) {
+      break;
+    }
+
+    if (r < ARCHIVE_OK) {
       wxLogError(wxString::Format("Chartdldr_pi: LibArchive error: %s",
                                   archive_error_string(a)));
-    if (r < ARCHIVE_WARN) return false;
+    }
+    if (r < ARCHIVE_WARN) {
+      goto cleanup;
+    }
+
+    wxString entryName;
+#ifdef _WIN32
+    const char *rawUtf8 = archive_entry_pathname_utf8(entry);
+    if (rawUtf8 && *rawUtf8) {
+      entryName = wxString::FromUTF8(rawUtf8);
+    } else {
+      const wchar_t *rawWide = archive_entry_pathname_w(entry);
+      if (rawWide && *rawWide) entryName = wxString(rawWide);
+    }
+#else
+    const char *rawPath = archive_entry_pathname(entry);
+    if (rawPath && *rawPath) {
+      entryName = wxString::FromUTF8(rawPath);
+      if (entryName.IsEmpty()) {
+        entryName = wxString::From8BitData(rawPath);
+      }
+    }
+#endif
+
+    if (entryName.IsEmpty()) {
+      wxLogWarning(_T("Skipping archive entry with empty pathname."));
+      continue;
+    }
+
     if (aStripPath) {
-      const char *currentFile = archive_entry_pathname(entry);
-      std::string fullOutputPath = currentFile;
-      size_t sep = fullOutputPath.find_last_of("\\/");
-      if (sep != std::string::npos)
-        fullOutputPath =
-            fullOutputPath.substr(sep + 1, fullOutputPath.size() - sep - 1);
-      archive_entry_set_pathname(entry, fullOutputPath.c_str());
+      wxFileName stripped(entryName);
+      entryName = stripped.GetFullName();
+
+      if (entryName.IsEmpty()) {
+        continue;
+      }
     }
+
+    wxString outputPath = entryName;
     if (aTargetDir != wxEmptyString) {
-      const char *currentFile = archive_entry_pathname(entry);
-      const std::string fullOutputPath =
-          aTargetDir.ToStdString() +
-          wxString(wxFileName::GetPathSeparator()).ToStdString() + currentFile;
-      archive_entry_set_pathname(entry, fullOutputPath.c_str());
+      if (!IsPathInsideDir(aTargetDir, entryName, outputPath)) {
+        wxLogWarning(
+            _T("Skipping archive entry with path traversal attempt: ") +
+            entryName);
+        continue;
+      }
     }
+
+#ifdef _WIN32
+    archive_entry_copy_pathname_w(entry, outputPath.wc_str());
+#else
+    archive_entry_copy_pathname(entry, outputPath.fn_str().data());
+#endif
+
+    if (aMTime.IsValid()) {
+      archive_entry_set_mtime(entry, static_cast<time_t>(aMTime.GetTicks()), 0);
+    }
+
     r = archive_write_header(ext, entry);
-    if (r < ARCHIVE_OK)
-      // fprintf(stderr, "%s\n", archive_error_string(ext));
+    if (r < ARCHIVE_OK) {
       wxLogError(wxString::Format("Chartdldr_pi: LibArchive error: %s",
                                   archive_error_string(ext)));
-    else if (archive_entry_size(entry) > 0) {
+    }
+    if (r < ARCHIVE_WARN) {
+      goto cleanup;
+    }
+
+    if (archive_entry_size(entry) > 0) {
       r = copy_data(a, ext);
-      if (r < ARCHIVE_OK)
-        // fprintf(stderr, "%s\n", archive_error_string(ext));
+      if (r < ARCHIVE_OK) {
         wxLogError(wxString::Format("Chartdldr_pi: LibArchive error: %s",
                                     archive_error_string(ext)));
-      if (r < ARCHIVE_WARN) return false;
+      }
+      if (r < ARCHIVE_WARN) {
+        goto cleanup;
+      }
     }
-    r = archive_write_finish_entry(ext);
 
-    if (r < ARCHIVE_OK)
-      // fprintf(stderr, "%s\n", archive_error_string(ext));
+    r = archive_write_finish_entry(ext);
+    if (r < ARCHIVE_OK) {
       wxLogError(wxString::Format("Chartdldr_pi: LibArchive error: %s",
                                   archive_error_string(ext)));
-    if (r < ARCHIVE_WARN) return false;
+    }
+    if (r < ARCHIVE_WARN) {
+      goto cleanup;
+    }
   }
-  archive_read_close(a);
-  // archive_read_free(a);
-  archive_write_close(ext);
-  // archive_write_free(ext);
 
-  if (aRemoveArchive) wxRemoveFile(aArchiveFile);
-  return true;
+  ok = true;
+
+cleanup:
+  if (a) {
+    archive_read_close(a);
+    archive_read_free(a);
+  }
+  if (ext) {
+    archive_write_close(ext);
+    archive_write_free(ext);
+  }
+
+  if (ok && aRemoveArchive) wxRemoveFile(aArchiveFile);
+  return ok;
 
 #else
-
-  return rv;
-
-#endif  // Android
-}
+  wxUnusedVar(aArchiveFile);
+  wxUnusedVar(aTargetDir);
+  wxUnusedVar(aStripPath);
+  wxUnusedVar(aMTime);
+  wxUnusedVar(aRemoveArchive);
+  return false;
 #endif
+}
+#endif  // DLDR_USE_LIBARCHIVE
 
 #if defined(CHARTDLDR_RAR_UNARR) || !defined(DLDR_USE_LIBARCHIVE)
 ar_archive *ar_open_any_archive(ar_stream *stream, const char *fileext) {
@@ -1932,6 +2076,7 @@ bool chartdldr_pi::ExtractUnarrFiles(const wxString &aRarFile,
   while (ar_parse_entry(ar)) {
     size_t size = ar_entry_get_size(ar);
     wxString name = ar_entry_get_name(ar);
+    wxString originalName = name;  // Save for logging
     if (aStripPath) {
       wxFileName fn(name);
       /* We can completly replace the entry path */
@@ -1940,11 +2085,19 @@ bool chartdldr_pi::ExtractUnarrFiles(const wxString &aRarFile,
       /* Or only remove the first dir (eg. ENC_ROOT) */
       if (fn.GetDirCount() > 0) {
         fn.RemoveDir(0);
-        name = aTargetDir + wxFileName::GetPathSeparator() + fn.GetFullPath();
-      } else {
-        name = aTargetDir + wxFileName::GetPathSeparator() + name;
+        name = fn.GetFullPath();
       }
     }
+
+    // Path traversal protection: validate path stays inside target directory
+    wxString fullPath;
+    if (!IsPathInsideDir(aTargetDir, name, fullPath)) {
+      wxLogWarning(_T("Skipping archive entry with path traversal attempt: ") +
+                   originalName);
+      continue;
+    }
+    name = fullPath;
+
     wxFileName fn(name);
     if (!fn.DirExists()) {
       if (!wxFileName::Mkdir(fn.GetPath())) {
@@ -2021,6 +2174,7 @@ bool chartdldr_pi::ExtractZipFiles(const wxString &aZipFile,
     while (entry.reset(zip.GetNextEntry()), entry.get() != NULL) {
       // access meta-data
       wxString name = entry->GetName();
+      wxString fullPath;
       if (aStripPath) {
         wxFileName fn(name);
         /* We can completly replace the entry path */
@@ -2028,10 +2182,16 @@ bool chartdldr_pi::ExtractZipFiles(const wxString &aZipFile,
         // name = fn.GetFullPath();
         /* Or only remove the first dir (eg. ENC_ROOT) */
         if (fn.GetDirCount() > 0) fn.RemoveDir(0);
-        name = aTargetDir + wxFileName::GetPathSeparator() + fn.GetFullPath();
-      } else {
-        name = aTargetDir + wxFileName::GetPathSeparator() + name;
+        name = fn.GetFullPath();
       }
+
+      // Path traversal protection: validate path stays inside target directory
+      if (!IsPathInsideDir(aTargetDir, name, fullPath)) {
+        wxLogWarning(_T("Skipping zip entry with path traversal attempt: ") +
+                     entry->GetName());
+        continue;
+      }
+      name = fullPath;
 
       // read 'zip' to access the entry's data
       if (entry->IsDir()) {

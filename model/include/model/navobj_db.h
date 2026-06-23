@@ -12,14 +12,13 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
+ *   along with this program; if not, see <https://www.gnu.org/licenses/>. *
  **************************************************************************/
 
 /**
  * \file
- * Class NavObj_dB.
+ *
+ * MySQL based storage for routes, tracks, etc.
  */
 
 #ifndef _NAVOBJ_DB_H__
@@ -46,6 +45,7 @@ public:
   // Tracks
   bool LoadAllTracks();
   bool InsertTrack(Track *track);
+  bool UpdateTrack(Track *track);
   bool AddTrackPoint(Track *track, TrackPoint *point);
   bool UpdateDBTrackAttributes(Track *track);
   bool DeleteTrack(Track *track);
@@ -69,6 +69,10 @@ public:
 
   // Legacy navobj import
   bool ImportLegacyNavobj(wxFrame *frame);
+
+  // Maintainance
+  bool Backup(wxString fileName);
+  bool FullSchemaMigrate(wxFrame *frame);
 
 private:
   NavObj_dB();

@@ -13,13 +13,12 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
+ *   along with this program; if not, see <https://www.gnu.org/licenses/>. *
  **************************************************************************/
 
 /**
  * \file
+ *
  * Low level code to load plugins from disk, notably the PluginLoader class
  */
 
@@ -187,8 +186,7 @@ public:
   EventVar evt_pluglist_change;
 
   /**
-   * Carries a malloc'ed read-only copy of a PlugInContainer owned: by
-   * listener.
+   * Notified with plugin name when it's deactivated.
    */
   EventVar evt_deactivate_plugin;
 
@@ -213,6 +211,11 @@ public:
 
   const wxBitmap* GetPluginDefaultIcon();
   void SetPluginDefaultIcon(const wxBitmap* bitmap);
+
+  /** Callback invoked in late stage on activating a plugin. */
+  void SetOnActivateCb(std::function<void(const PlugInContainer*)> cb) {
+    m_on_activate_cb = cb;
+  }
 
   /** Callback invoked in late stage on deactivating a plugin. */
   void SetOnDeactivateCb(std::function<void(const PlugInContainer*)> cb) {
@@ -301,6 +304,7 @@ private:
 #endif
 
   const wxBitmap* m_default_plugin_icon;
+  std::function<void(const PlugInContainer*)> m_on_activate_cb;
   std::function<void(const PlugInContainer*)> m_on_deactivate_cb;
 
   std::vector<LoadError> load_errors;

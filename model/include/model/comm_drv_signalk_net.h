@@ -1,10 +1,4 @@
 /***************************************************************************
- *
- * Project:  OpenCPN
- * Purpose:  PlugIn Manager Object
- * Author:   David Register
- *
- ***************************************************************************
  *   Copyright (C) 2022 by David S. Register                               *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -18,105 +12,93 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
+ *   along with this program; if not, see <https://www.gnu.org/licenses/>. *
  **************************************************************************/
+
+/**
+ * \file
+ *
+ * SignalK IP network driver
+ */
+
 // Originally by balp on 2018-07-28.
 
-#ifndef _SIGNALK_NET_H
-#define _SIGNALK_NET_H
+#ifndef SigNaLK_nEt_h_
+#define SigNaLK_nEt_h_
 
-#include <atomic>
+#include <memory>
 #include <string>
+#include <thread>
 
 #include <wx/wxprec.h>
 
 #ifndef WX_PRECOMP
 #include <wx/wx.h>
-#endif  // precompiled header
+#endif
 
-#include <wx/datetime.h>
-#include <wx/socket.h>
+#include <wx/event.h>
+#include <wx/string.h>
+#include <wx/timer.h>
 
-#include "rapidjson/fwd.h"
 #include "model/conn_params.h"
 #include "model/comm_drv_signalk.h"
 #include "comm_drv_stats.h"
 
-#define SIGNALK_SOCKET_ID 5011
-#define N_DOG_TIMEOUT 5             // seconds
-#define N_DOG_TIMEOUT_RECONNECT 10  // seconds
-
-static const double ms_to_knot_factor = 1.9438444924406;
-
-class WebSocketThread;
-class OCPN_WebSocketMessageHandler;
-class CommDriverSignalKNetEvent;
+constexpr int kDogTimeoutSeconds = 5;
 
 class CommDriverSignalKNet : public CommDriverSignalK,
                              public wxEvtHandler,
                              public DriverStatsProvider {
 public:
-  CommDriverSignalKNet(const ConnectionParams *params, DriverListener &l);
-  virtual ~CommDriverSignalKNet();
+  CommDriverSignalKNet(const ConnectionParams* params, DriverListener& l);
+  ~CommDriverSignalKNet() override;
 
-  void Open();
-  void Close();
-  static bool DiscoverSKServer(wxString &ip, int &port, int tSec);
-  static bool DiscoverSKServer(std::string serviceIdent, wxString &ip,
-                               int &port, int tSec);
-
-  void SetThreadRunning(bool active) { m_threadActive = active; }
-  void SetThreadRunFlag(int run) { m_Thread_run_flag = run; }
-  void ResetWatchdog() { m_dog_value = N_DOG_TIMEOUT; }
-  void SetWatchdog(int n) { m_dog_value = n; }
-
-  void handle_SK_sentence(CommDriverSignalKNetEvent &event);
-  void handleUpdate(const rapidjson::Value &update);
-  void updateItem(const rapidjson::Value &item, wxString &sfixtime);
-
-  void OpenWebSocket();
-  void CloseWebSocket();
-  bool IsThreadRunning() { return m_threadActive == 1; }
+  /** \internal */
+  class InputEvt;
 
   DriverStats GetDriverStats() const override;
 
-  std::string m_self;
-  std::string m_context;
-
-  std::atomic_int m_Thread_run_flag;
-  std::atomic_int m_threadActive;
-
-  ConnectionParams m_params;
-  DriverListener &m_listener;
-
+  /** ix::initIXNetSystem wrapper */
   static void initIXNetSystem();
 
+  /** ix::uninitIXNetSystem wrapper */
   static void uninitIXNetSystem();
 
+  /**
+   * Scan for a SignalK server on local network using mDNS.
+   *
+   * @param service_ident   mDNS service to scan for
+   * @param ip On successful return found server IP address
+   * @param port On successful return found server IP port.
+   * @param tSec Scan timeout (seconds).
+   * @return true if a server is found, else false.
+   */
+  static bool DiscoverSkServer(const std::string& service_ident, wxString& ip,
+                               int& port, int tSec);
+
 private:
-  wxIPV4address m_addr;
-  wxIPV4address GetAddr() const { return m_addr; }
+  class IoThread;
 
+  ConnectionParams m_params;
+  DriverListener& m_listener;
   int m_dog_value;
-
   wxTimer m_socketread_watchdog_timer;
-  wxTimer *GetSocketThreadWatchdogTimer() {
-    return &m_socketread_watchdog_timer;
-  }
-
-  OCPN_WebSocketMessageHandler *m_eventHandler;
-  bool m_useWebSocket;
-
-  bool m_bGPSValid_SK;
-
-  bool SetOutputSocketOptions(wxSocketBase *sock);
-
-  std::string m_token;
-  WebSocketThread *m_wsThread;
+  std::thread m_std_thread;
+  std::unique_ptr<IoThread> m_io_thread;
   StatsTimer m_stats_timer;
   DriverStats m_driver_stats;
+  std::string m_context;
+  std::string m_self;
+
+  void Open();
+  void Close();
+  void OpenWebSocket();
+  void CloseWebSocket();
+
+  void HandleSkSentence(const InputEvt& event);
+
+  void ResetWatchdog() { m_dog_value = kDogTimeoutSeconds; }
+  void SetWatchdog(int n) { m_dog_value = n; }
 };
 
-#endif  // _SIGNALK_NET_H
+#endif  // SigNaLK_nEt_h_

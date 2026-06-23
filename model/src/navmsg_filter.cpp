@@ -1,4 +1,3 @@
-
 /***************************************************************************
  *   Copyright (C) 2025  Alec Leamas                                       *
  *                                                                         *
@@ -13,14 +12,13 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
+ *   along with this program; if not, see <https://www.gnu.org/licenses/>. *
  **************************************************************************/
 
 /**
  * \file
- * Implement monitor_filter.h
+ *
+ * Implement navmsg_filter.h -- Data Monitor filter definitions.
  */
 
 #include <fstream>
@@ -63,7 +61,7 @@ Accepted NavmsgStatus::StringToAccepted(const std::string& s) {
 // clang-format: off
 static const std::unordered_map<const char*, Direction> dir_map = {
     {"input", Direction::kInput},
-    {"received", Direction::kReceived},
+    {"handled", Direction::kHandled},
     {"output", Direction::kOutput},
     {"internal", Direction::kInternal},
     {"none", NavmsgStatus::Direction::kNone}};
@@ -81,6 +79,10 @@ static const std::unordered_map<const char*, Accepted> acceptmap = {
     {"None", Accepted::kNone}};  // clang-format: on
 
 static NavmsgStatus::Direction StringToDirection(const std::string s) {
+  // Transition from 5.12 beta which used "received" isf "handled"; to
+  // be removed
+  if (s == "received") return NavmsgStatus::Direction::kHandled;
+
   for (auto kv : dir_map)
     if (kv.first == s) return kv.second;
   return NavmsgStatus::Direction::kNone;

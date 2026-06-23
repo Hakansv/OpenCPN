@@ -1,10 +1,4 @@
-/***************************************************************************
- *
- * Project:  OpenCPN
- * Purpose:  Notification Manager GUI
- * Author:   David Register
- *
- ***************************************************************************
+/**************************************************************************
  *   Copyright (C) 2025 by David S. Register                               *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -18,32 +12,53 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
+ *   along with this program; if not, see <https://www.gnu.org/licenses/>. *
  **************************************************************************/
+
+/**
+ * \file
+ *
+ * Implement notification_manager_gui.h  -- Notification Manager GUI
+ */
+
 #include <cmath>
 #include <memory>
 #include <vector>
+
+#include <wx/arrstr.h>
+#include <wx/colour.h>
+#include <wx/datetime.h>
+#include <wx/filename.h>
+#include <wx/image.h>
+#include <wx/sizer.h>
 #include <wx/statline.h>
+#include <wx/stattext.h>
+#include <wx/string.h>
 #include <wx/textwrapper.h>
 
 #include "notification_manager_gui.h"
-#include "model/notification_manager.h"
-#include "model/notification.h"
-#include "observable_globvar.h"
-#include "color_handler.h"
-#include "styles.h"
-#include "OCPNPlatform.h"
-#include "chcanv.h"
-#include "glChartCanvas.h"
-#include "gui_lib.h"
-#include "svg_utils.h"
-#include "model/datetime.h"
-#include "navutil.h"
 
-extern OCPNPlatform* g_Platform;
-extern ocpnStyle::StyleManager* g_StyleManager;
+#include "model/datetime.h"
+#include "model/notification.h"
+#include "model/notification_manager.h"
+#include "model/svg_utils.h"
+
+#include "chcanv.h"
+#include "color_handler.h"
+#include "gl_chart_canvas.h"
+#include "gui_lib.h"
+#include "navutil.h"
+#include "observable_globvar.h"
+#include "ocpn_platform.h"
+#include "styles.h"
+
+// This window style value has slipped from the headers, but is useful
+//  on MSW...
+#ifdef __WXMSW__
+#define wxFULL_PAINT_ON_RESIZE 0x00010000
+#else
+#define wxFULL_PAINT_ON_RESIZE 0
+#endif
 
 class PanelHardBreakWrapper : public wxTextWrapper {
 public:
@@ -79,7 +94,7 @@ END_EVENT_TABLE()
 NotificationPanel::NotificationPanel(
     wxPanel* parent, wxWindowID id, const wxPoint& pos, const wxSize& size,
     std::shared_ptr<Notification> _notification, int _repeat_count)
-    : wxPanel(parent, id, pos, size, wxBORDER_NONE),
+    : wxPanel(parent, id, pos, size, wxBORDER_NONE | wxFULL_PAINT_ON_RESIZE),
       repeat_count(_repeat_count) {
   notification = _notification;
 
@@ -87,7 +102,7 @@ NotificationPanel::NotificationPanel(
   SetSizer(topSizer);
 
   wxBoxSizer* itemBoxSizer01 = new wxBoxSizer(wxHORIZONTAL);
-  topSizer->Add(itemBoxSizer01, 0, wxEXPAND);
+  topSizer->Add(itemBoxSizer01, 1, wxEXPAND);
 
   double iconSize = GetCharWidth() * 3;
   double dpi_mult = g_Platform->GetDisplayDIPMult(this);
@@ -140,12 +155,12 @@ NotificationPanel::NotificationPanel(
                       /*wxEXPAND|*/ wxALL | wxALIGN_CENTER_VERTICAL, 5);
 
   PanelHardBreakWrapper wrapper(this, notification->GetMessage(),
-                                GetSize().x * 60 / 100);
+                                GetSize().x * 50 / 100);
 
   auto textbox = new wxStaticText(this, wxID_ANY, wrapper.GetWrapped());
   itemBoxSizer01->Add(textbox, 0, wxALIGN_CENTER_VERTICAL | wxALL, 10);
 
-  itemBoxSizer01->AddStretchSpacer(1);
+  itemBoxSizer01->AddStretchSpacer();
 
   // Ack button
   m_ack_button = new wxButton(this, wxID_OK);
@@ -178,7 +193,7 @@ void NotificationPanel::OnPaint(wxPaintEvent& event) {
   dc.SetBrush(b);
   dc.SetPen(wxPen(box_border, penWidth));
 
-  dc.DrawRoundedRectangle(5, 5, GetSize().x - 10, GetSize().y - 10, 5);
+  dc.DrawRoundedRectangle(5, 2, GetSize().x - 10, GetSize().y - 4, 5);
 }
 
 NotificationListPanel::NotificationListPanel(wxWindow* parent, wxWindowID id,
@@ -373,7 +388,7 @@ NotificationButton::NotificationButton(ChartCanvas* parent) {
   m_parent = parent;
 
   ocpnStyle::Style* style = g_StyleManager->GetCurrentStyle();
-  _img_gpsRed = style->GetIcon(_T("gpsRed"));
+  _img_gpsRed = style->GetIcon("gpsRed");
 
   m_pStatBoxToolStaticBmp = NULL;
 
@@ -506,7 +521,7 @@ void NotificationButton::SetColorScheme(ColorScheme cs) {
   UpdateStatus(true);
 }
 
-wxRect NotificationButton::GetLogicalRect(void) const {
+wxRect NotificationButton::GetLogicalRect() const {
 #ifdef wxHAS_DPI_INDEPENDENT_PIXELS
 #if wxCHECK_VERSION(3, 1, 6)
   wxRect logicalRect = wxRect(m_parent->FromPhys(m_rect.GetPosition()),
@@ -646,11 +661,11 @@ void NotificationButton::CreateBmp(bool newColorScheme) {
 
   wxMemoryDC mdc;
   mdc.SelectObject(m_StatBmp);
-  mdc.SetBackground(wxBrush(GetGlobalColor(_T("COMP1")), wxBRUSHSTYLE_SOLID));
+  mdc.SetBackground(wxBrush(GetGlobalColor("COMP1"), wxBRUSHSTYLE_SOLID));
   mdc.Clear();
 
-  mdc.SetPen(wxPen(GetGlobalColor(_T("UITX1")), 1));
-  mdc.SetBrush(wxBrush(GetGlobalColor(_T("UITX1")), wxBRUSHSTYLE_TRANSPARENT));
+  mdc.SetPen(wxPen(GetGlobalColor("UITX1"), 1));
+  mdc.SetBrush(wxBrush(GetGlobalColor("UITX1"), wxBRUSHSTYLE_TRANSPARENT));
 
   if (!style->marginsInvisible)
     mdc.DrawRoundedRectangle(0, 0, m_StatBmp.GetWidth(), m_StatBmp.GetHeight(),

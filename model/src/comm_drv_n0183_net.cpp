@@ -13,15 +13,17 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
+ *   along with this program; if not, see <https://www.gnu.org/licenses/>. *
  **************************************************************************/
 
 /**
  *  \file
- *  Implement comm_drv_n0183_net.h.
+ *
+ *  Implement comm_drv_n0183_net.h -- Network IP Nmea0183 driver
  */
+
+#include <ctime>
+#include <deque>
 
 #ifdef __MSVC__
 #include "winsock2.h"
@@ -29,18 +31,14 @@
 #include <ws2tcpip.h>
 #endif
 
-#include <wx/wxprec.h>
-
-#ifndef WX_PRECOMP
-#include <wx/wx.h>
-#endif
-
-#include <ctime>
-#include <deque>
-
-#ifndef __WXMSW__
+#ifndef _WIN32
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
+#endif
+
+#include <wx/wxprec.h>
+#ifndef WX_PRECOMP
+#include <wx/wx.h>
 #endif
 
 #include <wx/datetime.h>
@@ -151,22 +149,8 @@ CommDriverN0183Net::~CommDriverN0183Net() { Close(); }
 
 void CommDriverN0183Net::HandleN0183Msg(const std::string& sentence) {
   // Sanity check
-  if ((sentence[0] == '$' || sentence[0] == '!') && sentence.size() > 5) {
-    m_driver_stats.rx_count += sentence.size();
-    std::string identifier;
-    // We notify based on full message, including the Talker ID
-    identifier = sentence.substr(1, 5);
-
-    // notify message listener and also "ALL" N0183 messages, to support plugin
-    // API using original talker id
-    auto msg =
-        std::make_shared<const Nmea0183Msg>(identifier, sentence, GetAddress());
-    auto msg_all = std::make_shared<const Nmea0183Msg>(*msg, "ALL");
-
-    if (m_params.SentencePassesFilter(sentence, FILTER_INPUT))
-      m_listener.Notify(std::move(msg));
-    m_listener.Notify(std::move(msg_all));
-  }
+  m_driver_stats.rx_count += sentence.size();
+  SendToListener(sentence, m_listener, m_params);
 }
 
 void CommDriverN0183Net::Open() {
@@ -509,6 +493,7 @@ bool CommDriverN0183Net::SendSentenceNetwork(const wxString& payload) {
     case TCP:
       if (GetSock() && GetSock()->IsOk()) {
         m_sock->Write(payload.mb_str(), strlen(payload.mb_str()));
+        m_dog_value = N_DOG_TIMEOUT;  // feed the dog
         if (GetSock()->Error()) {
           if (m_socket_server) {
             m_sock->Destroy();
@@ -533,6 +518,7 @@ bool CommDriverN0183Net::SendSentenceNetwork(const wxString& payload) {
       udp_socket = dynamic_cast<wxDatagramSocket*>(m_tsock);
       if (udp_socket && udp_socket->IsOk()) {
         udp_socket->SendTo(m_addr, payload.mb_str(), payload.size());
+        m_dog_value = N_DOG_TIMEOUT;  // feed the dog
         if (udp_socket->Error()) ret = false;
       } else {
         ret = false;
@@ -551,6 +537,7 @@ bool CommDriverN0183Net::SendSentenceNetwork(const wxString& payload) {
 
 void CommDriverN0183Net::Close() {
   MESSAGE_LOG << "Closing NMEA NetworkDataStream " << m_params.NetworkPort;
+  m_stats_timer.Stop();
   //    Kill off the TCP Socket if alive
   if (m_sock) {
     if (m_is_multicast)

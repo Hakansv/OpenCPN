@@ -51,6 +51,7 @@ set(
   ${MODEL_HDR_DIR}/comm_drv_factory.h
   ${MODEL_HDR_DIR}/comm_drv_file.h
   ${MODEL_HDR_DIR}/comm_drv_internal.h
+  ${MODEL_HDR_DIR}/comm_drv_loopback.h
   ${MODEL_HDR_DIR}/comm_drv_n0183_android_bt.h
   ${MODEL_HDR_DIR}/comm_drv_n0183_android_int.h
   ${MODEL_HDR_DIR}/comm_drv_n0183.h
@@ -83,6 +84,7 @@ set(
   ${MODEL_HDR_DIR}/geodesic.h
   ${MODEL_HDR_DIR}/georef.h
   ${MODEL_HDR_DIR}/gpx_document.h
+  ${MODEL_HDR_DIR}/gui_vars.h
   ${MODEL_HDR_DIR}/hyperlink.h
   ${MODEL_HDR_DIR}/idents.h
   ${MODEL_HDR_DIR}/instance_check.h
@@ -99,6 +101,8 @@ set(
   ${MODEL_HDR_DIR}/nav_object_database.h
   ${MODEL_HDR_DIR}/navmsg_filter.h
   ${MODEL_HDR_DIR}/navobj_db.h
+  ${MODEL_HDR_DIR}/navobj_db_migrator.h
+  ${MODEL_HDR_DIR}/navobj_db_util.h
   ${MODEL_HDR_DIR}/navutil_base.h
   ${MODEL_HDR_DIR}/nmea_log.h
   ${MODEL_HDR_DIR}/nmea_ctx_factory.h
@@ -128,13 +132,13 @@ set(
   ${MODEL_HDR_DIR}/semantic_vers.h
   ${MODEL_HDR_DIR}/serial_io.h
   ${MODEL_HDR_DIR}/ser_ports.h
+  ${MODEL_HDR_DIR}/std_icon.h
+  ${MODEL_HDR_DIR}/std_instance_chk.h
+  ${MODEL_HDR_DIR}/svg_utils.h
   ${MODEL_HDR_DIR}/sys_events.h
   ${MODEL_HDR_DIR}/thread_ctrl.h
   ${MODEL_HDR_DIR}/track.h
   ${MODEL_HDR_DIR}/usb_watch_daemon.h
-  ${MODEL_HDR_DIR}/wait_continue.h
-  ${MODEL_HDR_DIR}/wx28compat.h
-  ${MODEL_HDR_DIR}/wx_instance_chk.h
 )
 
 set(MODEL_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -162,6 +166,7 @@ set(SRC
   ${MODEL_SRC_DIR}/comm_drv_factory.cpp
   ${MODEL_SRC_DIR}/comm_drv_file.cpp
   ${MODEL_SRC_DIR}/comm_drv_internal.cpp
+  ${MODEL_SRC_DIR}/comm_drv_loopback.cpp
   ${MODEL_SRC_DIR}/comm_drv_n0183.cpp
   ${MODEL_SRC_DIR}/comm_drv_n0183_net.cpp
   ${MODEL_SRC_DIR}/comm_drv_n0183_serial.cpp
@@ -191,8 +196,8 @@ set(SRC
   ${MODEL_SRC_DIR}/geodesic.cpp
   ${MODEL_SRC_DIR}/georef.cpp
   ${MODEL_SRC_DIR}/gpx_document.cpp
+  ${MODEL_SRC_DIR}/gui_vars.cpp
   ${MODEL_SRC_DIR}/hyperlink.cpp
-  ${MODEL_SRC_DIR}/instance_handler.cpp
   ${MODEL_SRC_DIR}/ipc_api.cpp
   ${MODEL_SRC_DIR}/ipc_factories.cpp
   ${MODEL_SRC_DIR}/local_api.cpp
@@ -203,6 +208,8 @@ set(SRC
   ${MODEL_SRC_DIR}/multiplexer.cpp
   ${MODEL_SRC_DIR}/nav_object_database.cpp
   ${MODEL_SRC_DIR}/navobj_db.cpp
+  ${MODEL_SRC_DIR}/navobj_db_migrator.cpp
+  ${MODEL_SRC_DIR}/navobj_db_util.cpp
   ${MODEL_SRC_DIR}/navmsg_filter.cpp
   ${MODEL_SRC_DIR}/navutil_base.cpp
   ${MODEL_SRC_DIR}/notification.cpp
@@ -230,16 +237,13 @@ set(SRC
   ${MODEL_SRC_DIR}/select_item.cpp
   ${MODEL_SRC_DIR}/semantic_vers.cpp
   ${MODEL_SRC_DIR}/ser_ports.cpp
+  ${MODEL_SRC_DIR}/std_icon.cpp
+  ${MODEL_SRC_DIR}/std_instance_chk.cpp
+  ${MODEL_SRC_DIR}/svg_utils.cpp
   ${MODEL_SRC_DIR}/thread_ctrl.cpp
   ${MODEL_SRC_DIR}/track.cpp
   ${MODEL_SRC_DIR}/usb_watch_factory.cpp
-  ${MODEL_SRC_DIR}/wx_instance_chk.cpp
 )
-
-if (NOT MSVC)
-  list(APPEND HDRS ${MODEL_HDR_DIR}/std_instance_chk.h )
-  list(APPEND SRC ${MODEL_SRC_DIR}/std_instance_chk.cpp)
-endif ()
 
 if (QT_ANDROID)
   list(APPEND HDRS ${MODEL_SRC_DIR}/android_serial_io.cpp)
@@ -336,6 +340,9 @@ if (OCPN_USE_CURL)
     else ()
       message(STATUS "Building with bundled wxcurl")
       include("Curl")
+      set(WXCURL_ABI ${PKG_TARGET} CACHE INTERNAL "")
+      set(WXCURL_ABI_VERSION ${PKG_TARGET_VERSION} CACHE INTERNAL "")
+      set(WXCURL_OCPN_VERSION ${PACKAGE_VERSION} CACHE INTERNAL "")
       add_subdirectory("${CMAKE_SOURCE_DIR}/libs/wxcurl" ${CMAKE_BINARY_DIR}/curl2)
       target_link_libraries(_OCPN_MODEL INTERFACE ocpn::wxcurl)
     endif ()
@@ -486,6 +493,9 @@ target_link_libraries(
     ocpn::wxservdisc
     pico_sha2
 )
+if (TARGET ocpn::wxsvg)
+  target_link_libraries(_OCPN_MODEL INTERFACE ocpn::wxsvg)
+endif ()
 
 if (OCPN_USE_NEWSERIAL)
   target_link_libraries(_OCPN_MODEL INTERFACE ocpn::serial)

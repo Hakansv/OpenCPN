@@ -20,6 +20,14 @@ The codebase evolves, and what was once standard may now be outdated. Refer to t
 
 === C++ Practices
 
+==== General
+
+Use modern C++ idioms in preference to old-style C. The ["C++ Core Guidelines"](https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines)
+by Bjarne Stroustrup, the creator of C++, and others, provides a solid set of best practises. 
+[Clang-tidy](https://clang.llvm.org/extra/clang-tidy/checks/list.html) provides `cppcoreguidelines-*` rulesets, 
+and MSVC provides [CppCoreCheck](https://learn.microsoft.com/en-us/cpp/code-quality/using-the-cpp-core-guidelines-checkers?view=msvc-170) 
+tools to automatically check compliance. 
+
 Use C++ standard library components over wxWidgets and old style C equivalents:
 
 [options="header"]
@@ -128,6 +136,22 @@ and then, in the project top directory
 
 which will pick up the configuration from _.pre-commit-config.yaml_ which is
 part of the project.
+
+=== Using pre-commit on windows
+Using https://pre-commit.com/  on windows requires some extra handling, most
+of which related to the underlying python installation. One route known to 
+occasionally work:
+
+. Install python as administrator on the command line using chocolatey: 
+   `choco install python`
+. Start _Windows Settings_ | _Apps_.
+. Scroll to the _Python_ app, click _Modify_
+. In python app settings, click _Modify_. 
+. Check the _Py Launcher checkbox_, click _Next_
+. Click _Install_.
+. Install pre-commit on the command line using `py -m pip install pre-commit`.
+. On the command line in the plugin directory activate pre-commit  in the
+  project using `py -m pre_commit install`
 
 === CMake
 

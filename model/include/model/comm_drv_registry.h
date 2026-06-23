@@ -13,18 +13,17 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
+ *   along with this program; if not, see <https://www.gnu.org/licenses/>. *
  **************************************************************************/
 
 /**
  * \file
+ *
  * Driver registration container, a singleton.
  */
 
-#ifndef _COMMDRIVERREGISTRY_H__
-#define _COMMDRIVERREGISTRY_H__
+#ifndef COMMDRIVERREGISTRY_H_
+#define COMMDRIVERREGISTRY_H_
 
 #include "model/comm_driver.h"
 #include "observable_evtvar.h"
@@ -32,10 +31,15 @@
 using DriverPtr = std::unique_ptr<AbstractCommDriver>;
 
 /**
- * The global driver registry, a singleton. Drivers register here when
- * activated, transport layer finds them.
+ * The global driver registry, a singleton. Drivers are registered here
+ * when activated, transport layer finds them.
  *
- * Also used as exchange point for messages for USB devices hotplug events.
+ * Also used as exchange point for some driver related events>.
+ *
+ * This interface is not synchronized and must only be used from main
+ * thread. The exception is the various EventVar which can be notified
+ * from driver threads. As usual, listening to these events must be done
+ * in main thread.
  */
 class CommDriverRegistry final {
 public:
@@ -66,6 +70,12 @@ public:
   EventVar evt_driver_stats;
 
   /**
+   * Updated by drivers with a shared Navmsg pointer when receiving
+   * data otherwise dropped, for example garbage or filtered.
+   */
+  EventVar evt_dropped_msg;
+
+  /**
    *  Notified for messages from drivers. The generated event contains:
    *  - A wxLogLevel stored as an int.
    *  - A string is with a prefix from originating driver class name e. g.,
@@ -93,4 +103,4 @@ DriverPtr& FindDriver(const std::vector<DriverPtr>& drivers,
                       const std::string& iface,
                       const NavAddr::Bus _bus = NavAddr::Bus::Undef);
 
-#endif  // guard
+#endif  // COMMDRIVERREGISTRY_H_

@@ -12,14 +12,13 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
+ *   along with this program; if not, see <https://www.gnu.org/licenses/>. *
  **************************************************************************/
 
 /**
  * \file
- * Implement periodic_timer.h
+ *
+ * Implement periodic_timer.h -- pure C++17 periodic timer
  */
 
 #include "model/periodic_timer.h"
@@ -29,7 +28,16 @@ PeriodicTimer::PeriodicTimer(std::chrono::milliseconds interval)
       m_run_sts(1),
       m_thread(std::thread([&] { Worker(); })) {}
 
-PeriodicTimer::~PeriodicTimer() { Stop(); }
+PeriodicTimer::~PeriodicTimer() {
+  if (m_run_sts == 1) {
+    Stop();
+  } else if (m_run_sts == 0) {
+    // ongoing stop() operation, wait until completed
+    std::unique_lock lock(m_mutex);
+    m_cond_var.wait_for(lock, m_interval, [&] { return m_run_sts < 0; });
+  }
+  if (m_thread.joinable()) m_thread.join();
+}
 
 void PeriodicTimer::Stop() {
   m_run_sts = 0;
@@ -37,7 +45,6 @@ void PeriodicTimer::Stop() {
   std::unique_lock lock(m_mutex);
   m_cond_var.wait_for(lock, m_interval, [&] { return m_run_sts < 0; });
   lock.unlock();
-  if (m_thread.joinable()) m_thread.join();
 }
 
 void PeriodicTimer::Worker() {

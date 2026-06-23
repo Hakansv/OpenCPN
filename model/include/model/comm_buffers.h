@@ -12,29 +12,35 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
+ *   along with this program; if not, see <https://www.gnu.org/licenses/>. *
  **************************************************************************/
 
 /**
  * \file
- * Line-oriented input/output buffers.
+ *
+ * Various input/output buffers.
  */
 
-#ifndef _COMM_BUFFERS_H__
-#define _COMM_BUFFERS_H__
+#ifndef COMM_BUFFERS_H_
+#define COMM_BUFFERS_H_
 
 #include <deque>
+#include <memory>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
 #ifdef _MSC_VER
 typedef unsigned __int8 uint8_t;
 #else
-#include <stdint.h>
+#include <cstdint>
 #endif
+
+class BufferError : public std::logic_error {
+public:
+  BufferError(const std::string& why) : logic_error(why) {};
+};
 
 /** Synchronized buffer for outbound, line oriented data. */
 class OutputBuffer {
@@ -53,7 +59,7 @@ private:
   std::mutex m_mutex;
 };
 
-/** Assembles input characters to  lines. */
+/** Assembles input characters to lines. */
 class LineBuffer {
 public:
   /** Add a single character. */
@@ -96,4 +102,120 @@ private:
   enum class State { PrefixWait, Data, CsDigit1, CsDigit2 } m_state;
 };
 
-#endif  // _COMM_BUFFERS_H__
+/** Fixed size, synchronized FIFO buffer. Some methods throws BufferError. */
+template <class T>
+class CircularBuffer {
+public:
+  explicit CircularBuffer(size_t size)
+      : m_buf(std::unique_ptr<T[]>(new T[size])),
+        m_max_size(size),
+        m_head(0),
+        m_tail(0),
+        m_full(false) {}
+
+  /** Reset internal state, ditch possible contained data. */
+  void Reset() noexcept {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    m_head = 0;
+    m_tail = 0;
+    m_full = false;
+  }
+
+  /** Return buffer max size */
+  size_t Capacity() const noexcept { return m_max_size; }
+
+  /** Return actual size */
+  size_t Size() const noexcept {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    size_t size = m_max_size;
+    if (!m_full)
+      size = m_head >= m_tail ? m_head - m_tail : m_head + m_max_size - m_tail;
+    return size;
+  }
+
+  /** Return true if buffer is empty */
+  bool IsEmpty() const noexcept {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return (!m_full && (m_head == m_tail));
+  }
+
+  /** Return true if buffer is full. */
+  bool IsFull() const noexcept {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    return m_full;
+  }
+
+  /**
+   * Add item to buffer without throwing exceptions.
+   * @return true if success i.e., buffer is not full.
+   */
+  bool SafePut(const T& item) noexcept {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_full) return false;
+    DoPut(item);
+    return true;
+  }
+
+  /** Add item to buffer; throw BufferError if full. */
+  void Put(const T& item) {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (m_full) throw BufferError("Put(): full buffer");
+    DoPut(item);
+  }
+
+  /** Get item from buff; throw BufferError if empty. */
+  T Get() {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_full && m_head == m_tail) throw BufferError("Get(): empty buffer");
+    return DoGet();
+  }
+
+  /**
+   * Retrieve item from buffer without throwing exceptions.
+   * @return true if success i.e., buffer is not empty.
+   */
+  bool Get(T& item) noexcept {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_full && m_head == m_tail) return false;
+    item = DoGet();
+    return true;
+  }
+
+  const T& Peek() const {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_full && m_head == m_tail) throw BufferError("Peek(): empty buffer");
+    return m_buf[m_tail];
+  }
+
+  bool Peek(T& item) const noexcept {
+    std::lock_guard<std::mutex> lock(m_mutex);
+    if (!m_full && m_head == m_tail) return false;
+    item = m_buf[m_tail];
+    return true;
+  }
+
+private:
+  mutable std::mutex m_mutex;
+  std::unique_ptr<T[]> m_buf;
+  const size_t m_max_size;
+  size_t m_head;
+  size_t m_tail;
+  bool m_full;
+
+  void DoPut(const T& item) {
+    m_buf[m_head] = item;
+    if (m_full) m_tail = (m_tail + 1) % m_max_size;
+    m_head = (m_head + 1) % m_max_size;
+    m_full = m_head == m_tail;
+  }
+
+  // Read data and advance the tail (we now have a free space)
+  T DoGet() {
+    auto val = m_buf[m_tail];
+    m_full = false;
+    m_tail = (m_tail + 1) % m_max_size;
+    return val;
+  }
+};
+
+#endif  // COMM_BUFFERS_H_

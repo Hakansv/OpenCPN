@@ -1,11 +1,6 @@
 /***************************************************************************
- *
- * Project:  OpenCPN
- * Purpose:  Implement comm_drv_n0183_android_int.h -- Nmea 0183 driver.
- * Author:   David Register, Alec Leamas
- *
- ***************************************************************************
- *   Copyright (C) 2023 by David Register, Alec Leamas                     *
+ *   Copyright (C) 2023 by David Register                                  *
+ *   Copyright (C) 2023 Alec Leamas                                        *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -18,10 +13,19 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
+ *   along with this program; if not, see <https://www.gnu.org/licenses/>. *
  **************************************************************************/
+
+/**
+ * \file
+ *
+ * Implement comm_drv_n0183_android_int.h -- Android internal Nmea 0183
+ * driver.
+ */
+
+#include <mutex>
+#include <queue>
+#include <vector>
 
 // For compilers that support precompilation, includes "wx.h".
 #include <wx/wxprec.h>
@@ -30,10 +34,6 @@
 #include <wx/wx.h>
 #endif  // precompiled headers
 
-#include <mutex>
-#include <queue>
-#include <vector>
-
 #include <wx/event.h>
 #include <wx/log.h>
 #include <wx/string.h>
@@ -41,8 +41,8 @@
 
 #include "config.h"
 #include "model/comm_drv_n0183_android_int.h"
-#include "model/comm_navmsg_bus.h"
 #include "model/comm_drv_registry.h"
+#include "model/comm_navmsg_bus.h"
 
 #ifdef __ANDROID__
 #include "androidUTIL.h"
@@ -121,58 +121,6 @@ wxEvent* CommDriverN0183AndroidIntEvent::Clone() const {
   return newevent;
 };
 
-template <class T>
-class circular_buffer {
-public:
-  explicit circular_buffer(size_t size)
-      : buf_(std::unique_ptr<T[]>(new T[size])), max_size_(size) {}
-
-  void reset();
-  size_t capacity() const;
-  size_t size() const;
-
-  bool empty() const {
-    // if head and tail are equal, we are empty
-    return (!full_ && (head_ == tail_));
-  }
-
-  bool full() const {
-    // If tail is ahead the head by 1, we are full
-    return full_;
-  }
-
-  void put(T item) {
-    std::lock_guard<std::mutex> lock(mutex_);
-    buf_[head_] = item;
-    if (full_) tail_ = (tail_ + 1) % max_size_;
-
-    head_ = (head_ + 1) % max_size_;
-
-    full_ = head_ == tail_;
-  }
-
-  T get() {
-    std::lock_guard<std::mutex> lock(mutex_);
-
-    if (empty()) return T();
-
-    // Read data and advance the tail (we now have a free space)
-    auto val = buf_[tail_];
-    full_ = false;
-    tail_ = (tail_ + 1) % max_size_;
-
-    return val;
-  }
-
-private:
-  std::mutex mutex_;
-  std::unique_ptr<T[]> buf_;
-  size_t head_ = 0;
-  size_t tail_ = 0;
-  const size_t max_size_;
-  bool full_ = 0;
-};
-
 CommDriverN0183AndroidInt::CommDriverN0183AndroidInt(
     const ConnectionParams* params, DriverListener& listener)
     : CommDriverN0183(NavAddr::Bus::N0183, params->GetStrippedDSPort()),
@@ -204,7 +152,8 @@ bool CommDriverN0183AndroidInt::Open() {
 
 void CommDriverN0183AndroidInt::Close() {
   wxLogMessage(
-      wxString::Format(_T("Closing NMEA Driver %s"), m_portstring.c_str()));
+      wxString::Format("Closing NMEA Driver %s", m_portstring.c_str()));
+  m_stats_timer.Stop();
 
   androidStopGPS();
   m_driver_stats.available = false;
@@ -229,19 +178,13 @@ void CommDriverN0183AndroidInt::handle_N0183_MSG(
   std::string full_sentence = std::string(payload->begin(), payload->end());
 
   if ((full_sentence[0] == '$') || (full_sentence[0] == '!')) {  // Sanity check
-    std::string identifier;
-    // We notify based on full message, including the Talker ID
-    identifier = full_sentence.substr(1, 5);
-
-    // notify message listener and also "ALL" N0183 messages, to support plugin
-    // API using original talker id
-    auto msg = std::make_shared<const Nmea0183Msg>(identifier, full_sentence,
-                                                   GetAddress());
-    auto msg_all = std::make_shared<const Nmea0183Msg>(*msg, "ALL");
-
-    if (m_params.SentencePassesFilter(full_sentence, FILTER_INPUT))
+    // notify message listener
+    if (m_params.SentencePassesFilter(full_sentence, FILTER_INPUT)) {
+      // We notify based on full message, including the Talker ID
+      std::string id = full_sentence.substr(1, 5);
+      auto msg =
+          std::make_shared<const Nmea0183Msg>(id, full_sentence, GetAddress());
       m_listener.Notify(std::move(msg));
-
-    m_listener.Notify(std::move(msg_all));
+    }
   }
 }

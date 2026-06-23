@@ -1,3 +1,26 @@
+/***************************************************************************
+ *   Copyright (C) 2025  Alec Leamas                                       *
+ *                                                                         *
+ *   This program is free software; you can redistribute it and/or modify  *
+ *   it under the terms of the GNU General Public License as published by  *
+ *   the Free Software Foundation; either version 2 of the License, or     *
+ *   (at your option) any later version.                                   *
+ *                                                                         *
+ *   This program is distributed in the hope that it will be useful,       *
+ *   but WITHOUT ANY WARRANTY; without even the implied warranty of        *
+ *   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the         *
+ *   GNU General Public License for more details.                          *
+ *                                                                         *
+ *   You should have received a copy of the GNU General Public License     *
+ *   along with this program; if not, see <https://www.gnu.org/licenses/>. *
+ **************************************************************************/
+
+/**
+ * \file
+ *
+ * Implement data_monitor.h -- new NMEA Debugger successor main window.
+ */
+
 #include <chrono>
 #include <fstream>
 #include <sstream>
@@ -8,7 +31,6 @@
 #include <wx/filedlg.h>
 #include <wx/menu.h>
 #include <wx/panel.h>
-#include <wx/platinfo.h>
 #include <wx/sizer.h>
 #include <wx/statline.h>
 #include <wx/stattext.h>
@@ -20,17 +42,20 @@
 #endif
 
 #include "model/base_platform.h"
+#include "model/config_vars.h"
 #include "model/data_monitor_src.h"
 #include "model/filters_on_disk.h"
+#include "model/gui.h"
 #include "model/navmsg_filter.h"
 #include "model/nmea_log.h"
-#include "model/gui.h"
+#include "model/svg_utils.h"
 
 #include "data_monitor.h"
 #include "std_filesystem.h"
 #include "svg_button.h"
 #include "svg_icons.h"
 #include "tty_scroll.h"
+#include "user_colors_dlg.h"
 #include "filter_dlg.h"
 
 #pragma clang diagnostic push
@@ -46,9 +71,7 @@
 
 using SetFormatFunc = std::function<void(DataLogger::Format, std::string)>;
 
-extern BasePlatform* g_BasePlatform;
-
-/** Return window with given id (which must exist) casted to T*. */
+/** Return window with given id (which must exist) cast to T*. */
 template <typename T>
 T* GetWindowById(int id) {
   return dynamic_cast<T*>(wxWindow::FindWindowById(id));
@@ -67,12 +90,10 @@ static bool IsUserFilter(const std::string& filter_name) {
   std::vector<std::string> filters = filters_on_disk::List();
   auto found = std::find(filters.begin(), filters.end(), filter_name);
   if (found != filters.end()) return true;
-  for (auto& f : filters) {
-    NavmsgFilter nf = filters_on_disk::Read(f);
-    if (nf.m_description == filter_name) return true;
-  }
-  return false;
-};
+  return std::any_of(
+      filters.begin(), filters.end(),
+      [filter_name](const std::string& f) { return f == filter_name; });
+}
 
 /** Return logging milliseconds timestamp. */
 static std::string TimeStamp(const NavmsgTimePoint& when,
@@ -88,11 +109,17 @@ static std::string TimeStamp(const NavmsgTimePoint& when,
   duration -= duration_cast<minutes>(duration) / 60;
   auto secs = duration_cast<seconds>(duration) % 60;
   duration -= duration_cast<seconds>(duration) / 60;
-  auto msecs = duration_cast<milliseconds>(duration);
+  const auto msecs = duration_cast<milliseconds>(duration);
   ss << setw(2) << setfill('0') << hrs.count() << ":" << setw(2) << mins.count()
      << ":" << setw(2) << secs.count() << "." << setw(3)
      << msecs.count() % 1000;
   return ss.str();
+}
+
+static fs::path NullLogfile() {
+  if (wxPlatformInfo::Get().GetOperatingSystemId() & wxOS_WINDOWS)
+    return "NUL:";
+  return "/dev/null";
 }
 
 /**
@@ -102,10 +129,10 @@ static std::string TimeStamp(const NavmsgTimePoint& when,
  * @return Possibly quoted string handling double quotes in arg.
  */
 static std::string VdrQuote(const std::string& arg) {
-  auto static const npos = std::string::npos;
+  auto static constexpr npos = std::string::npos;
   if (arg.find(',') == npos && arg.find('"') == npos) return arg;
   std::string s;
-  for (auto c : arg) {
+  for (const auto c : arg) {
     if (c == '"')
       s += "\"\"";
     else
@@ -122,8 +149,8 @@ static void AddVdrLogline(const Logline& ll, std::ostream& stream) {
   if (kSourceByBus.find(ll.navmsg->bus) == kSourceByBus.end()) return;
 
   using namespace std::chrono;
-  auto now = system_clock::now();
-  auto ms = duration_cast<milliseconds>(now.time_since_epoch()).count();
+  const auto now = system_clock::now();
+  const auto ms = duration_cast<milliseconds>(now.time_since_epoch()).count();
   stream << ms << ",";
 
   stream << kSourceByBus.at(ll.navmsg->bus) << ",";
@@ -173,12 +200,39 @@ static void AddStdLogline(const Logline& ll, std::ostream& stream, char fs,
   ws << ll.navmsg->source->iface << fs;
   ws << NavAddr::BusToString(ll.navmsg->bus) << fs;
   if (ll.state.status != NavmsgStatus::State::kOk)
-    ws << (!ll.error_msg.empty() ? ll.error_msg : "Unknown  errror");
+    ws << (!ll.error_msg.empty() ? ll.error_msg : "Unknown  error");
   else
     ws << "ok";
   ws << fs << ll.message << "\n";
   stream << ws;
 }
+
+/** Clickable crossmark icon window*/
+class CrossIconWindow : public wxWindow {
+public:
+  CrossIconWindow(wxWindow* parent, std::function<void()> on_click)
+      : wxWindow(parent, wxID_ANY), m_on_click(on_click) {
+    fs::path icon_path(g_BasePlatform->GetSharedDataDir().ToStdString());
+    icon_path /= fs::path("uidata") / "MUI_flat" / "cross-small-symbolic.svg";
+    int size = parent->GetTextExtent("X").y;
+    m_bitmap = LoadSVG(icon_path.string(), size, size);
+    assert(m_bitmap.IsOk());
+    SetInitialSize({size, size});
+
+    Bind(wxEVT_LEFT_DOWN, [&](wxMouseEvent&) { m_on_click(); });
+    Bind(wxEVT_PAINT, [&](wxPaintEvent& ev) { OnPaint(ev); });
+  }
+
+private:
+  void OnPaint(wxPaintEvent& event) {
+    wxPaintDC dc(this);
+    PrepareDC(dc);
+    dc.DrawBitmap(m_bitmap, 0, 0, true);
+  }
+
+  wxBitmap m_bitmap;
+  std::function<void()> m_on_click;
+};
 
 /** Main window, a rolling log of messages. */
 class TtyPanel : public wxPanel, public NmeaLog {
@@ -190,21 +244,21 @@ public:
         m_filter(this, wxID_ANY),
         m_lines(lines),
         m_on_right_click([] {}) {
-    auto vbox = new wxBoxSizer(wxVERTICAL);
-    m_tty_scroll = new TtyScroll(this, m_lines);
+    const auto vbox = new wxBoxSizer(wxVERTICAL);
+    m_tty_scroll = new TtyScroll(this, static_cast<int>(m_lines));
     m_tty_scroll->Bind(wxEVT_RIGHT_UP,
                        [&](wxMouseEvent&) { m_on_right_click(); });
     vbox->Add(m_tty_scroll, wxSizerFlags(1).Expand().Border());
     m_filter.Hide();
     SetSizer(vbox);
-    Fit();
+    wxWindow::Fit();
   }
 
   void Add(const Logline& ll) override { m_tty_scroll->Add(ll); }
 
   bool IsVisible() const override { return IsShownOnScreen(); }
 
-  void OnStop(bool stop) {
+  void OnStop(bool stop) const {
     m_tty_scroll->Pause(stop);
     if (stop)
       m_tty_scroll->ShowScrollbars(wxSHOW_SB_DEFAULT, wxSHOW_SB_DEFAULT);
@@ -212,9 +266,9 @@ public:
       m_tty_scroll->ShowScrollbars(wxSHOW_SB_NEVER, wxSHOW_SB_NEVER);
   }
 
-  void SetFilter(const NavmsgFilter& f) { m_tty_scroll->SetFilter(f); };
+  void SetFilter(const NavmsgFilter& f) const { m_tty_scroll->SetFilter(f); };
 
-  void SetQuickFilter(const std::string& filter) {
+  void SetQuickFilter(const std::string& filter) const {
     m_tty_scroll->SetQuickFilter(filter);
   }
 
@@ -232,7 +286,7 @@ public:
 
 protected:
   wxSize DoGetBestClientSize() const override {
-    return wxSize(-1, m_lines * GetCharHeight());
+    return {1, static_cast<int>(m_lines * GetCharHeight())};
   }
 
 private:
@@ -245,32 +299,39 @@ private:
 /** The quick filter above the status line, invoked by funnel button. */
 class QuickFilterPanel : public wxPanel {
 public:
-  QuickFilterPanel(wxWindow* parent, std::function<void()> on_text_evt)
+  QuickFilterPanel(wxWindow* parent, std::function<void()> on_text_evt,
+                   std::function<void()> on_close)
       : wxPanel(parent),
         m_text_ctrl(new wxTextCtrl(this, wxID_ANY)),
-        m_on_text_evt(std::move(on_text_evt)) {
+        m_on_text_evt(std::move(on_text_evt)),
+        m_on_close(std::move(on_close)) {
     auto hbox = new wxBoxSizer(wxHORIZONTAL);
     auto flags = wxSizerFlags(0).Border();
     auto label_box = new wxBoxSizer(wxVERTICAL);
     label_box->Add(new wxStaticText(this, wxID_ANY, _("Quick filter:")));
     hbox->Add(label_box, flags.Align(wxALIGN_CENTER_VERTICAL));
     hbox->Add(m_text_ctrl, flags);
+    hbox->AddStretchSpacer();
+    hbox->Add(new CrossIconWindow(this, [&] { m_on_close(); }), flags);
     SetSizer(hbox);
-    Fit();
-    Show();
+    wxWindow::Fit();
+    wxWindow::Show();
     m_text_ctrl->Bind(wxEVT_TEXT, [&](wxCommandEvent&) { m_on_text_evt(); });
   }
 
-  bool Show(bool show = true) override {
+  bool Show(bool show) override {
     if (!show) m_text_ctrl->SetValue("");
     return wxWindow::Show(show);
   }
 
-  std::string GetValue() { return m_text_ctrl->GetValue().ToStdString(); }
+  [[nodiscard]] std::string GetValue() const {
+    return m_text_ctrl->GetValue().ToStdString();
+  }
 
 private:
   wxTextCtrl* m_text_ctrl;
   std::function<void()> m_on_text_evt;
+  std::function<void()> m_on_close;
 };
 
 /** Offer user to select current filter. */
@@ -278,11 +339,11 @@ class FilterChoice : public wxChoice {
 public:
   FilterChoice(wxWindow* parent, TtyPanel* tty_panel)
       : wxChoice(parent, wxID_ANY), m_tty_panel(tty_panel) {
-    SetName(kFilterChoiceName);
+    wxWindow::SetName(kFilterChoiceName);
     Bind(wxEVT_CHOICE, [&](wxCommandEvent&) { OnChoice(); });
     OnFilterListChange();
-    int ix = FindString(kLabels.at("default"));
-    if (ix != wxNOT_FOUND) SetSelection(ix);
+    const int ix = wxChoice::FindString(kLabels.at("default"));
+    if (ix != wxNOT_FOUND) wxChoice::SetSelection(ix);
     NavmsgFilter filter = filters_on_disk::Read("default.filter");
     m_tty_panel->SetFilter(filter);
   }
@@ -360,7 +421,7 @@ private:
   }
 
   NavmsgFilter FilterByLabel(const std::string& label) {
-    std::string name;
+    std::string name = label;
     for (const auto& kv : kLabels) {
       if (kv.second == label) {
         name = kv.first;
@@ -374,7 +435,7 @@ private:
       for (auto& f : m_filters)
         if (f.m_description == label) return f;
     }
-    return NavmsgFilter();
+    return {};
   }
 };
 
@@ -405,7 +466,7 @@ class CloseButton : public wxButton {
 public:
   CloseButton(wxWindow* parent, std::function<void()> on_close)
       : wxButton(parent, wxID_ANY), m_on_close(std::move(on_close)) {
-    SetLabel(_("Close"));
+    wxButton::SetLabel(_("Close"));
     Bind(wxEVT_BUTTON, [&](wxCommandEvent&) { OnClick(); });
     OnClick();
   }
@@ -413,7 +474,7 @@ public:
 private:
   std::function<void()> m_on_close;
 
-  void OnClick() { m_on_close(); }
+  void OnClick() const { m_on_close(); }
 };
 
 /** Log setup window invoked from menu "Logging" item. */
@@ -425,23 +486,23 @@ public:
     ThePanel(wxWindow* parent, SetFormatFunc set_logtype, DataLogger& logger)
         : wxPanel(parent),
           m_overwrite(false),
-          m_set_logtype(set_logtype),
+          m_set_logtype(std::move(set_logtype)),
           m_logger(logger),
           kFilenameLabelId(wxWindow::NewControlId()) {
       auto flags = wxSizerFlags(0).Border();
 
       /* left column: Select log format. */
       auto vdr_btn = new wxRadioButton(this, wxID_ANY, "VDR");
-      vdr_btn->Bind(wxEVT_RADIOBUTTON, [&](wxCommandEvent e) {
+      vdr_btn->Bind(wxEVT_RADIOBUTTON, [&](const wxCommandEvent& e) {
         m_set_logtype(DataLogger::Format::kVdr, "VDR");
       });
       auto default_btn = new wxRadioButton(this, wxID_ANY, "Default");
-      default_btn->Bind(wxEVT_RADIOBUTTON, [&](wxCommandEvent e) {
+      default_btn->Bind(wxEVT_RADIOBUTTON, [&](const wxCommandEvent& e) {
         m_set_logtype(DataLogger::Format::kDefault, _("Default"));
       });
       default_btn->SetValue(true);
       auto csv_btn = new wxRadioButton(this, wxID_ANY, "CSV");
-      csv_btn->Bind(wxEVT_RADIOBUTTON, [&](wxCommandEvent e) {
+      csv_btn->Bind(wxEVT_RADIOBUTTON, [&](const wxCommandEvent& e) {
         m_set_logtype(DataLogger::Format::kCsv, "CSV");
       });
       auto left_vbox = new wxStaticBoxSizer(wxVERTICAL, this, _("Log format"));
@@ -457,8 +518,9 @@ public:
       path_btn->Bind(wxEVT_BUTTON, [&](wxCommandEvent&) { OnFileDialog(); });
       auto force_box =
           new wxCheckBox(this, wxID_ANY, _("Overwrite existing file"));
-      force_box->Bind(wxEVT_CHECKBOX,
-                      [&](wxCommandEvent& e) { m_overwrite = e.IsChecked(); });
+      force_box->Bind(wxEVT_CHECKBOX, [&](const wxCommandEvent& e) {
+        m_overwrite = e.IsChecked();
+      });
       auto right_vbox = new wxStaticBoxSizer(wxVERTICAL, this, _("Log file"));
       right_vbox->Add(label, flags);
       right_vbox->Add(path_btn, flags);
@@ -467,19 +529,19 @@ public:
       /* Top part above buttons */
       auto hbox = new wxBoxSizer(wxHORIZONTAL);
       hbox->Add(left_vbox, flags);
-      hbox->Add(GetCharWidth() * 10, 0, 1);
+      hbox->Add(wxWindow::GetCharWidth() * 10, 0, 1);
       hbox->Add(right_vbox, flags);
       SetSizer(hbox);
-      Layout();
-      Show();
+      wxWindow::Layout();
+      wxWindow::Show();
 
-      m_set_logtype(DataLogger::Format::kDefault, _("Default"));
-      FilenameLstnr.Init(logger.OnNewLogfile, [&](ObservedEvt& ev) {
+      FilenameLstnr.Init(logger.OnNewLogfile, [&](const ObservedEvt& ev) {
         GetWindowById<wxStaticText>(kFilenameLabelId)->SetLabel(ev.GetString());
+        g_dm_logfile = ev.GetString();
       });
     }
 
-    void OnFileDialog() {
+    void OnFileDialog() const {
       long options = wxFD_SAVE;
       if (!m_overwrite) options |= wxFD_OVERWRITE_PROMPT;
       wxFileDialog dlg(m_parent, _("Select logfile"),
@@ -514,14 +576,14 @@ public:
     buttons->Fit(parent);
 
     /* Overall vbox setup */
-    auto panel = new ThePanel(this, set_logtype, logger);
+    auto panel = new ThePanel(this, std::move(set_logtype), logger);
     auto vbox = new wxBoxSizer(wxVERTICAL);
     vbox->Add(panel, flags.Expand());
     vbox->Add(new wxStaticLine(this, wxID_ANY), flags.Expand());
     vbox->Add(buttons, flags.Expand());
     SetSizer(vbox);
-    Fit();
-    Show();
+    wxWindow::Fit();
+    wxDialog::Show();
   }
   ObsListener FilenameLstnr;
 };
@@ -533,24 +595,30 @@ public:
     kNewFilter = 1,  // MacOS does not want ids to be 0.
     kEditFilter,
     kDeleteFilter,
+    kRenameFilter,
     kEditActiveFilter,
     kLogSetup,
     kViewStdColors,
+    kUserColors,
+    kClear
   };
 
   TheMenu(wxWindow* parent, DataLogger& logger)
-      : m_parent(parent), m_logger(logger) {
+      : m_parent(parent), m_logger(logger), m_is_logging_configured(false) {
     AppendCheckItem(static_cast<int>(Id::kViewStdColors), _("Use colors"));
+    Append(static_cast<int>(Id::kUserColors), _("Colors..."));
+    Append(static_cast<int>(Id::kClear), _("Clear..."));
     Append(static_cast<int>(Id::kLogSetup), _("Logging..."));
     auto filters = new wxMenu("");
     AppendId(filters, Id::kNewFilter, _("Create new..."));
     AppendId(filters, Id::kEditFilter, _("Edit..."));
     AppendId(filters, Id::kDeleteFilter, _("Delete..."));
+    AppendId(filters, Id::kRenameFilter, _("Rename..."));
     AppendSubMenu(filters, _("Filters..."));
     if (IsUserFilter(m_filter))
       Append(static_cast<int>(Id::kEditActiveFilter), _("Edit active filter"));
 
-    Bind(wxEVT_MENU, [&](wxCommandEvent& ev) {
+    Bind(wxEVT_MENU, [&](const wxCommandEvent& ev) {
       switch (static_cast<Id>(ev.GetId())) {
         case Id::kLogSetup:
           ConfigureLogging();
@@ -568,6 +636,10 @@ public:
           EditFilterDlg(wxTheApp->GetTopWindow());
           break;
 
+        case Id::kRenameFilter:
+          RenameFilterDlg(wxTheApp->GetTopWindow());
+          break;
+
         case Id::kEditActiveFilter:
           EditOneFilterDlg(wxTheApp->GetTopWindow(), m_filter);
           break;
@@ -575,9 +647,23 @@ public:
         case Id::kDeleteFilter:
           RemoveFilterDlg(parent);
           break;
+
+        case Id::kUserColors:
+          UserColorsDlg(wxTheApp->GetTopWindow());
+          break;
+
+        case Id::kClear:
+          ClearLogWindow();
+          break;
       }
     });
     Check(static_cast<int>(Id::kViewStdColors), true);
+  }
+
+  void ClearLogWindow() {
+    auto* w = wxWindow::FindWindowByName("TtyScroll");
+    auto tty_scroll = dynamic_cast<TtyScroll*>(w);
+    if (tty_scroll) tty_scroll->Clear();
   }
 
   void SetFilterName(const std::string& filter) {
@@ -588,22 +674,25 @@ public:
   }
 
   void ConfigureLogging() {
-    auto dlg = new LoggingSetup(
+    LoggingSetup dlg(
         m_parent,
-        [&](DataLogger::Format f, std::string s) { SetLogFormat(f, s); },
+        [&](DataLogger::Format f, const std::string& s) { SetLogFormat(f, s); },
         m_logger);
-    dlg->ShowModal();
+    dlg.ShowModal();
+    m_is_logging_configured = true;
     auto monitor = wxWindow::FindWindowByName(kDataMonitorWindowName);
     assert(monitor);
     monitor->Layout();
   }
 
+  bool IsLoggingConfigured() const { return m_is_logging_configured; }
+
 private:
-  wxMenuItem* AppendId(wxMenu* root, Id id, const wxString& label) {
+  static wxMenuItem* AppendId(wxMenu* root, Id id, const wxString& label) {
     return root->Append(static_cast<int>(id), label);
   }
 
-  void SetLogFormat(DataLogger::Format format, const std::string& label) {
+  void SetLogFormat(DataLogger::Format format, const std::string& label) const {
     m_logger.SetFormat(format);
     std::string extension =
         format == DataLogger::Format::kDefault ? ".log" : ".csv";
@@ -612,7 +701,7 @@ private:
     m_logger.SetLogfile(path);
   }
 
-  void SetColor(int id) {
+  void SetColor(int id) const {
     auto* w = wxWindow::FindWindowByName("TtyScroll");
     auto tty_scroll = dynamic_cast<TtyScroll*>(w);
     if (!tty_scroll) return;
@@ -629,6 +718,7 @@ private:
   wxWindow* m_parent;
   DataLogger& m_logger;
   std::string m_filter;
+  bool m_is_logging_configured;
 };
 
 /** Button to start/stop logging. */
@@ -659,7 +749,7 @@ private:
   TheMenu& m_menu;
 
   void OnClick(bool ctor = false) {
-    if (!m_is_inited && !ctor) {
+    if (!m_is_inited && !ctor && !m_menu.IsLoggingConfigured()) {
       m_menu.ConfigureLogging();
       m_is_inited = true;
     }
@@ -673,7 +763,7 @@ private:
 /** Copy to clipboard button */
 class CopyClipboardButton : public SvgButton {
 public:
-  CopyClipboardButton(wxWindow* parent) : SvgButton(parent) {
+  explicit CopyClipboardButton(wxWindow* parent) : SvgButton(parent) {
     LoadIcon(kCopyIconSvg);
     SetToolTip(_("Copy to clipboard"));
     Bind(wxEVT_BUTTON, [&](wxCommandEvent&) {
@@ -690,6 +780,7 @@ public:
   FilterButton(wxWindow* parent, wxWindow* quick_filter)
       : SvgButton(parent), m_quick_filter(quick_filter), m_show_filter(true) {
     Bind(wxEVT_BUTTON, [&](wxCommandEvent&) { OnClick(); });
+    LoadIcon(kFunnelSvg);
     OnClick();
   }
 
@@ -698,11 +789,8 @@ private:
   bool m_show_filter;
 
   void OnClick() {
-    LoadIcon(m_show_filter ? kFunnelSvg : kNoFunnelSvg);
-    m_show_filter = !m_show_filter;
     m_quick_filter->Show(m_show_filter);
-    SetToolTip(m_show_filter ? _("Close quick filter")
-                             : _("Open quick filter"));
+    SetToolTip(_("Open quick filter"));
     GetGrandParent()->Layout();
   }
 };
@@ -734,8 +822,8 @@ private:
 class StatusLine : public wxPanel {
 public:
   StatusLine(wxWindow* parent, wxWindow* quick_filter, TtyPanel* tty_panel,
-             std::function<void(bool)> on_stop, std::function<void()> on_hide,
-             DataLogger& logger)
+             std::function<void(bool)> on_stop,
+             const std::function<void()>& on_hide, DataLogger& logger)
       : wxPanel(parent),
         m_is_resized(false),
         m_filter_choice(new FilterChoice(this, tty_panel)),
@@ -750,7 +838,7 @@ public:
     wbox->Add(m_log_button, flags);
     // Stretching horizontal space. Does not work with a WrapSizer, known
     // wx bug. Left in place if it becomes fixed.
-    wbox->Add(GetCharWidth() * 5, 0, 1);
+    wbox->Add(wxWindow::GetCharWidth() * 5, 0, 1);
     wbox->Add(filter_label_box, flags.Align(wxALIGN_CENTER_VERTICAL));
     wbox->Add(m_filter_choice, flags);
     wbox->Add(new PauseResumeButton(this, std::move(on_stop)), flags);
@@ -764,8 +852,8 @@ public:
     wbox->Add(new CloseButton(this, std::move(on_hide)), flags);
 #endif
     SetSizer(wbox);
-    Layout();
-    Show();
+    wxWindow::Layout();
+    wxWindow::Show();
 
     Bind(wxEVT_SIZE, [&](wxSizeEvent& ev) {
       m_is_resized = true;
@@ -785,11 +873,11 @@ public:
 protected:
   // Make sure the initial size is sane, don't meddle when user resizes
   // dialog
-  wxSize DoGetBestClientSize() const override {
+  [[nodiscard]] wxSize DoGetBestClientSize() const override {
     if (m_is_resized)
-      return wxSize(-1, -1);
+      return {-1, -1};
     else
-      return wxSize(85 * GetCharWidth(), 2.5 * GetCharHeight());
+      return {85 * GetCharWidth(), 5 * GetCharHeight() / 2};
   }
 
 private:
@@ -812,27 +900,21 @@ DataLogger::DataLogger(wxWindow* parent) : DataLogger(parent, NullLogfile()) {}
 void DataLogger::SetLogging(bool logging) { m_is_logging = logging; }
 
 void DataLogger::SetLogfile(const fs::path& path) {
-  m_stream = std::ofstream(path);
-  m_stream << "# timestamp_format: EPOCH_MILLIS\n";
   const auto now = std::chrono::system_clock::now();
   const std::time_t t_c = std::chrono::system_clock::to_time_t(now);
-  m_stream << "# Created at: " << std::ctime(&t_c) << " \n";
-  m_stream << "received_at,protocol,msg_type,source,raw_data\n";
-  m_stream << std::flush;
   m_path = path;
+  std::stringstream ss;
+  ss << "# timestamp_format: EPOCH_MILLIS\n";
+  ss << "# Created at: " << std::ctime(&t_c) << " \n";
+  ss << "received_at,protocol,source,msg_type,raw_data\n";
+  m_header = ss.str();
   OnNewLogfile.Notify(path.string());
 }
 
 void DataLogger::SetFormat(DataLogger::Format format) { m_format = format; }
 
-fs::path DataLogger::NullLogfile() {
-  if (wxPlatformInfo::Get().GetOperatingSystemId() & wxOS_WINDOWS)
-    return "NUL:";
-  else
-    return "/dev/null";
-}
-
 fs::path DataLogger::GetDefaultLogfile() {
+  if (!g_dm_logfile.empty()) return g_dm_logfile.ToStdString();
   if (m_path.stem() != NullLogfile().stem()) return m_path;
   fs::path path(g_BasePlatform->GetHomeDir().ToStdString());
   path /= "monitor";
@@ -840,7 +922,7 @@ fs::path DataLogger::GetDefaultLogfile() {
   return path;
 }
 
-std::string DataLogger::GetFileDlgTypes() {
+std::string DataLogger::GetFileDlgTypes() const {
   if (m_format == Format::kDefault)
     return _("Log file (*.log)|*.log");
   else
@@ -849,6 +931,11 @@ std::string DataLogger::GetFileDlgTypes() {
 
 void DataLogger::Add(const Logline& ll) {
   if (!m_is_logging || !ll.navmsg) return;
+  if (!m_header.empty()) {
+    m_stream = std::ofstream(m_path);
+    m_stream << m_header;
+    m_header.clear();
+  }
   if (m_format == Format::kVdr && ll.navmsg->to_vdr().empty()) return;
   if (m_format == DataLogger::Format::kVdr)
     AddVdrLogline(ll, m_stream);
@@ -863,8 +950,7 @@ DataMonitor::DataMonitor(wxWindow* parent)
               wxDEFAULT_FRAME_STYLE | wxFRAME_FLOAT_ON_PARENT,
               kDataMonitorWindowName),
       m_monitor_src([&](const std::shared_ptr<const NavMsg>& navmsg) {
-        auto msg = std::dynamic_pointer_cast<const Nmea0183Msg>(navmsg);
-        TtyPanel::AddIfExists(navmsg);
+        TtyPanel::AddIfExists(Logline(navmsg));
       }),
       m_quick_filter(nullptr),
       m_logger(parent) {
@@ -879,8 +965,12 @@ DataMonitor::DataMonitor(wxWindow* parent)
     std::string value = quick_filter->GetValue();
     tty_panel->SetQuickFilter(value);
   };
-  m_quick_filter = new QuickFilterPanel(this, on_quick_filter_evt);
-  vbox->Add(m_quick_filter, wxSizerFlags());
+  auto on_dismiss = [&] {
+    m_quick_filter->Hide();
+    Layout();
+  };
+  m_quick_filter = new QuickFilterPanel(this, on_quick_filter_evt, on_dismiss);
+  vbox->Add(m_quick_filter, wxSizerFlags().Expand());
 
   auto on_stop = [&, tty_panel](bool stop) { tty_panel->OnStop(stop); };
   auto on_close = [&, this]() { this->OnHide(); };
@@ -888,8 +978,8 @@ DataMonitor::DataMonitor(wxWindow* parent)
                                     on_close, m_logger);
   vbox->Add(status_line, wxSizerFlags().Expand());
   SetSizer(vbox);
-  Fit();
-  Hide();
+  wxWindow::Fit();
+  wxWindow::Hide();
 
   m_quick_filter->Bind(wxEVT_TEXT, [&, tty_panel](wxCommandEvent&) {
     tty_panel->SetQuickFilter(GetLabel().ToStdString());
@@ -905,13 +995,15 @@ DataMonitor::DataMonitor(wxWindow* parent)
   });
   m_filter_list_lstnr.Init(FilterEvents::GetInstance().filter_list_change,
                            [&](ObservedEvt&) { OnFilterListChange(); });
-  m_filter_update_lstnr.Init(
-      FilterEvents::GetInstance().filter_update,
-      [&](ObservedEvt& ev) { OnFilterUpdate(ev.GetString().ToStdString()); });
+  m_filter_update_lstnr.Init(FilterEvents::GetInstance().filter_update,
+                             [&](const ObservedEvt& ev) {
+                               OnFilterUpdate(ev.GetString().ToStdString());
+                             });
 
-  m_filter_apply_lstnr.Init(
-      FilterEvents::GetInstance().filter_apply,
-      [&](ObservedEvt& ev) { OnFilterApply(ev.GetString().ToStdString()); });
+  m_filter_apply_lstnr.Init(FilterEvents::GetInstance().filter_apply,
+                            [&](const ObservedEvt& ev) {
+                              OnFilterApply(ev.GetString().ToStdString());
+                            });
 }
 
 void DataMonitor::Add(const Logline& ll) {
@@ -933,7 +1025,7 @@ void DataMonitor::OnFilterListChange() {
   filter_choice->OnFilterListChange();
 }
 
-void DataMonitor::OnFilterUpdate(const std::string& name) {
+void DataMonitor::OnFilterUpdate(const std::string& name) const {
   if (name != m_current_filter) return;
   wxWindow* w = wxWindow::FindWindowByName("TtyScroll");
   if (!w) return;

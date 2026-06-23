@@ -51,7 +51,7 @@ GRIBUICtrlBarBase::GRIBUICtrlBarBase(wxWindow* parent, wxWindowID id,
     fgSizer50->Add(m_bpPrev, 0, wxALL, 1);
 
     wxArrayString m_cRecordForecastChoices;
-    m_cRecordForecastChoices.Add(_T("Item0"));
+    m_cRecordForecastChoices.Add("Item0");
     m_cRecordForecast =
         new wxChoice(this, ID_CTRLTIME, wxDefaultPosition, wxDefaultSize,
                      m_cRecordForecastChoices, 0);
@@ -176,7 +176,7 @@ GRIBUICtrlBarBase::GRIBUICtrlBarBase(wxWindow* parent, wxWindowID id,
     fgSizer50->Add(m_bpPrev, 0, wxALL, 1);
 
     wxArrayString m_cRecordForecastChoices;
-    m_cRecordForecastChoices.Add(_T("Item0"));
+    m_cRecordForecastChoices.Add("Item0");
     m_cRecordForecast =
         new wxChoice(this, ID_CTRLTIME, wxDefaultPosition, wxDefaultSize,
                      m_cRecordForecastChoices, 0);
@@ -575,11 +575,11 @@ wxBitmap GRIBUICtrlBarBase::GetScaledBitmap(wxBitmap bitmap,
   h *= scale_factor;
 
 #ifdef ocpnUSE_SVG
-  wxString shareLocn = *GetpSharedDataLocation() + _T("plugins") +
-                       wxFileName::GetPathSeparator() + _T("grib_pi") +
-                       wxFileName::GetPathSeparator() + _T("data") +
+  wxString shareLocn = *GetpSharedDataLocation() + "plugins" +
+                       wxFileName::GetPathSeparator() + "grib_pi" +
+                       wxFileName::GetPathSeparator() + "data" +
                        wxFileName::GetPathSeparator();
-  wxString filename = shareLocn + svgFileName + _T(".svg");
+  wxString filename = shareLocn + svgFileName + ".svg";
 
   wxBitmap svgbm = GetBitmapFromSVGFile(filename, w, h);
   if (svgbm.GetWidth() > 0 && svgbm.GetHeight() > 0)
@@ -1182,7 +1182,7 @@ GribSettingsDialogBase::GribSettingsDialogBase(wxWindow* parent, wxWindowID id,
   fgSizer15->SetNonFlexibleGrowMode(wxFLEX_GROWMODE_SPECIFIED);
 
   wxArrayString m_cDataTypeChoices;
-  m_cDataTypeChoices.Add(_T("Item0"));
+  m_cDataTypeChoices.Add("Item0");
   m_cDataType = new wxChoice(m_scSetDataPanel, wxID_ANY, wxDefaultPosition,
                              wxDefaultSize, m_cDataTypeChoices, 0);
   m_cDataType->SetSelection(0);
@@ -1197,7 +1197,7 @@ GribSettingsDialogBase::GribSettingsDialogBase(wxWindow* parent, wxWindowID id,
   fgSizer15->Add(m_staticText12, 0, wxALL | wxEXPAND, 5);
 
   wxArrayString m_cDataUnitsChoices;
-  m_cDataUnitsChoices.Add(_T("Item0"));
+  m_cDataUnitsChoices.Add("Item0");
   m_cDataUnits = new wxChoice(m_scSetDataPanel, wxID_ANY, wxDefaultPosition,
                               wxDefaultSize, m_cDataUnitsChoices, 0);
   m_cDataUnits->SetSelection(0);
@@ -2135,7 +2135,7 @@ GribPreferencesDialogBase::GribPreferencesDialogBase(
 
   m_sdbSizer2->Realize();
 
-  itemBoxSizerMainPanel->Add(m_sdbSizer2, 0, wxEXPAND, 5);
+  itemBoxSizerMainPanel->Add(m_sdbSizer2, 0, wxEXPAND | wxALL, 5);
 
   wxStaticBoxSizer* sbSizer9;
   sbSizer9 = new wxStaticBoxSizer(
@@ -2192,6 +2192,20 @@ GribPreferencesDialogBase::GribPreferencesDialogBase(
   m_rbLoadOptions->SetSelection(0);
   bSizerPrefsMain->Add(m_rbLoadOptions, 0, wxALL | wxEXPAND, 5);
 
+  wxStaticBoxSizer* sbSizerFolder;
+  sbSizerFolder = new wxStaticBoxSizer(
+      new wxStaticBox(this, wxID_ANY, _("Grib File Directory")), wxHORIZONTAL);
+
+  m_textDirectory =
+      new wxTextCtrl(scrollWin, wxID_ANY, wxEmptyString, wxDefaultPosition,
+                     wxDefaultSize, wxTE_READONLY);
+  sbSizerFolder->Add(m_textDirectory, 1, wxALL, 5);
+
+  wxButton* dbFolderButton = new wxButton(scrollWin, wxID_ANY, _("Browse..."));
+  sbSizerFolder->Add(dbFolderButton, 0, wxALL, 5);
+
+  bSizerPrefsMain->Add(sbSizerFolder, 0, wxALL | wxEXPAND, 5);
+
   wxString m_rbStartOptionsChoices[] = {
       _("Start at the first forecast in GRIB file"),
       _("Start at the nearest forecast to current time"),
@@ -2219,15 +2233,6 @@ GribPreferencesDialogBase::GribPreferencesDialogBase(
   fgSizer47->Add(m_sIconSizeFactor, 0, wxALL | wxEXPAND, 5);
   bSizerPrefsMain->Add(fgSizer47, 0, wxALL | wxEXPAND, 5);
 #endif
-
-  wxButton* SetSaveButton =
-      new wxButton(scrollWin, wxID_ANY, _("Select GRIB download directory"));
-  bSizerPrefsMain->Add(SetSaveButton, 0, wxALL | wxEXPAND, 5);
-  SetSaveButton->Connect(
-      wxEVT_COMMAND_BUTTON_CLICKED,
-      wxCommandEventHandler(GribPreferencesDialogBase::OnDirSelClick), nullptr,
-      this);
-
   Layout();
   Fit();
 
@@ -2240,6 +2245,10 @@ GribPreferencesDialogBase::GribPreferencesDialogBase(
       wxEVT_COMMAND_BUTTON_CLICKED,
       wxCommandEventHandler(GribPreferencesDialogBase::OnOKClick), nullptr,
       this);
+  dbFolderButton->Connect(
+      wxEVT_COMMAND_BUTTON_CLICKED,
+      wxCommandEventHandler(GribPreferencesDialogBase::OnDirSelClick), nullptr,
+      this);
 }
 #else
 
@@ -2247,6 +2256,8 @@ GribPreferencesDialogBase::GribPreferencesDialogBase(
     wxWindow* parent, wxWindowID id, const wxString& title, const wxPoint& pos,
     const wxSize& size, long style)
     : wxDialog(parent, id, title, pos, size, style) {
+  m_textDirectory = nullptr;
+
   this->SetSizeHints(wxDefaultSize, wxDefaultSize);
 
   wxBoxSizer* topSizer = new wxBoxSizer(wxVERTICAL);
@@ -2366,6 +2377,7 @@ void GribPreferencesDialogBase::OnDirSelClick(wxCommandEvent& event) {
 
   if (response == wxID_OK) {
     m_grib_dir_sel = dir_spec;
+    m_textDirectory->ChangeValue(dir_spec);
   }
 }
 
@@ -2401,11 +2413,11 @@ wxStaticBoxSizer* GribRequestSettingBase::createAreaSelectionSection(
       new wxBitmapToggleButton(this, ID_BTNREQUEST, wxNullBitmap,
                                wxDefaultPosition, wxDefaultSize, wxBU_AUTODRAW);
   m_bpManualSelection->SetBitmapLabel(GRIBUICtrlBarBase::GetScaledBitmap(
-      wxBitmap(selzone), _T("selzone"), ctrlBar->GetScaleFactor()));
+      wxBitmap(selzone), "selzone", ctrlBar->GetScaleFactor()));
   // Set the pressed state bitmap - use a darker/highlighted version of the same
   // bitmap
   wxBitmap pressedBitmap = GRIBUICtrlBarBase::GetScaledBitmap(
-      wxBitmap(selzone), _T("selzone"), ctrlBar->GetScaleFactor());
+      wxBitmap(selzone), "selzone", ctrlBar->GetScaleFactor());
   pressedBitmap =
       pressedBitmap.ConvertToDisabled();  // Creates a greyed version
   m_bpManualSelection->SetBitmapPressed(pressedBitmap);
@@ -3588,8 +3600,8 @@ GRIBTableBase::GRIBTableBase(wxWindow* parent, wxWindowID id,
   fgSizer20->SetFlexibleDirection(wxBOTH);
   fgSizer20->SetNonFlexibleGrowMode(wxFLEX_GROWMODE_ALL);
 
-  m_pGribTable = new CustomGrid(this, wxID_ANY, wxDefaultPosition,
-                                wxSize(-1, 50), 0, _T(" "));
+  m_pGribTable =
+      new CustomGrid(this, wxID_ANY, wxDefaultPosition, wxSize(-1, 50), 0, " ");
 
   // Cell Defaults
   m_pGribTable->SetDefaultCellFont(
@@ -3667,7 +3679,7 @@ ProjectBoatPanel::ProjectBoatPanel(wxWindow* parent, wxWindowID id,
                             wxDefaultSize, 0);
   bSizerProjectBoat->Add(m_tSpeed, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);
 
-  m_stSpeedUnit = new wxStaticText(this, wxID_ANY, wxT("kt"), wxDefaultPosition,
+  m_stSpeedUnit = new wxStaticText(this, wxID_ANY, "kt", wxDefaultPosition,
                                    wxDefaultSize, 0);
   m_stSpeedUnit->Wrap(-1);
   bSizerProjectBoat->Add(m_stSpeedUnit, 0, wxALIGN_CENTER_VERTICAL | wxALL, 5);

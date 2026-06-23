@@ -13,21 +13,7 @@ jobs:
           password: $DOCKER_PW
     environment:
       - OCPN_TARGET: bookworm
-      - PACKAGE_BRANCH: ci/bookworm-backports
-    steps:
-      - checkout
-      - run: cat /etc/apt/sources.list
-      - run: ci/generic-build-debian.sh
-      - run: ci/generic-upload.sh
-
-  build-focal:
-    docker:
-      - image: circleci/buildpack-deps:focal-scm
-        auth:
-          username: $DOCKER_USER
-          password: $DOCKER_PW
-    environment:
-      - OCPN_TARGET: focal
+      - PACKAGE_BRANCH: ci/trixie-backports
     steps:
       - checkout
       - run: cat /etc/apt/sources.list
@@ -87,30 +73,9 @@ jobs:
       - checkout
       - run: ci/circleci-build-android-corelib-armhf.sh
 
-  build-macos:
-    macos:
-      xcode: "13.3.1"
-    environment:
-      - OCPN_TARGET: macos
-      - pkg_mod: 11
-      - MACOSX_DEPLOYMENT_TARGET: 11.0
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - macos-cache-v2-{{checksum "ci/generic-build-macos.sh"}}
-      - run: ci/generic-build-macos.sh
-      - save_cache:
-          key: macos-cache-v2-{{checksum "ci/generic-build-macos.sh"}}
-          paths:
-            - /usr/local/bin
-            - /usr/local/include
-            - /usr/local/lib
-      - run: ci/generic-upload.sh
-
   build-macos-universal:
     macos:
-      xcode: "15.1.0"
+      xcode: "15.4.0"
     environment:
       - OCPN_TARGET: macos
       - pkg_mod: 11
@@ -131,35 +96,6 @@ jobs:
             - /usr/local/lib
       - run: ci/generic-upload.sh
 
-  build-macos-intel-legacy:
-    macos:
-      xcode: "13.4.1"
-    environment:
-      - OCPN_TARGET: macos
-      - pkg_mod: 11
-      - MACOSX_DEPLOYMENT_TARGET: 10.13
-      - OCPN_TARGET_TUPLE: darwin-wx32;10;x86_64
-      - ARCHS: x86_64
-      - ARCH: x86_64
-      - DEPS_BUNDLE_FILE: macos_deps_intel_legacy.tar.xz
-      - DEPS_BUNDLE_DEST: /tmp/ocpn_deps
-      - RELEASE: legacyintel
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - macos-cache-v2-intel-{{checksum "ci/macos-universal-deps.sh"}}-{{checksum "ci/universal-build-macos.sh"}}
-      - run: ci/macos-sign-setup.sh
-      - run: ci/universal-build-macos.sh
-      - run: ci/macos-sign-cleanup.sh
-      - save_cache:
-          key: macos-cache-v2-intel-{{checksum "ci/macos-universal-deps.sh"}}-{{checksum "ci/universal-build-macos.sh"}}
-          paths:
-            - /usr/local/bin
-            - /usr/local/include
-            - /usr/local/lib
-      - run: ci/generic-upload.sh
-
 std-filters: &std-filters
   filters:
     branches:
@@ -167,6 +103,7 @@ std-filters: &std-filters
         - master
         - build
         - flatpak
+        - dpt
 
 
 workflows:
@@ -174,9 +111,6 @@ workflows:
   build_all:
     jobs:
       - build-bookworm:
-          <<: *std-filters
-
-      - build-focal:
           <<: *std-filters
 
       - build-jammy:
@@ -189,7 +123,4 @@ workflows:
           <<: *std-filters
 
       - build-macos-universal:
-          <<: *std-filters
-
-      - build-macos-intel-legacy:
           <<: *std-filters

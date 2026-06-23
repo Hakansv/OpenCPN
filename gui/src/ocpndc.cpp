@@ -1,10 +1,4 @@
-/******************************************************************************
- *
- * Project:  OpenCPN
- * Purpose:  Layer to perform wxDC drawing using wxDC or opengl
- * Author:   Sean D'Epagnier
- *
- ***************************************************************************
+/**************************************************************************
  *   Copyright (C) 2011 by Sean D'Epagnier                                 *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
@@ -18,12 +12,22 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.             *
- ***************************************************************************
+ *   along with this program; if not, see <https://www.gnu.org/licenses/>. *
+ **************************************************************************/
+
+/**
+ * \file
  *
+ * Layer to perform wxDC drawing using wxDC or opengl
  */
+
+#include <list>
+#include <vector>
+
+#ifdef __MSVC__
+#include <winsock2.h>
+#include <windows.h>
+#endif
 
 #include <wx/wxprec.h>
 
@@ -31,37 +35,28 @@
 #include <wx/wx.h>
 #endif
 
+#include <wx/graphics.h>
+#include <wx/dcclient.h>
+
 #include "config.h"
+#include "ocpndc.h"
 
-#include "dychart.h"
-#include "ocpn_plugin.h"
+#include "model/cutil.h"
+#include "model/config_vars.h"
+
 #include "chcanv.h"
+#include "dychart.h"
 #include "linmath.h"
-#include "ocpn_frame.h"
-
-#ifdef __MSVC__
-#include <windows.h>
-#endif
+#include "ocpn_plugin.h"
 
 #ifdef ocpnUSE_GL
 #include "shaders.h"
 #endif
 
-#include <wx/graphics.h>
-#include <wx/dcclient.h>
-
-#include <vector>
-
-#include "ocpndc.h"
-#include "model/cutil.h"
-#include "model/config_vars.h"
-
 #ifdef ocpnUSE_GL
-#include "glChartCanvas.h"
+#include "gl_chart_canvas.h"
 extern ocpnGLOptions g_GLOptions;
 #endif
-
-wxArrayPtrVoid gTesselatorVertices;
 
 #if defined(USE_ANDROID_GLES2) || defined(ocpnUSE_GLSL)
 extern GLint color_tri_shader_program;
@@ -77,6 +72,8 @@ extern GLint texture_2D_shader_program;
 #endif
 
 //----------------------------------------------------------------------------
+static wxArrayPtrVoid gTesselatorVertices;
+
 ocpnDC::ocpnDC(glChartCanvas &canvas)
     : m_glchartCanvas(&canvas),
       m_glcanvas(NULL),
@@ -153,7 +150,7 @@ ocpnDC::~ocpnDC() {
 }
 
 void ocpnDC::Init() {
-  m_buseTex = GetLocaleCanonicalName().IsSameAs(_T("en_US"));
+  m_buseTex = GetLocaleCanonicalName().IsSameAs("en_US");
   workBuf = NULL;
   workBufSize = 0;
   m_dpi_factor = 1.0;
@@ -777,34 +774,34 @@ void ocpnDC::DrawLines(int n, wxPoint points[], wxCoord xoffset,
     }
 
 #if 0  // Use AA lines
-      GLShaderProgram *shader = pAALine_shader_program[m_canvasIndex];
-      shader->Bind();
+    GLShaderProgram *shader = pAALine_shader_program[m_canvasIndex];
+    shader->Bind();
 
-      // Assuming here that transform matrix for this shader is preset for canvas.
-      //shader->SetUniformMatrix4fv("MVMatrix", (GLfloat *)m_glchartCanvas->m_pParentCanvas->GetpVP()->vp_matrix_transform);
+    // Assuming here that transform matrix for this shader is preset for canvas.
+    //shader->SetUniformMatrix4fv("MVMatrix", (GLfloat *)m_glchartCanvas->m_pParentCanvas->GetpVP()->vp_matrix_transform);
 
-      float vpx[2];
-      int width = 0;
-      int height = 0;
-      GetSize(&width, &height);
-      vpx[0] = width;
-      vpx[1] = height;
+    float vpx[2];
+    int width = 0;
+    int height = 0;
+    GetSize(&width, &height);
+    vpx[0] = width;
+    vpx[1] = height;
 
-      shader->SetUniform2fv("uViewPort", vpx);
+    shader->SetUniform2fv("uViewPort", vpx);
 
-      float colorv[4];
-      colorv[0] = m_pen.GetColour().Red() / float(256);
-      colorv[1] = m_pen.GetColour().Green() / float(256);
-      colorv[2] = m_pen.GetColour().Blue() / float(256);
-      colorv[3] = 1.0;
+    float colorv[4];
+    colorv[0] = m_pen.GetColour().Red() / float(256);
+    colorv[1] = m_pen.GetColour().Green() / float(256);
+    colorv[2] = m_pen.GetColour().Blue() / float(256);
+    colorv[3] = 1.0;
 
-      shader->SetUniform4fv("color", colorv);
+    shader->SetUniform4fv("color", colorv);
 
-      shader->SetAttributePointerf("position", workBuf);
+    shader->SetAttributePointerf("position", workBuf);
 
-      glDrawArrays(GL_LINE_STRIP, 0, n);
+    glDrawArrays(GL_LINE_STRIP, 0, n);
 
-      shader->UnBind();
+    shader->UnBind();
 #else
     GLShaderProgram *shader;
     if (m_glchartCanvas) {
@@ -1485,20 +1482,21 @@ void ocpnDC::DrawPolygonTessellated(int n, wxPoint points[], wxCoord xoffset,
                     (_GLUfuncptr)&odc_endCallbackD_GLSL);
     gluTessCallback(m_tobj, GLU_TESS_COMBINE_DATA,
                     (_GLUfuncptr)&odc_combineCallbackD);
-    // s_tessVP = vp;
 
     gluTessNormal(m_tobj, 0, 0, 1);
     gluTessProperty(m_tobj, GLU_TESS_WINDING_RULE, GLU_TESS_WINDING_NONZERO);
 
     if (ConfigureBrush()) {
+      std::vector<std::unique_ptr<double[]>> vertex_data;
+      vertex_data.reserve(n);
+
       gluTessBeginPolygon(m_tobj, this);
       gluTessBeginContour(m_tobj);
 
-      ViewPort *pvp = m_glchartCanvas->m_pParentCanvas
-                          ->GetpVP();  // gFrame->GetPrimaryCanvas()->GetpVP();
+      ViewPort *pvp = m_glchartCanvas->m_pParentCanvas->GetpVP();
 
       for (int i = 0; i < n; i++) {
-        double *p = new double[6];
+        auto p = std::make_unique<double[]>(6);
 
         if (fabs(pvp->rotation) > 0.01) {
           float cx = pvp->pix_width / 2.;
@@ -1513,10 +1511,12 @@ void ocpnDC::DrawPolygonTessellated(int n, wxPoint points[], wxCoord xoffset,
         } else
           p[0] = points[i].x, p[1] = points[i].y, p[2] = 0;
 
-        gluTessVertex(m_tobj, p, p);
+        gluTessVertex(m_tobj, p.get(), p.get());
+        vertex_data.push_back(std::move(p));
       }
       gluTessEndContour(m_tobj);
       gluTessEndPolygon(m_tobj);
+      // vertex_data automatically cleans up when going out of scope
     }
 
     gluDeleteTess(m_tobj);
