@@ -195,11 +195,13 @@ bool UpdateAutopilotN0183(Routeman &routeman) {
     if (wp30DevData[0] != 0) {  // flag: updated file
       int brg = routeman.GetCurrentBrgToActivePoint();
       if (brg < 361 && brg >= 0) {
-        // Adjust what's sent by deviation and Var.
-        f_brg += std::isnan(gVar) ? wp30DevData[brg] : wp30DevData[brg] - gVar;
+        // Adjust what's sent by deviation //  and Var. - No not that 2026-07-17
+        // f_brg += std::isnan(gVar) ? wp30DevData[brg] : wp30DevData[brg] -
+        // gVar;
+        f_brg += wp30DevData[brg];
       }
-    } else {  // No deviation data
-      f_brg -= std::isnan(gVar) ? 0.0 : gVar;
+      //} else {  // No deviation data  // Take out? Bad thought?
+      //  f_brg -= std::isnan(gVar) ? 0.0 : gVar;
     }
     if (f_brg > 360.0)
       f_brg -= 360.;
