@@ -2070,6 +2070,95 @@ bool androidShowSimpleYesNoDialog(wxString title, wxString msg) {
   return (return_string == _T("YES"));
 }
 
+bool androidCheckSAFPermission(wxString docID) {
+  if (!java_vm) return true;
+
+  if (CheckPendingJNIException()) return false;
+
+  wxString return_string;
+  QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
+      "org/qtproject/qt5/android/QtNative", "activity",
+      "()Landroid/app/Activity;");
+  if (CheckPendingJNIException()) return false;
+
+  if (!activity.isValid()) return false;
+
+  JNIEnv *jenv;
+
+  //  Need a Java environment to decode the resulting string
+  if (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK) return false;
+
+  wxCharBuffer p1b = docID.ToUTF8();
+  jstring p1 = (jenv)->NewStringUTF(p1b.data());
+
+  QAndroidJniObject data = activity.callObjectMethod(
+      "CheckSAFPermission", "(Ljava/lang/String;)Ljava/lang/String;", p1);
+
+  (jenv)->DeleteLocalRef(p1);
+
+  if (CheckPendingJNIException()) return false;
+
+  jstring s = data.object<jstring>();
+
+  if ((jenv)->GetStringLength(s)) {
+    const char *ret_string = (jenv)->GetStringUTFChars(s, NULL);
+    return_string = wxString(ret_string, wxConvUTF8);
+  }
+
+  return (return_string == _T("OK"));
+}
+
+bool AndroidDoSAFPermissions() {
+  if (!java_vm) return true;
+
+  if (CheckPendingJNIException()) return false;
+
+  wxString return_string;
+  QAndroidJniObject activity = QAndroidJniObject::callStaticObjectMethod(
+      "org/qtproject/qt5/android/QtNative", "activity",
+      "()Landroid/app/Activity;");
+  if (CheckPendingJNIException()) return false;
+
+  if (!activity.isValid()) return false;
+
+  JNIEnv *jenv;
+
+  //  Need a Java environment to decode the resulting string
+  if (java_vm->GetEnv((void **)&jenv, JNI_VERSION_1_6) != JNI_OK) return false;
+
+  QAndroidJniObject data = activity.callObjectMethod("DoSAFPermissionDialog",
+                                                     "()Ljava/lang/String;");
+
+  if (CheckPendingJNIException()) return false;
+  return true;
+  /*
+    jstring s = data.object<jstring>();
+
+    if ((jenv)->GetStringLength(s)) {
+      const char *ret_string = (jenv)->GetStringUTFChars(s, NULL);
+      return_string = wxString(ret_string, wxConvUTF8);
+    }
+
+    return (return_string == _T("OK"));
+  */
+}
+
+void AndroidExportSAF(wxWindow *parent, wxString export_file_name) {
+  if (!androidCheckSAFPermission("primary:Documents")) {
+    AndroidDoSAFPermissions();
+    return;
+  }
+
+  // Permission known OK, so...
+  // Kick off the Android file chooser activity
+  // Target export file has been already relocated to Android cache directory
+  // SAF dir chooser dialog result callback copies to selected export location
+  wxString path;
+  int response =
+      g_Platform->DoFileSelectorDialog(parent, &path, _("Export GPX file"),
+                                       g_gpx_path, export_file_name, "*.gpx");
+}
+
 bool androidInstallPlaystoreHelp() {
   qDebug() << "androidInstallPlaystoreHelp";
   //  return false;
@@ -3144,14 +3233,35 @@ Java_org_opencpn_FileDialogCallbackProxy_nativeFileDialogFinished(
 int androidFileChooser(wxString *result, const wxString &initDir,
                        const wxString &title, const wxString &suggestion,
                        const wxString &wildcard, bool dirOnly, bool addFile) {
-  std::string file = AndroidFileDialog::Show(initDir.ToStdString(), dirOnly);
-  if (file == "cancel") {
-    return wxID_CANCEL;
+  // Inspect the specified initial directory to determine if a local
+  // "sandbox" file chooser may be used.
+  //  If not "sandboxed", use Java side SAF chooser.
+  if (initDir.StartsWith("/storage/emulated") && initDir.Contains("opencpn")) {
+    std::string file = AndroidFileDialog::Show(initDir.ToStdString(), dirOnly);
+    if (file == "cancel") {
+      return wxID_CANCEL;
+    } else {
+      wxString sfile(file.c_str());
+      *result = sfile.AfterFirst(':');
+      return wxID_OK;
+    }
   } else {
-    wxString sfile(file.c_str());
-    *result = sfile.AfterFirst(':');
-    return wxID_OK;
+    if (g_androidUtilHandler) {
+      wxString activityResult;
+      activityResult = callActivityMethod_s4s("FileChooserDialog", initDir,
+                                              title, suggestion, wildcard);
+
+      if (activityResult == _T("OK")) {
+        return wxID_OK;
+      } else if (activityResult == "cancel:") {
+        return wxID_CANCEL;
+      } else {
+        *result = activityResult.AfterFirst(':');
+        return wxID_OK;
+      }
+    }
   }
+  return wxID_CANCEL;
 }
 
 bool InvokeJNIPreferences(wxString &initial_settings) {
