@@ -432,6 +432,34 @@ void DashboardInstrument_GPS::DrawForeground(wxGCDC* dc) {
       dc->DrawText(label, posx, posy);
     }
   }
-  dc->SetBackgroundMode(wxSOLID);
-  if (talkerID != wxEmptyString) dc->DrawText(s_gTalker, 1, m_refDim * 3 / 2);
+  if (talkerID != wxEmptyString) {
+    // Write info about each system to the left of the status circle.
+    dc->SetBackgroundMode(wxSOLID);
+    dc->DrawText(s_gTalker, 1, m_refDim * 3 / 2);
+
+    // List of found active systems to the right of the circle.
+    wxString availSystem = "", listLabel = _("Present:");
+    wxString sysNo[GNSS_SYSTEM] = {"QZSS",    "GPS",    "Glonass",
+                                   "Galileo", "BeiDou", "NavIC"};
+    bool found = false;
+    const wxDateTime now = wxDateTime::Now();
+    wxTimeSpan lastUpdate;
+    for (int i = 0; i < GNSS_SYSTEM; i++) {
+      lastUpdate = now - m_Gtime[i];
+      if (lastUpdate.GetSeconds() < 10 && lastUpdate.GetSeconds() >= 0) {
+        availSystem += "\n" + sysNo[i];
+        found = true;
+      }
+    }
+    if (found) {
+      availSystem.Prepend(listLabel);
+      dc->SetFont((g_pFontSmall->GetChosenFont()));
+      dc->SetBackgroundMode(wxTRANSPARENT);
+      // Prepare for the possible impact of translation
+      const wxString sizingtxt =
+          listLabel.Length() > sysNo[2].Length() ? listLabel : sysNo[2];
+      wxSize size = GetClientSize(), txtsize = sdc.GetTextExtent(sizingtxt);
+      dc->DrawText(availSystem, size.x - (txtsize.x - 1), m_refDim * 3 / 2);
+    }
+  }
 }
