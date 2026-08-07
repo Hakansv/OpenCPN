@@ -38,7 +38,7 @@
 
 #include <wx/event.h>
 
-#include "observable_evt.h"
+#include "event.h"
 
 #ifndef DECL_EXP
 #if defined(_MSC_VER) || defined(__CYGWIN__)
@@ -50,11 +50,15 @@
 #endif
 #endif  // DECL_EXP
 
+class ObservableListener;
+
+namespace  obs {
+class Listener;   // forward
+
 /** Return address as printable string. */
-std::string ptr_key(const void* ptr);
+std::string PtrKey(const void* ptr);
 
 class Observable;
-class ObservableListener;
 
 /**
  * Interface implemented by classes which listens.
@@ -98,7 +102,7 @@ private:
 
 /**  The observable notify/listen basic nuts and bolts.  */
 class Observable : public KeyProvider {
-  friend class ObservableListener;
+  friend class ::ObservableListener;
 
 public:
   explicit Observable(const std::string& _key)
@@ -114,7 +118,9 @@ public:
   /** Notify all listeners about variable change. */
   virtual void Notify();
 
-  void Notify(const std::shared_ptr<const void>& p) { Notify(p, "", 0, nullptr); }
+  virtual void Notify(const std::shared_ptr<const void>& p) {
+    Notify(p, "", 0, nullptr);
+  }
 
   /**
    * Remove window listening to ev from list of listeners.
@@ -148,40 +154,46 @@ private:
 
   mutable std::mutex m_mutex;
 };
+}   // namespace
 
 /**
  *  Keeps listening over its lifespan, removes itself on destruction.
+ *  Old legacy code kept in place because it is visible in the
+ *  plugin interface. For the same reason it is not in the obs
+ *  namespace.
+ *
+ *  Use obs::Listener in new code.
  */
 class DECL_EXP ObservableListener final {
-  friend class ObsListener;
+  friend class obs::Listener;
 
 public:
   /** Default constructor, does not listen to anything. */
-  ObservableListener() : listener(nullptr), ev_type(wxEVT_NULL) {}
+  ObservableListener() : m_listener(nullptr), m_ev_type(wxEVT_NULL) {}
 
   /** Construct a listening object. */
   ObservableListener (std::string k, wxEvtHandler* l, wxEventType e)
-      : key(std::move(k)), listener(l), ev_type(e) {
+      : m_key(std::move(k)), m_listener(l), m_ev_type(e) {
     Listen();
   }
 
-  ObservableListener(const KeyProvider& kp, wxEvtHandler* l, wxEventType e)
+  ObservableListener(const obs::KeyProvider& kp, wxEvtHandler* l, wxEventType e)
       : ObservableListener(kp.GetKey(), l, e) {}
 
   /** A listener can only be transferred using std::move(). */
   ObservableListener(ObservableListener&& other) noexcept {
-    key = other.key;
-    listener = other.listener;
-    ev_type = other.ev_type;
+    m_key = other.m_key;
+    m_listener = other.m_listener;
+    m_ev_type = other.m_ev_type;
     other.Unlisten();
     Listen();
   }
 
   /** A listener can only be transferred using std::move(). */
   ObservableListener& operator=(ObservableListener&& other) noexcept {
-    key = other.key;
-    listener = other.listener;
-    ev_type = other.ev_type;
+    m_key = other.m_key;
+    m_listener = other.m_listener;
+    m_ev_type = other.m_ev_type;
     other.Unlisten();
     Listen();
     return *this;
@@ -196,7 +208,7 @@ public:
   void Listen(const std::string& key, wxEvtHandler* listener, wxEventType evt);
 
   /** Set object to send wxEventType ev to listener on changes in key. */
-  void Listen(const KeyProvider& kp, wxEvtHandler* l, wxEventType evt) {
+  void Listen(const obs::KeyProvider& kp, wxEvtHandler* l, wxEventType evt) {
     Listen(kp.GetKey(), l, evt);
   }
 
@@ -204,10 +216,12 @@ private:
   void Listen();
   void Unlisten();
 
-  std::string key;
-  wxEvtHandler* listener;
-  wxEventType ev_type;
+  std::string m_key;
+  wxEvtHandler* m_listener;
+  wxEventType m_ev_type;
 };
+
+namespace obs {
 
 /**
  * Define an action to be performed when a KeyProvider is notified.
@@ -227,7 +241,7 @@ private:
  *         {}
  *
  *       private:
- *         EvtVarListener change_listener;
+ *         obs::Listener change_listener;
  *       }
  * \endcode
  *
@@ -244,7 +258,7 @@ private:
  *
  * \endcode
  *
- * ObsListener is non-copyable, but can be created and assigned using
+ * Listener is non-copyable, but can be created and assigned using
  * std::move like in
  * \code
  *
@@ -254,42 +268,42 @@ private:
  *
  * \endcode
  */
-class ObsListener : public wxEvtHandler {
+class Listener : public wxEvtHandler {
 public:
   /** Create an object which does not listen until Init(); */
-  ObsListener() : m_obs_evt(wxNewEventType()) {}
+  Listener() : m_obs_evt(wxNewEventType()) {}
 
   /** ObsListener can only be assigned using std::move */
-  ObsListener(ObsListener&& other) noexcept: m_obs_evt(wxNewEventType()) {
+  Listener(Listener&& other) noexcept: m_obs_evt(wxNewEventType()) {
     m_listener.Unlisten();
     Unbind(other.m_obs_evt, other.m_action);
     m_action = other.m_action;
     Bind(m_obs_evt, m_action);
-    m_listener.Listen(other.m_listener.key, this, m_obs_evt);
+    m_listener.Listen(other.m_listener.m_key, this, m_obs_evt);
   }
 
-  ObsListener& operator=(ObsListener&& other) noexcept {
+  Listener& operator=(Listener&& other) noexcept {
     m_listener.Unlisten();
     Unbind(other.m_obs_evt, other.m_action);
     m_action = other.m_action;
     Bind(m_obs_evt, m_action);
-    m_listener.Listen(other.m_listener.key, this, m_obs_evt);
+    m_listener.Listen(other.m_listener.m_key, this, m_obs_evt);
     return *this;
   }
 
-  ObsListener(const ObsListener&) = delete;
-  ObsListener& operator=(ObsListener&) = delete;
+  Listener(const Listener&) = delete;
+  Listener& operator=(Listener&) = delete;
 
   /** Create object which invokes action when kp is notified. */
-  ObsListener(const KeyProvider& kp,
+  Listener(const KeyProvider& kp,
              const  std::function<void(ObservedEvt& ev)>& action)
       : m_obs_evt(wxNewEventType()) {
     Init(kp, action);
   }
 
   /** Create object which invokes action when kp is notified. */
-  ObsListener(const KeyProvider& kp, const std::function<void()>& action)
-      : ObsListener(kp, [&](ObservedEvt&) { action(); }) {}
+  Listener(const KeyProvider& kp, const std::function<void()>& action)
+      : Listener(kp, [&](ObservedEvt&) { action(); }) {}
 
   /** Initiate an object yet not listening. */
   void Init(const KeyProvider& kp,
@@ -302,7 +316,7 @@ public:
   }
 
 private:
-  ObservableListener m_listener;
+  ::ObservableListener m_listener;
   std::function<void(ObservedEvt& ev)> m_action;
   const wxEventTypeTag<ObservedEvt> m_obs_evt;
 };
@@ -312,5 +326,5 @@ template <typename T>
 std::shared_ptr<const T> UnpackEvtPointer(const ObservedEvt& ev) {
   return std::static_pointer_cast<const T>(ev.GetSharedPtr());
 }
-
+}
 #endif  // OBSERVABLE_H

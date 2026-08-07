@@ -27,13 +27,13 @@
 #ifndef OBSERVABLE_CONFVAR_H
 #define OBSERVABLE_CONFVAR_H
 
-#include <memory>
 #include <string>
 
 #include <wx/config.h>
 
 #include "observable.h"
 
+namespace obs {
 /**
  *  Wrapper for configuration variables which lives in a wxBaseConfig
  *  object. Supports int, bool, double, std::string and wxString. Besides
@@ -74,13 +74,14 @@ public:
 
   void Set(const T& arg);
 
-  const T Get(const T& default_val);
+  T Get(const T& default_val);
 
 private:
-
-  const std::string section;
-  const std::string key;
-  wxConfigBase* const config;
+  const std::string m_section;
+  const std::string m_key;
+  wxConfigBase* const m_config;
 };
+
+}  // namespace obs
 
 #endif  // OBSERVABLE_CONFVAR_H

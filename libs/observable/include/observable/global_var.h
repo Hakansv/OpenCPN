@@ -28,6 +28,7 @@
 
 #include "observable.h"
 
+namespace obs {
 /**
  *  Wrapper for global variable, supports notification events when value
  *  changes.
@@ -66,7 +67,7 @@
 template <typename T>
 class GlobalVar : public Observable {
 public:
-  explicit GlobalVar(T* ptr) : Observable(ptr_key(ptr)), variable(ptr) {}
+  explicit GlobalVar(T* ptr) : Observable(PtrKey(ptr)), variable(ptr) {}
 
   GlobalVar() = delete;
 
@@ -78,8 +79,9 @@ public:
   T Get() { return *variable; }
 
 private:
-
   T* const variable;
 };
+
+}  // namespace obs
 
 #endif  // OBSERVABLE_GLOBVAR_H
