@@ -33,7 +33,7 @@
 #include <wx/image.h>
 
 #include <wx/textfile.h>  // Hakan
-#include "nlohmann/json.hpp"
+#include "ocpn-nlohmann/json.hpp"
 #include "observable/global_var.h"
 
 #include "model/ais_decoder.h"
