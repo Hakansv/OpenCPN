@@ -1098,8 +1098,8 @@ void ConnectionEditDialog::OnExpertModeChange() {
     }
     for (const auto& choice : kBasicNetViews) m_net_view_choice->Append(choice);
     m_net_type_choice_text->SetLabel(_("Connect to"));
-    if (m_net_comment_text) m_net_comment_text->Hide();
-    if (m_net_comment_tctrl) m_net_comment_tctrl->Hide();
+    if (m_net_comment_text) m_net_comment_text->Show();
+    if (m_net_comment_tctrl) m_net_comment_tctrl->Show();
   }
   m_net_view_choice->SetSelection(view);
   auto view_str = m_net_view_choice->GetStringSelection().ToStdString();
