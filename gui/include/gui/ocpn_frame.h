@@ -520,7 +520,6 @@ private:
   void ProcessAnchorWatch();
   void ProcessLogAndBells();
   void CalculateCOGAverage();
-  void CheckToolbarPosition();
 
   void ODoSetSize(void);
   void DoCOGSet(void);
