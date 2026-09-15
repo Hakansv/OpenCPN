@@ -12,24 +12,46 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
- ***************************************************************************
+ *   along with this program; if not, see <https://www.gnu.org/licenses/>. *
+ ***************************************************************************/
+/**
+ *\defgroup UI-tools
+ *@{
  */
-#ifndef FIELD_SWITCH_H
-#define FIELD_SWITCH_H
 
-#include "button_switch.h"
+#ifndef BUTTON_SWITCH_H
+#define BUTTON_SWITCH_H
+
+#include <wx/wx.h>
+#include <wx/graphics.h>
 
 /**
- * Switch field contains switch button with label
- * to be included in a two column form sizer.
+ * On/Off switch button. Similar semantics as a wxCheckBox with
+ * a different UI.  \image html ./button_switch.png
  */
-class SwitchField : public SwitchButton {
+class SwitchButton : public wxControl {
 public:
-  SwitchField(wxWindow* parent, int key, const std::string& label,
-              bool value = true);
+  /**
+   * Construct a SwitchButton
+   * @param parent Parent window.
+   * @param id Window identifier, often wxID_ANY
+   * @param value Initial state.
+   */
+  SwitchButton(wxWindow* parent, int id, bool value = true);
+
+  /** Return on/off state as visible in UI */
+  bool GetValue();
+
+  /** Set the internal value. */
+  void SetValue(bool value);
+
+private:
+  bool m_flag;
+
+  void OnToggle(wxMouseEvent& event);
+  void OnPaint(wxPaintEvent& event);
 };
 
-#endif  // FIELD_SWITCH_H
+#endif  // BUTTON_SWITCH_H
+
+/** ·@} */

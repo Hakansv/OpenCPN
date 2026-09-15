@@ -17,37 +17,57 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
  **************************************************************************/
 
+#ifndef SHOW_HIDE_WIDGET__H_
+#define SHOW_HIDE_WIDGET__H_
+
 #include <functional>
 
-#include <wx/button.h>
-#include <wx/window.h>
+#include <wx/panel.h>
+
+#include "expand_icon.h"
 
 /**
+ * An ExpandIcon together with a child window. The child window is
+ * hidden or shown depending ong the ExpandIcon state.
  *
- * Two state button showing either an edit
- * \image{inline}  html ./edit-button-2.png "Edit"
- * or done icon
- * \image{inline} html ./edit-button-1.png "Done"
- *
- * Example: filter_dlg.cpp
- *  .
+ *  \ingroup UI-tools
  */
-class EditButton : public wxButton {
+class ExpandablePanel : public wxPanel {
 public:
   /**
-   * Create a new instance.
-   * @param parent Containing window.
-   * @param id Window id, possibly wxID_ANY
-   * @param on_click Callback invoked when user clicks on button.
+   * Single step constructor.
+   * @param parent  Containing window
+   * @param child Managed window, hidden/showń depending on ExpandIcon state
+   * @param on_resize Callback invoked when child becomes hidden or shown.
    */
-  EditButton(wxWindow* parent, int id, std::function<void()> on_click);
+  ExpandablePanel(wxWindow* parent, wxWindow* child,
+                  std::function<void()> on_resize = [] {});
+  /**
+   * First part of two step create.
+   * @param parent Containing window.
+   */
+  ExpandablePanel(wxWindow* parent);
 
   /**
-   * Set icon to either pen or checkmark.
-   * @param is_editing If true set icon to checkmark, else set it ri pen.
+   * Second part of two step creation.
+   * @param child  Window to be hidden/shown
+   * @param on_resize  Callback invoked when child becomes hidden or shown
    */
-  void SetIcon(bool is_editing);
+  void Create(wxWindow* child, std::function<void()> on_resize = [] {} );
+
+  /** Return the ExpandableIcon reflecting expanded/collapsed state. */
+  wxWindow* GetIcon() const { return m_expand_icon; }
+
+  /** Return the managed window which is shown or hidden. */
+  wxWindow* GetChild() const { return m_child; }
+
+protected:
+  void OnClick(bool collapse);
 
 private:
-  std::function<void()> m_on_click;
+  bool m_show;
+  wxWindow* m_child;
+  ExpandableIcon* m_expand_icon;
+  std::function<void()> m_on_resize;
 };
+#endif  //  SHOW_HIDE_WIDGET__H_

@@ -17,55 +17,50 @@
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
  **************************************************************************/
 
-#ifndef SHOW_HIDE_WIDGET__H_
-#define SHOW_HIDE_WIDGET__H_
+#ifndef SVG__BUTTON__H_
+#define SVG__BUTTON__H_
+#include <fstream>
+#include <sstream>
 
-#include <functional>
+#include <wx/button.h>
+#include <wx/sstream.h>
 
-#include <wx/panel.h>
+#ifndef ocpnUSE_wxBitmapBundle
+#include <wxSVG/svg.h>
+#endif
 
-#include "expand_icon.h"
+#include "std_filesystem.h"
+
 
 /**
- * An ExpandIcon together with a child window. The child window is
- * hidden or shown depending ong the ExpandIcon state.
+ * A button capable of loading an svg image. The image is scaled to roughly
+ * the size of a character, and the button is made to fit the image.
+ *
+ * Internally uses wxBitmapBundle available from wxWidgets 3.2 if available,
+ * otherwise falling back to the wxSvg library.
+ *
+ * Examples:   \image{inline} html ./svg-button.png "Example"
+ *
+ *  \ingroup UI-tools
  */
-class ExpandablePanel : public wxPanel {
-public:
-  /**
-   * Single step constructor.
-   * @param parent  Containing window
-   * @param child Managed window, hidden/showń depending on ExpandIcon state
-   * @param on_resize Callback invoked when child becomes hidden or shown.
-   */
-  ExpandablePanel(wxWindow* parent, wxWindow* child,
-                  std::function<void()> on_resize = [] {});
-  /**
-   * First part of two step create.
-   * @param parent Containing window.
-   */
-  ExpandablePanel(wxWindow* parent);
-
-  /**
-   * Second part of two step creation.
-   * @param child  Window to be hidden/shown
-   * @param on_resize  Callback invoked when child becomes hidden or shown
-   */
-  void Create(wxWindow* child, std::function<void()> on_resize = [] {} );
-
-  /** Return the ExpandableIcon reflecting expanded/collapsed state. */
-  wxWindow* GetIcon() const { return m_expand_icon; }
-
-  /** Return the managed window which is shown or hidden. */
-  wxWindow* GetChild() const { return m_child; }
-
+class SvgButton : public wxButton {
 protected:
-  void OnClick(bool collapse);
+  SvgButton(wxWindow* parent)
+      : wxButton(parent, wxID_ANY, wxEmptyString, wxDefaultPosition,
+                 wxDefaultSize, wxBU_EXACTFIT | wxBU_BOTTOM) {}
 
-private:
-  bool m_show;
-  wxWindow* m_child;
-  ExpandableIcon* m_expand_icon;
-  std::function<void()> m_on_resize;
+  /**
+   * Load an svg icon available in memory.
+   * @param svg SVG icon smaller than 2048 chars.
+   */
+  void LoadIcon(const char* svg);
+
+  /**
+   * Load icon from svg file on disk
+   * @param path Path to svg icon less than 2048 chars.
+   */
+  void LoadIcon(const fs::path& path);
+
 };
-#endif  //  SHOW_HIDE_WIDGET__H_
+
+#endif  //  SVG__BUTTON__H_

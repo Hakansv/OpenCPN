@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (C) 2025 by NoCodeHummel                                    *
+ *   Copyright (C) 2025  Alec Leamas                                       *
  *                                                                         *
  *   This program is free software; you can redistribute it and/or modify  *
  *   it under the terms of the GNU General Public License as published by  *
@@ -15,34 +15,41 @@
  *   along with this program; if not, write to the                         *
  *   Free Software Foundation, Inc.,                                       *
  *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
- ***************************************************************************
+ **************************************************************************/
+
+#include <functional>
+
+#include <wx/button.h>
+#include <wx/window.h>
+
+/**
+ *  \ingroup UI-tools
+ *
+ * Two state button showing either an edit
+ * \image{inline}  html ./edit-button-2.png "Edit"
+ * or done icon
+ * \image{inline} html ./edit-button-1.png "Done"
+ *
+ * Example: filter_dlg.cpp
+ *  .
  */
-#include <wx/panel.h>
+class EditButton : public wxButton {
+public:
+  /**
+   * Create a new instance.
+   * @param parent Containing window.
+   * @param id Window id, possibly wxID_ANY
+   * @param on_click Callback invoked when user clicks on button.
+   */
+  EditButton(wxWindow* parent, int id, std::function<void()> on_click);
 
-#include "dialog_input.h"
-#include "form_grid.h"
+  /**
+   * Set icon to either pen or checkmark.
+   * @param is_editing If true set icon to checkmark, else set it ri pen.
+   */
+  void SetIcon(bool is_editing);
 
-InputDialog::InputDialog(wxWindow* parent, const std::string& title,
-                         const std::string& action)
-    : AlertDialog(parent, title, action) {
-  FormGrid* sizer = new FormGrid(this);
-  sizer->SetHGap(GUI::GetSpacing(this, 4));
-  m_grid = new wxPanel(this);
-  m_grid->SetSizer(sizer);
-  m_content->Add(m_grid);
-}
-
-SwitchField* InputDialog::AddSelection(int key, const std::string& label,
-                                       bool value) {
-  return new SwitchField(m_grid, key, label, value);
-}
-
-void InputDialog::GetSelected(std::set<int>& options) {
-  wxWindowList children = m_grid->GetChildren();
-  options.clear();
-
-  for (auto& child : m_grid->GetChildren()) {
-    auto* select = dynamic_cast<SwitchField*>(child);
-    if (select && select->IsActive()) options.insert(select->GetKey());
-  }
-}
+private:
+  std::function<void()> m_on_click;
+};
+/** @} */
