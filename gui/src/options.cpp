@@ -2762,7 +2762,7 @@ void options::ClearConfigList() {
   if (m_scrollWinConfigList) {
     wxWindowList kids = m_scrollWinConfigList->GetChildren();
     for (unsigned int i = 0; i < kids.GetCount(); i++) {
-      wxWindowListNode* node = kids.Item(i);
+      wxWindowList::compatibility_iterator node = kids.Item(i);
       wxWindow* win = node->GetData();
       auto pcp = dynamic_cast<wxPanel*>(win);
       if (pcp) {
@@ -2792,7 +2792,7 @@ void options::BuildConfigList() {
       //  Set mouse handler for children of the panel, too.
       wxWindowList kids = pp->GetChildren();
       for (unsigned int i = 0; i < kids.GetCount(); i++) {
-        wxWindowListNode* node = kids.Item(i);
+        wxWindowList::compatibility_iterator node = kids.Item(i);
         wxWindow* win = node->GetData();
         win->Connect(wxEVT_LEFT_DOWN,
                      wxMouseEventHandler(options::OnConfigMouseSelected), NULL,
@@ -2878,7 +2878,7 @@ void options::OnApplyConfig(wxCommandEvent& event) {
   if (m_scrollWinConfigList) {
     wxWindowList kids = m_scrollWinConfigList->GetChildren();
     for (unsigned int i = 0; i < kids.GetCount(); i++) {
-      wxWindowListNode* node = kids.Item(i);
+      wxWindowList::compatibility_iterator node = kids.Item(i);
       wxWindow* win = node->GetData();
       auto pcp = dynamic_cast<wxPanel*>(win);
       if (pcp) {
@@ -2920,7 +2920,7 @@ void options::OnConfigMouseSelected(wxMouseEvent& event) {
     if (m_scrollWinConfigList) {
       wxWindowList kids = m_scrollWinConfigList->GetChildren();
       for (unsigned int i = 0; i < kids.GetCount(); i++) {
-        wxWindowListNode* node = kids.Item(i);
+        wxWindowList::compatibility_iterator node = kids.Item(i);
         wxWindow* win = node->GetData();
         auto panel = dynamic_cast<wxPanel*>(win);
         if (panel) {
