@@ -5027,6 +5027,37 @@ void MyFrame::CalculateCOGAverage() {
 
 void MyFrame::HandleBasicNavMsg(std::shared_ptr<const BasicNavDataMsg> msg) {
   m_fixtime = msg->time;
+
+  if (!m_bTimeIsSet) {  // Hakan
+    // Use the fix time to update the local system clock,
+    // only once per session.
+    wxString pc = ::wxGetHostName();
+    if (pc == "RPi500") s_bSetSystemTime = true;
+    if (!s_bSetSystemTime) {  // config:SetSystemTime
+      m_bTimeIsSet = true;
+      return;
+    }
+    if (m_fixtime) {
+      //  This customization sets the system's date/time on POSIX host
+      //  May require the following line in /etc/sudoers
+      //  "nav ALL=NOPASSWD:/bin/date *" (where nav is your username)
+      //  or "%sudo ALL=NOPASSWD:/bin/date *"
+      wxDateTime gntime((time_t)m_fixtime);
+      wxString CommandStr(
+          "sudo /bin/date --utc --set=\"");  // /bin/date --set  >> --cet
+      CommandStr.Append(gntime.Format("%D %T\""));
+      wxString msg;
+      msg.Printf(_T("Set Date/Time on %s, Linux command is: %s"), pc,
+                 CommandStr);
+      // wxLogMessage(msg);
+#if !defined(__WXMSW__)
+      wxExecute(CommandStr, wxEXEC_ASYNC);
+      m_bTimeIsSet = true;
+#endif  // !__WXMSW__
+      // m_bTimeIsSet = true;
+    }
+  }  // Hakan
+
   double hdt_data_interval = 0;
   double fix_time_interval = 0;
 
