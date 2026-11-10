@@ -5037,23 +5037,29 @@ void MyFrame::HandleBasicNavMsg(std::shared_ptr<const BasicNavDataMsg> msg) {
       m_bTimeIsSet = true;
       return;
     }
-    if (m_fixtime > 1) {
+    // Since m_fixtime can be set to Now() i.e. system time, we
+    // use RMC instead. (Core does not handle ZDA)
+    if (!gRmcTime.IsEmpty() && !gRmcDate.IsEmpty()) {
+      wxString dag, tid;  // "051126"  "102524.00"
+      dag = gRmcDate.Mid(0, 2) + "/" + gRmcDate.Mid(2, 2) + "/" +
+            gRmcDate.Mid(4, 2);
+      tid = gRmcTime.Mid(0, 2) + ":" + gRmcTime.Mid(2, 2) + ":" +
+            gRmcTime.Mid(4, 2);
       //  This customization sets the system's date/time on POSIX host
       //  May require the following line in /etc/sudoers
       //  "nav ALL=NOPASSWD:/bin/date *" (where nav is your username)
       //  or "%sudo ALL=NOPASSWD:/bin/date *"
-      wxDateTime gntime((time_t)m_fixtime);
-      wxString CommandStr("sudo /bin/date --set=\"");  //  --utc --set=
-      CommandStr.Append(gntime.Format("%D %T\""));
-      wxString msg;
-      msg.Printf(_T("Set Date/Time on %s, Linux command is: %s"), pc,
+      wxString CommandStr("sudo /bin/date --utc --set=\"");
+      CommandStr.Append(dag + " " + tid + "\"");  // set="11/10/26 07:41:38"
+      wxString mes;
+      mes.Printf(_T("Set Date/Time on %s, Linux command is: %s"), pc,
                  CommandStr);
-      wxLogMessage(msg);
+      wxLogMessage(mes);
 #if !defined(__WXMSW__)
-      wxExecute(CommandStr, wxEXEC_ASYNC);
-      m_bTimeIsSet = true;
-#endif  // !__WXMSW__
+      auto r = wxExecute(CommandStr, wxEXEC_ASYNC);
       // m_bTimeIsSet = true;
+#endif  // !__WXMSW__
+      m_bTimeIsSet = true;
     }
   }  // Hakan
 
