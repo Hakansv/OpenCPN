@@ -5041,8 +5041,9 @@ void MyFrame::HandleBasicNavMsg(std::shared_ptr<const BasicNavDataMsg> msg) {
     // use RMC instead. (Core does not handle ZDA)
     if (!gRmcTime.IsEmpty() && !gRmcDate.IsEmpty()) {
       wxString dag, tid;  // "051126"  "102524.00"
-      dag = gRmcDate.Mid(0, 2) + "/" + gRmcDate.Mid(2, 2) + "/" +
-            gRmcDate.Mid(4, 2);
+      dag = gRmcDate.Mid(2, 2) + "/" + gRmcDate.Mid(0, 2) + "/" +
+            gRmcDate.Mid(4, 2);           // US way: MM/DD/YY !!
+      if (dag.Mid(4, 2) == "70") return;  // Sort out epoch
       tid = gRmcTime.Mid(0, 2) + ":" + gRmcTime.Mid(2, 2) + ":" +
             gRmcTime.Mid(4, 2);
       //  This customization sets the system's date/time on POSIX host
