@@ -5037,13 +5037,20 @@ void MyFrame::HandleBasicNavMsg(std::shared_ptr<const BasicNavDataMsg> msg) {
       m_bTimeIsSet = true;
       return;
     }
+    static int cnt = 0;
+    if (cnt++ > 20) m_bTimeIsSet = true;  // Give it up
     // Since m_fixtime can be set to Now() i.e. system time, we
     // use RMC instead. (Core does not handle ZDA)
     if (!gRmcTime.IsEmpty() && !gRmcDate.IsEmpty()) {
+      // Sort out epoch and bad date
+      long year;
+      if (!gRmcDate.Mid(4, 2).ToLong(&year)) return;
+      if (year == 70 || year < 26) return;
+
       wxString dag, tid;  // "051126"  "102524.00"
       dag = gRmcDate.Mid(2, 2) + "/" + gRmcDate.Mid(0, 2) + "/" +
-            gRmcDate.Mid(4, 2);           // US way: MM/DD/YY !!
-      if (dag.Mid(4, 2) == "70") return;  // Sort out epoch
+            gRmcDate.Mid(4, 2);  // US way: MM/DD/YY !!
+
       tid = gRmcTime.Mid(0, 2) + ":" + gRmcTime.Mid(2, 2) + ":" +
             gRmcTime.Mid(4, 2);
       //  This customization sets the system's date/time on POSIX host
