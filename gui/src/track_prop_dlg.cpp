@@ -24,6 +24,8 @@
 
 #include "config.h"
 
+#include "ocpn-nlohmann/json.hpp"
+
 #include "gl_headers.h"  // Must be included before anything using GL stuff
 
 #include "model/georef.h"
@@ -1093,12 +1095,8 @@ bool TrackPropDlg::UpdateProperties() {
   ::wxBeginBusyCursor();
 
   if (m_scrolledWindowLinks) {
-    wxWindowList kids = m_scrolledWindowLinks->GetChildren();
-    for (unsigned int i = 0; i < kids.GetCount(); i++) {
-      wxWindowListNode* node = kids.Item(i);
-      wxWindow* win = node->GetData();
-
-      auto link_win = dynamic_cast<wxHyperlinkCtrl*>(win);
+    for (const auto child : m_scrolledWindowLinks->GetChildren()) {
+      auto link_win = dynamic_cast<wxHyperlinkCtrl*>(child);
       if (link_win) {
         link_win->Disconnect(
             wxEVT_COMMAND_HYPERLINK,
@@ -1106,7 +1104,7 @@ bool TrackPropDlg::UpdateProperties() {
         link_win->Disconnect(
             wxEVT_RIGHT_DOWN,
             wxMouseEventHandler(TrackPropDlg::m_hyperlinkContextMenu));
-        win->Destroy();
+        child->Destroy();
       }
     }
     ///        m_scrolledWindowLinks->DestroyChildren();
@@ -1397,12 +1395,11 @@ void TrackPropDlg::OnTrackPropCopyTxtClick(wxCommandEvent& event) {
 
 void TrackPropDlg::OnPrintBtnClick(wxCommandEvent& event) {
   static std::set<int> s_options;  // keep selected options
-  TrackPrintDialog dlg(this, s_options);
+  TrackPrintDlg dlg(this);
   int result = dlg.ShowModal();
 
   if (result == wxID_OK) {
-    dlg.GetSelected(s_options);
-    TrackPrintout printout(m_pTrack, m_lcPoints, s_options);
+    TrackPrintout printout(m_pTrack, m_lcPoints, dlg);
     auto& printer = PrintDialog::GetInstance();
     printer.Initialize(wxPORTRAIT);
     printer.EnablePageNumbers(true);
@@ -1505,7 +1502,7 @@ void TrackPropDlg::OnDeleteLink(wxCommandEvent& event) {
 
   wxWindowList kids = m_scrolledWindowLinks->GetChildren();
   for (unsigned int i = 0; i < kids.GetCount(); i++) {
-    wxWindowListNode* node = kids.Item(i);
+    wxWindowList::compatibility_iterator node = kids.Item(i);
     wxWindow* win = node->GetData();
 
     auto link_win = dynamic_cast<wxHyperlinkCtrl*>(win);
@@ -1729,12 +1726,11 @@ bool TrackPropDlg::SaveChanges() {
   }
 
   if (m_pTrack && m_pTrack->IsRunning()) {
-    wxJSONValue v;
+    nlohmann::json v;
     v["Changed"] = true;
     v["Name"] = m_pTrack->GetName();
     v["GUID"] = m_pTrack->m_GUID;
-    wxString msg_id("OCPN_TRK_ACTIVATED");
-    SendJSONMessageToAllPlugins(msg_id, v);
+    SendJsonMessageToAllPlugins("OCPN_TRK_ACTIVATED", v);
   }
 
   return true;

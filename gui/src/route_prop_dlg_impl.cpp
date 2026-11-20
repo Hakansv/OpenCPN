@@ -521,9 +521,7 @@ void RoutePropDlgImpl::SetRouteAndUpdate(Route* pR, bool only_points) {
 
     if (m_scrolledWindowLinks) {
       wxWindowList kids = m_scrolledWindowLinks->GetChildren();
-      for (unsigned int i = 0; i < kids.GetCount(); i++) {
-        wxWindowListNode* node = kids.Item(i);
-        wxWindow* win = node->GetData();
+      for (auto const& win : m_scrolledWindowLinks->GetChildren()) {
         auto link_win = dynamic_cast<wxHyperlinkCtrl*>(win);
         if (link_win) {
           link_win->Disconnect(
@@ -1048,13 +1046,11 @@ void RoutePropDlgImpl::SplitOnButtonClick(wxCommandEvent& event) {
 }
 
 void RoutePropDlgImpl::PrintOnButtonClick(wxCommandEvent& event) {
-  static std::set<int> s_options;  // keep selected options
-  RoutePrintDialog dlg(this, s_options);
+  RoutePrintDlg dlg(this);
   int result = dlg.ShowModal();
 
   if (result == wxID_OK) {
-    dlg.GetSelected(s_options);
-    RoutePrintout printout(m_pRoute, s_options, m_tz_selection);
+    RoutePrintout printout(m_pRoute, dlg, m_tz_selection);
     auto& printer = PrintDialog::GetInstance();
     printer.Initialize(wxPORTRAIT);
     printer.EnablePageNumbers(true);
@@ -1241,11 +1237,7 @@ void RoutePropDlgImpl::ItemDeleteOnMenuSelection(wxCommandEvent& event) {
   wxString findurl = m_pEditedLink->GetURL();
   wxString findlabel = m_pEditedLink->GetLabel();
 
-  wxWindowList kids = m_scrolledWindowLinks->GetChildren();
-  for (unsigned int i = 0; i < kids.GetCount(); i++) {
-    wxWindowListNode* node = kids.Item(i);
-    wxWindow* win = node->GetData();
-
+  for (const auto& win : m_scrolledWindowLinks->GetChildren()) {
     auto link_win = dynamic_cast<wxHyperlinkCtrl*>(win);
     if (link_win) {
       link_win->Disconnect(

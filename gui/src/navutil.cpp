@@ -58,6 +58,7 @@
 #include <wx/timectrl.h>
 #include <wx/tokenzr.h>
 
+#include "observable/global_var.h"
 #include "o_sound/o_sound.h"
 
 #include "model/ais_decoder.h"
@@ -95,7 +96,6 @@
 #include "layer.h"
 #include "navutil.h"
 #include "nmea0183.h"
-#include "observable_globvar.h"
 #include "ocpndc.h"
 #include "ocpn_plugin.h"
 #include "ocpn_platform.h"
@@ -305,6 +305,7 @@ int MyConfig::LoadMyConfig() {
   g_nAWDefault = 50;
   g_nAWMax = 1852;
   g_ObjQFileExt = "txt,rtf,png,html,gif,tif,jpg";
+  g_OwnShipmmsi = 0;
 
   // Load the raw value, with no defaults, and no processing
   int ret_Val = LoadMyConfigRaw();
@@ -656,7 +657,7 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   Read("OwnshipHDTPredictorEndmarker", &g_ownship_HDTpredictor_endmarker);
   Read("OwnshipHDTPredictorWidth", &g_ownship_HDTpredictor_width);
   Read("OwnshipHDTPredictorMiles", &g_ownship_HDTpredictor_miles);
-  int mmsi;
+  int mmsi = 0;
   Read("OwnShipMMSINumber", &mmsi);
   g_OwnShipmmsi = mmsi >= 0 ? static_cast<unsigned>(mmsi) : 0;
   Read("OwnShipIconType", &g_OwnShipIconType);
@@ -720,6 +721,7 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
   Read("EnableUDPNullHeader", &g_benableUDPNullHeader);
 
   SetPath("/Settings/GlobalState");
+  Read("EnableHiconColorScheme", &g_hicon_colors, 0);
 
   Read("FrameWinX", &g_nframewin_x);
   Read("FrameWinY", &g_nframewin_y);
@@ -914,8 +916,24 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
 
   SetPath("/Settings/GlobalState");
 
-  if (Read("nColorScheme", &read_int))
+  Read("EnableHiconColorScheme", &g_hicon_colors, false);
+
+  if (Read("nColorScheme", &read_int)) {
     global_color_scheme = (ColorScheme)read_int;
+
+    // Force to a color in the correct hi/lo family
+    // if necessary.
+    if (g_hicon_colors) {
+      if ((global_color_scheme != GLOBAL_COLOR_SCHEME_DAY_HICON) &&
+          (global_color_scheme != GLOBAL_COLOR_SCHEME_NIGHT_HICON))
+        global_color_scheme = GLOBAL_COLOR_SCHEME_DAY_HICON;
+    } else {
+      if ((global_color_scheme != GLOBAL_COLOR_SCHEME_DAY) &&
+          (global_color_scheme != GLOBAL_COLOR_SCHEME_NIGHT) &&
+          (global_color_scheme != GLOBAL_COLOR_SCHEME_DUSK))
+        global_color_scheme = GLOBAL_COLOR_SCHEME_DAY;
+    }
+  }
 
   if (!bAsTemplate) {
     SetPath("/Settings/NMEADataSource");
@@ -927,7 +945,7 @@ int MyConfig::LoadMyConfigRaw(bool bAsTemplate) {
       wxArrayString confs = wxStringTokenize(connectionconfigs, "|");
       for (size_t i = 0; i < confs.Count(); i++) {
         ConnectionParams *prm = new ConnectionParams(confs[i]);
-        if (!prm->Valid) {
+        if (!prm->is_valid) {
           wxLogMessage("Skipped invalid DataStream config");
           delete prm;
           continue;
@@ -2145,6 +2163,8 @@ void MyConfig::UpdateSettings() {
   if (!g_bInlandEcdis)
     Write("nColorScheme", (int)user_colors::GetColorScheme());
 
+  Write("EnableHiconColorScheme", g_hicon_colors);
+
   Write("FrameWinX", g_nframewin_x);
   Write("FrameWinY", g_nframewin_y);
   Write("FrameWinPosX", g_nframewin_posx);
@@ -3143,9 +3163,10 @@ void DimeControl(wxWindow *ctrl) {
   if (wxPlatformInfo::Get().CheckOSVersion(10, 14)) {
     return;
   }
-#endif
-#ifdef __WXQT__
+#elif defined(__WXQT__)
   return;  // this is seriously broken on wxqt
+#elif defined(__WXGTK__)
+  return;  // trust the native Dark/Light setting
 #endif
 
   if (wxSystemSettings::GetColour(wxSystemColour::wxSYS_COLOUR_WINDOW).Red() <
@@ -3188,7 +3209,8 @@ void DimeControl(wxWindow *ctrl, wxColour col, wxColour window_back_color,
 
   // Are we in dusk or night mode? (Used below in several places.)
   bool darkMode =
-      (cs == GLOBAL_COLOR_SCHEME_DUSK || cs == GLOBAL_COLOR_SCHEME_NIGHT);
+      (cs == GLOBAL_COLOR_SCHEME_DUSK || cs == GLOBAL_COLOR_SCHEME_NIGHT ||
+       cs == GLOBAL_COLOR_SCHEME_NIGHT_HICON);
 
   static int depth = 0;  // recursion count
   if (depth == 0) {      // only for the window root, not for every child
@@ -3210,7 +3232,7 @@ void DimeControl(wxWindow *ctrl, wxColour col, wxColour window_back_color,
 
   wxWindowList kids = ctrl->GetChildren();
   for (unsigned int i = 0; i < kids.GetCount(); i++) {
-    wxWindowListNode *node = kids.Item(i);
+    wxWindowList::compatibility_iterator node = kids.Item(i);
     wxWindow *win = node->GetData();
 
     if (dynamic_cast<wxListBox *>(win) || dynamic_cast<wxListCtrl *>(win) ||

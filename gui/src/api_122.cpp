@@ -26,11 +26,17 @@
 
 #include "ocpn_plugin.h"
 
+#include "ocpn-nlohmann/json.hpp"
+#include "observable/observable.h"
+
+#include "model/comm_navmsg.h"
+#include "model/comm_navmsg_bus.h"
+
 // FIXME (leamas) find new home.
 std::unique_ptr<HostApi> GetHostApi() {
   auto impl = dynamic_cast<Api122Impl*>(wxTheApp);
   assert(impl && "wxTheApp does not implement Api122Impl");
-  return std::make_unique<HostApi122>(HostApi122(impl));
+  return std::make_unique<HostApi123>(HostApi123(impl));
 }
 
 void HostApi122::RegisterApiEventCallback(
@@ -38,4 +44,17 @@ void HostApi122::RegisterApiEventCallback(
   auto impl = dynamic_cast<Api122Impl*>(wxTheApp);
   assert(impl && "wxTheApp does not implement Api122Impl");
   impl->RegisterApiEventCallback(plugin_name, callback);
+}
+
+std::string HostApi122::GetSignalkPayload(ObservedEvt ev) {
+  auto msg = obs::UnpackEvtPointer<SignalkMsg>(ev);
+  nlohmann::json root;
+  root["Data"] = msg->raw_message;
+  root["Context"] = msg->context;
+  root["ContextSelf"] = msg->context_self;
+  return root.dump();
+}
+
+const std::set<std::string>& HostApi122::GetActiveMessages() {
+  return NavMsgBus::GetInstance().GetActiveMessages();
 }

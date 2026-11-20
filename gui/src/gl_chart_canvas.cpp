@@ -44,7 +44,6 @@
 #include <wx/gdicmn.h>
 #include <wx/glcanvas.h>
 #include <wx/image.h>
-#include <wx/jsonval.h>
 #include <wx/log.h>
 #include <wx/pen.h>
 #include <wx/progdlg.h>
@@ -53,6 +52,8 @@
 #include <wx/tokenzr.h>
 #include <wx/utils.h>
 #include <wx/window.h>
+
+#include "ocpn-nlohmann/json.hpp"
 
 #include "model/base_platform.h"
 #include "model/config_vars.h"
@@ -518,6 +519,7 @@ void glChartCanvas::OnSize(wxSizeEvent &event) {
 
   wxLogDebug("BuildFBO 3");
   BuildFBO();
+  event.Skip();
 }
 
 void glChartCanvas::MouseEvent(wxMouseEvent &event) {
@@ -1229,7 +1231,7 @@ void glChartCanvas::SetupOpenGL() {
 
 void glChartCanvas::SendJSONConfigMessage() {
   if (g_pi_manager) {
-    wxJSONValue v;
+    nlohmann::json v;
     v["setupComplete"] = m_bsetup;
     v["useStencil"] = s_b_useStencil;
     v["useStencilAP"] = s_b_useStencilAP;
@@ -1237,8 +1239,7 @@ void glChartCanvas::SendJSONConfigMessage() {
     v["useFBO"] = s_b_useFBO;
     v["useVBO"] = g_b_EnableVBO;
     v["TextureRectangleFormat"] = g_texture_rectangle_format;
-    wxString msg_id("OCPN_OPENGL_CONFIG");
-    SendJSONMessageToAllPlugins(msg_id, v);
+    SendJsonMessageToAllPlugins("OCPN_OPENGL_CONFIG", v);
   }
 }
 void glChartCanvas::SetupCompression() {

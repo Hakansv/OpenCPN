@@ -3775,6 +3775,7 @@ void ChartCanvas::SetColorScheme(ColorScheme cs) {
   //    Setup ownship image pointers
   switch (cs) {
     case GLOBAL_COLOR_SCHEME_DAY:
+    case GLOBAL_COLOR_SCHEME_DAY_HICON:
       m_pos_image_red = &m_os_image_red_day;
       m_pos_image_grey = &m_os_image_grey_day;
       m_pos_image_yellow = &m_os_image_yellow_day;
@@ -3786,6 +3787,7 @@ void ChartCanvas::SetColorScheme(ColorScheme cs) {
 
       break;
     case GLOBAL_COLOR_SCHEME_DUSK:
+    case GLOBAL_COLOR_SCHEME_NIGHT_HICON:
       m_pos_image_red = &m_os_image_red_dusk;
       m_pos_image_grey = &m_os_image_grey_dusk;
       m_pos_image_yellow = &m_os_image_yellow_dusk;
@@ -3826,6 +3828,7 @@ void ChartCanvas::SetColorScheme(ColorScheme cs) {
   float dim = 1.0;
   switch (cs) {
     case GLOBAL_COLOR_SCHEME_DUSK:
+    case GLOBAL_COLOR_SCHEME_NIGHT_HICON:
       dim = 0.5;
       break;
     case GLOBAL_COLOR_SCHEME_NIGHT:
@@ -11247,7 +11250,7 @@ void pupHandler_PasteTrack() {
 }
 
 bool ChartCanvas::InvokeCanvasMenu(int x, int y, int seltype) {
-  wxJSONValue v;
+  nlohmann::json v;
   v["CanvasIndex"] = GetCanvasIndexUnderMouse();
   v["CursorPosition_x"] = x;
   v["CursorPosition_y"] = y;
@@ -11257,12 +11260,10 @@ bool ChartCanvas::InvokeCanvasMenu(int x, int y, int seltype) {
   if (seltype & SELTYPE_ROUTEPOINT) v["SelectionType"] = "RoutePoint";
   if (seltype & SELTYPE_AISTARGET) v["SelectionType"] = "AISTarget";
 
-  wxJSONWriter w;
-  wxString out;
-  w.Write(v, out);
+  std::string out = v.dump();
   SendMessageToAllPlugins("OCPN_CONTEXT_CLICK", out);
 
-  json_msg.Notify(std::make_shared<wxJSONValue>(v), "OCPN_CONTEXT_CLICK");
+  json_msg.Notify(std::make_shared<nlohmann::json>(v), "OCPN_CONTEXT_CLICK");
 
 #if 0
 #define SELTYPE_UNKNOWN 0x0001
@@ -11938,7 +11939,7 @@ void ChartCanvas::UpdateCanvasS52PLIBConfig() {
   }
 
   if (bSendPlibState) {
-    wxJSONValue v;
+    nlohmann::json v;
     v["OpenCPN Version Major"] = VERSION_MAJOR;
     v["OpenCPN Version Minor"] = VERSION_MINOR;
     v["OpenCPN Version Patch"] = VERSION_PATCH;
@@ -11979,12 +11980,10 @@ void ChartCanvas::UpdateCanvasS52PLIBConfig() {
         g_Platform->GetChartScaleFactorExp(g_ChartScaleFactor);
     v["OpenCPN Display Width"] = (int)g_display_size_mm;
 
-    wxJSONWriter w;
-    wxString out;
-    w.Write(v, out);
+    const std::string out = v.dump();
 
     if (!g_lastS52PLIBPluginMessage.IsSameAs(out)) {
-      SendMessageToAllPlugins(wxString("OpenCPN Config"), out);
+      SendMessageToAllPlugins("OpenCPN Config", out);
       g_lastS52PLIBPluginMessage = out;
     }
   }
@@ -13230,10 +13229,12 @@ emboss_data *ChartCanvas::CreateEmbossMapData(wxFont &font, int width,
   double val_factor;
   switch (cs) {
     case GLOBAL_COLOR_SCHEME_DAY:
+    case GLOBAL_COLOR_SCHEME_DAY_HICON:
     default:
       val_factor = 1;
       break;
     case GLOBAL_COLOR_SCHEME_DUSK:
+    case GLOBAL_COLOR_SCHEME_NIGHT_HICON:
       val_factor = .5;
       break;
     case GLOBAL_COLOR_SCHEME_NIGHT:
@@ -13515,9 +13516,11 @@ void ChartCanvas::DrawAllTidesInBBox(ocpnDC &dc, LLBBox &BBox) {
   wxBitmap bm;
   switch (m_cs) {
     case GLOBAL_COLOR_SCHEME_DAY:
+    case GLOBAL_COLOR_SCHEME_DAY_HICON:
       bm = m_bmTideDay;
       break;
     case GLOBAL_COLOR_SCHEME_DUSK:
+    case GLOBAL_COLOR_SCHEME_NIGHT_HICON:
       bm = m_bmTideDusk;
       break;
     case GLOBAL_COLOR_SCHEME_NIGHT:
@@ -14024,8 +14027,8 @@ wxString ChartCanvas::FindValidUploadPort() {
     // If there is no persistent upload port recorded (yet)
     // then use the first available serial connection which has output defined.
     for (auto *cp : TheConnectionParams()) {
-      if ((cp->IOSelect != DS_TYPE_INPUT) && cp->Type == SERIAL)
-        port << "Serial:" << cp->Port;
+      if ((cp->direction != PortDirection::kInput) && cp->type == SERIAL)
+        port << "Serial:" << cp->serial_port;
     }
   }
   return port;

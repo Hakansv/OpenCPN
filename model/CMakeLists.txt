@@ -244,6 +244,10 @@ set(SRC
   ${MODEL_SRC_DIR}/track.cpp
   ${MODEL_SRC_DIR}/usb_watch_factory.cpp
 )
+if (WIN32)
+  list(APPEND HDRS ${MODEL_HDR_DIR}/comm_drv_n2k_canable.h)
+  list(APPEND SRC ${MODEL_SRC_DIR}/comm_drv_n2k_canable.cpp)
+endif ()
 
 if (QT_ANDROID)
   list(APPEND HDRS ${MODEL_SRC_DIR}/android_serial_io.cpp)
@@ -472,6 +476,7 @@ endif ()
 
 target_link_libraries(
   _OCPN_MODEL INTERFACE
+    nlohmann::json
     observable::observable
     ocpn::ixwebsocket
     ocpn::garminhost

@@ -41,12 +41,13 @@
 #include <wx/stattext.h>
 #include <wx/textctrl.h>
 
+#include "libgui/expand_panel.h"
+
 #include "model/linux_devices.h"
 #include "model/logger.h"
 #include "model/notification_manager.h"
 #include "model/ocpn_utils.h"
 
-#include "expand_panel.h"
 #include "gui_lib.h"
 #include "udev_rule_mgr.h"
 
@@ -344,7 +345,7 @@ public:
         auto msg = FLATPAK_INSTALL_MSG;
         OCPNMessageBox(this, msg, _("OpenCPN"), flags);
       }
-      dynamic_cast<wxDialog*>(GetParent())->EndModal(0);
+      dynamic_cast<wxDialog*>(GetParent())->EndModal(-1);
     });
     sizer->Add(quit, flags);
     SetSizer(sizer);

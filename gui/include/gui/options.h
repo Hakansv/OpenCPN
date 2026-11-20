@@ -62,7 +62,7 @@
 #include "ocpn_platform.h"
 #include "pluginmanager.h"  // FIXME: Refactor
 
-#ifndef __ANDROID__
+#if wxCHECK_VERSION(3, 2, 0)
 #define OCPN_OPTIONS_USE_LISTBOOK
 #endif
 
@@ -214,7 +214,6 @@ enum {
   ID_SIZEMANUALRADIOBUTTON,
   ID_OPWAYPOINTRANGERINGS,
   xID_OK,
-  ID_BT_SCANTIMER,
   ID_TRACKROTATETIME,
   ID_TRACKROTATEUTC,
   ID_TRACKROTATELMT,
@@ -241,7 +240,8 @@ enum {
   ID_BUTTONMIGRATE,
   ID_TIMEZONE_UTC,
   ID_TIMEZONE_LOCAL_TIME,
-  ID_TENHZCHECKBOX
+  ID_TENHZCHECKBOX,
+  ID_HICONCOLORS
 };
 
 WX_DEFINE_ARRAY_PTR(wxGenericDirCtrl *, ArrayOfDirCtrls);
@@ -288,7 +288,7 @@ public:
   options &operator=(const options &) = delete;
 
   ~options(void);
-  bool SendIdleEvents(wxIdleEvent &event);
+  bool SendIdleEvents(wxIdleEvent &event) override;
   void SetInitialPage(int page_sel, int sub_page = -1);
   void Finish(void);
 
@@ -428,7 +428,7 @@ public:
   wxCheckBox *pCBCM93, *pCBLookAhead, *pSkewComp, *pOpenGL, *pSmoothPanZoom;
   wxCheckBox *pFullScreenQuilt, *pMobile, *pResponsive, *pOverzoomEmphasis;
   wxCheckBox *pOZScaleVector, *pToolbarAutoHideCB, *pInlandEcdis, *pRollover;
-  wxCheckBox *pZoomButtons, *pChartBarEX;
+  wxCheckBox *pZoomButtons, *pChartBarEX, *pHiconColors;
   wxTextCtrl *pCOGUPUpdateSecs, *m_pText_OSCOG_Predictor, *pScreenMM;
   wxTextCtrl *pToolbarHideSecs, *m_pText_OSHDT_Predictor, *m_pTxt_OwnMMSI;
   // Radio buttons to control the date/time format.
@@ -638,8 +638,8 @@ public:
   void OnUXAudioEnableButtonClickDSC(wxCommandEvent &event);
 
   /** Notified with a OCPN_Sound* pointer when sound has completed. */
-  EventVar m_on_sound_done;
-  ObsListener m_sound_done_listener;
+  obs::EventVar m_on_sound_done;
+  obs::Listener m_sound_done_listener;
   wxGenericProgressDialog *m_pCBDSprog;
   void DoDBSUpdate(bool force_full);
   bool m_bTextureCacheingSave;
@@ -650,7 +650,8 @@ private:
   void CreatePanel_AIS(size_t parent, int border_size, int group_item_spacing);
   void CreatePanel_Ownship(size_t parent, int border_size,
                            int group_item_spacing);
-  void CreatePanel_NMEA(size_t parent, int border_size, int group_item_spacing);
+  void CreatePanel_NMEA(size_t position, int border_size,
+                        int group_item_spacing);
   void CreatePanel_ChartsLoad(size_t parent, int border_size,
                               int group_item_spacing);
   void CreatePanel_VectorCharts(size_t parent, int border_size,
@@ -676,6 +677,8 @@ private:
   void OnAlertEnableButtonClick(wxCommandEvent &event);
   void OnAlertAudioEnableButtonClick(wxCommandEvent &event);
   void OnResetFont(wxCommandEvent &event);
+  void OnColorChange(wxSysColourChangedEvent &ev);
+  void OnColorChange();
 
   void UpdateTemplateTitleText();
   void CheckDeviceAccess(wxString &path);
@@ -688,7 +691,7 @@ private:
   wxImageList *m_topImgList;
 
   wxCheckBox *m_persist_active_route_chkbox;
-  wxScrolledWindow *m_pNMEAForm;
+  wxPanel *m_pNMEAForm;
   void resetMarStdList(bool bsetConfig, bool bsetStd);
 
   ObservableListener compat_os_listener;
@@ -716,8 +719,8 @@ private:
 
   wxSize m_sliderSize;
   bool m_bneedNew;
-  ObsListener m_OnChartDb_finalize_listener;
-  std::shared_ptr<ConnectionsDlg> comm_dialog;
+  obs::Listener m_OnChartDb_finalize_listener;
+  ConnectionsDlg *comm_dialog;
 
   DECLARE_EVENT_TABLE()
 };
@@ -856,7 +859,7 @@ public:
                         const wxSize &size, long style);
   ~MMSIListCtrl(void);
 
-  wxString OnGetItemText(long item, long column) const;
+  wxString OnGetItemText(long item, long column) const override;
   void OnListItemClick(wxListEvent &event);
   void OnListItemActivated(wxListEvent &event);
   void OnListItemRightClick(wxListEvent &event);

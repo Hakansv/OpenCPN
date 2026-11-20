@@ -89,47 +89,47 @@ find_package(Gettext REQUIRED)
 set(SRC_GRIB
     src/grib_pi.h
     src/grib_pi.cpp
-    src/GribOverlayFactory.cpp
-    src/GribOverlayFactory.h
-    src/GribUIDialogBase.cpp
-    src/GribUIDialogBase.h
-    src/GrabberWin.cpp
-    src/GrabberWin.h
-    src/GribUIDialog.cpp
-    src/GribUIDialog.h
-    src/CursorData.cpp
-    src/CursorData.h
-    src/GribSettingsDialog.cpp
-    src/GribSettingsDialog.h
-    src/GribRequestDialog.cpp
-    src/GribRequestDialog.h
-    src/XyGribPanel.h
-    src/XyGribPanel.cpp
-    src/XyGribModelDef.h
-    src/XyGribModelDef.cpp
+    src/grib_overlay_factory.cpp
+    src/grib_overlay_factory.h
+    src/grib_ui_dlg_base.cpp
+    src/grib_ui_dlg_base.h
+    src/grabber_win.cpp
+    src/grabber_win.h
+    src/grib_ui_dlg.cpp
+    src/grib_ui_dlg.h
+    src/cursor_data.cpp
+    src/cursor_data.h
+    src/grib_settings_dlg.cpp
+    src/grib_settings_dlg.h
+    src/grib_request_dlg.cpp
+    src/grib_request_dlg.h
+    src/xy_grib_panel.h
+    src/xy_grib_panel.cpp
+    src/xy_grib_model_def.h
+    src/xy_grib_model_def.cpp
     src/icons.h
     src/msg.h
     src/email.h
     src/email.cpp
-    src/GribTable.h
-    src/GribTable.cpp
-    src/CustomGrid.h
-    src/CustomGrid.cpp
+    src/grib_table.h
+    src/grib_table.cpp
+    src/custom_grid.h
+    src/custom_grid.cpp
     src/icons.cpp
-    src/GribReader.cpp
-    src/GribRecord.cpp
-    src/GribV1Record.cpp
-    src/GribV2Record.cpp
-    src/zuFile.cpp
-    src/IsoLine.cpp
+    src/grib_reader.cpp
+    src/grib_record.cpp
+    src/grib_v1_record.cpp
+    src/grib_v2_record.cpp
+    src/zu_file.cpp
+    src/iso_line.cpp
     src/pi_ocpndc.cpp
     src/pi_ocpndc.h
 )
 
 if (OCPN_USE_GL)
 set(SRC_GRIB ${SRC_GRIB}
-  src/pi_TexFont.h
-  src/pi_TexFont.cpp
+  src/pi_tex_font.h
+  src/pi_tex_font.cpp
 )
 
 endif ()
@@ -200,6 +200,21 @@ else ()
   target_link_libraries(${PACKAGE_NAME} PRIVATE JASPER)
 endif ()
 
+find_path(AEC_INCLUDE_DIR libaec.h)
+find_library(AEC_LIBRARY aec)
+use_bundled_lib(USE_BUNDLED_AEC libaec)
+if (AEC_INCLUDE_DIR AND AEC_LIBRARY AND NOT USE_BUNDLED_AEC)
+  message(STATUS "Using system libaec library...")
+  target_link_libraries(${PACKAGE_NAME} PRIVATE ${AEC_LIBRARY})
+  target_include_directories(
+    ${PACKAGE_NAME} BEFORE PRIVATE ${AEC_INCLUDE_DIR}
+  )
+else ()
+  message(STATUS "Using bundled libaec library...")
+  add_subdirectory("libs/libaec")
+  target_link_libraries(${PACKAGE_NAME} PRIVATE AEC)
+endif ()
+
 if ("${CMAKE_CXX_COMPILER_ID}" MATCHES "Clang|AppleClang")
   # FIXME: Need better handling after 5.0.0
   target_compile_options(${PACKAGE_NAME} PRIVATE -Wno-format)
@@ -207,10 +222,17 @@ endif ()
 
 if (WIN32)
   if (MSVC)
-    target_link_libraries(
-      ${PACKAGE_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/cache/buildwin/zlib1.lib"
-                              "GLU_static"
-    )
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+      target_link_libraries(
+              ${PACKAGE_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/cache/buildwin/z.lib"
+              "GLU_static"
+      )
+    else ()
+      target_link_libraries(
+              ${PACKAGE_NAME} PRIVATE "${CMAKE_SOURCE_DIR}/cache/buildwin/zlib1.lib"
+              "GLU_static"
+      )
+    endif ()
   else (MSVC)
     set(CMAKE_SHARED_LINKER_FLAGS "-L../../")
     target_link_libraries(

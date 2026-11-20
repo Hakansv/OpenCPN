@@ -178,6 +178,8 @@ public:
   double HDG;
   double Lon;
   double Lat;
+  double Lat_projected;
+  double Lon_projected;
   int ROTAIS;
   int ROTIND;
   char CallSign[CALL_SIGN_LEN];  // includes terminator
@@ -213,6 +215,7 @@ public:
   time_t PositionReportTicks;
   time_t LastPositionReportTicks;
   time_t StaticReportTicks;
+  bool b_VDM_secure_Pos;  // Prevent VDM msg 27 if we have got a proper position
 
   int RecentPeriod;
   bool b_active;

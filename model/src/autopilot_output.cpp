@@ -27,6 +27,8 @@
 
 #include <wx/wxprec.h>
 
+#include "observable/global_var.h"
+
 #include "model/autopilot_output.h"
 #include "model/comm_drv_n2k_serial.h"
 #include "model/comm_drv_registry.h"
@@ -41,8 +43,6 @@
 #include "model/routeman.h"
 #include "N2kMsg.h"
 #include "N2kMessages.h"
-
-#include "observable_globvar.h"
 
 #ifdef __ANDROID__
 #include "androidUTIL.h"
@@ -403,7 +403,8 @@ bool SendPGN129284(Routeman &routeman, AbstractCommDriver *driver) {
       1,                    //   uint8_t  DestinationWaypointNumber,
       pActivePoint->m_lat,  //   double DestinationLatitude,
       pActivePoint->m_lon,  //    double DestinationLongitude,
-      vmg);                 //    double  WaypointClosingVelocity);
+      KnotsToms(vmg));      //    double  WaypointClosingVelocity, in m/s per
+                            // NMEA2000 spec (vmg is computed in knots)
 
   auto dest_addr = std::make_shared<const NavAddr2000>(driver->iface, 255);
   std::vector<uint8_t> payload;

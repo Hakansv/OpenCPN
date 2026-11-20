@@ -12,28 +12,27 @@
  *   GNU General Public License for more details.                          *
  *                                                                         *
  *   You should have received a copy of the GNU General Public License     *
- *   along with this program; if not, write to the                         *
- *   Free Software Foundation, Inc.,                                       *
- *   51 Franklin Street, Fifth Floor, Boston, MA 02110-1301,  USA.         *
- ***************************************************************************
- */
+ *   along with this program; if not, see <https://www.gnu.org/licenses/>. *
+ ***************************************************************************/
 
 #include "button_switch.h"
 #include "ui_utils.h"
 
-SwitchButton::SwitchButton(wxWindow* parent, int key, bool value)
-    : wxControl(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+SwitchButton::SwitchButton(wxWindow* parent, int id, bool value)
+    : wxControl(parent, id, wxDefaultPosition, wxDefaultSize,
                 wxBORDER_NONE),
-      m_key(key),
       m_flag(value) {
-  SetInitialSize(wxSize(GUI::GetSpacing(this, 6), GUI::GetSpacing(this, 3)));
+  SetInitialSize(wxSize(libgui::GetSpacing(this, 6), libgui::GetSpacing(this, 3)));
   Bind(wxEVT_PAINT, &SwitchButton::OnPaint, this);
   Bind(wxEVT_LEFT_DOWN, &SwitchButton::OnToggle, this);
 }
 
-int SwitchButton::GetKey() { return m_key; }
+bool SwitchButton::GetValue() { return m_flag; }
 
-bool SwitchButton::IsActive() { return m_flag; }
+void SwitchButton::SetValue(bool value) {
+  m_flag = value;
+  Refresh();
+}
 
 void SwitchButton::OnToggle(wxMouseEvent& event) {
   m_flag = !m_flag;

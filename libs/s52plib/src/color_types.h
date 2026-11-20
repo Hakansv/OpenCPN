@@ -28,6 +28,11 @@
 #ifndef _COLORTYPES_H_
 #define _COLORTYPES_H_
 
+#include <wx/colour.h>
+#include <wx/dynarray.h>
+#include <wx/hashmap.h>
+#include <wx/string.h>
+
 typedef struct _S52color {
   char colName[20];
   unsigned char R;
@@ -43,6 +48,8 @@ typedef enum ColorScheme {
   GLOBAL_COLOR_SCHEME_DAY,
   GLOBAL_COLOR_SCHEME_DUSK,
   GLOBAL_COLOR_SCHEME_NIGHT,
+  GLOBAL_COLOR_SCHEME_DAY_HICON,
+  GLOBAL_COLOR_SCHEME_NIGHT_HICON,
   N_COLOR_SCHEMES
 } _ColorScheme;
 

@@ -147,12 +147,12 @@ CommDriverN2KSerial::CommDriverN2KSerial(const ConnectionParams* params,
       m_listener(listener),
       m_stats_timer(*this, 2s),
       m_closing(false) {
-  m_BaudRate = wxString::Format("%i", params->Baudrate), SetSecThreadInActive();
+  m_BaudRate = wxString::Format("%i", params->baudrate), SetSecThreadInActive();
   m_manufacturers_code = 0;
   m_got_mfg_code = false;
   this->attributes["canAddress"] = std::string("-1");
-  this->attributes["userComment"] = params->UserComment.ToStdString();
-  this->attributes["ioDirection"] = DsPortTypeToString(params->IOSelect);
+  this->attributes["userComment"] = params->user_comment.ToStdString();
+  this->attributes["ioDirection"] = PortDirectionToString(params->direction);
 
   // Prepare the wxEventHandler to accept events from the actual hardware thread
   Bind(wxEVT_COMMDRIVER_N2K_SERIAL, &CommDriverN2KSerial::handle_N2K_SERIAL_RAW,
@@ -344,7 +344,7 @@ void CommDriverN2KSerial::handle_N2K_SERIAL_RAW(
   }
 
   // If port INPUT is not set, filter the mesage here
-  if (m_params.IOSelect != DS_TYPE_OUTPUT) {
+  if (m_params.direction != PortDirection::kOutput) {
     // extract PGN
     uint64_t pgn = 0;
     unsigned char* c = (unsigned char*)&pgn;

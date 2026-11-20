@@ -37,6 +37,8 @@
 #include <wx/listbook.h>
 #include <wx/menu.h>
 
+#include "ocpn-nlohmann/json.hpp"
+
 #include "model/ais_decoder.h"
 #include "model/ais_state_vars.h"
 #include "model/ais_target_data.h"
@@ -61,6 +63,7 @@
 #include "go_to_position_dlg.h"
 #include "kml.h"
 #include "mark_info.h"
+#include "ocpn_frame.h"
 #include "ocpn_platform.h"
 #include "peer_client_dlg.h"
 #include "pluginmanager.h"
@@ -292,7 +295,19 @@ void CanvasMenuHandler::CanvasPopupMenu(int x, int y, int seltype) {
   wxMenu *subMenuRedo = new wxMenu("Redo...Ctrl-Y");
 #endif
   wxMenu *subMenuDebug = new wxMenu("");
-  MenuAppend1(subMenuDebug, ID_DGB_MENU_NMEA_WINDOW, _("Show Data Monitor"));
+
+  // For small devices (e.g. Android phone)...
+  //  Only add Data Monitor  menu item if the device (gFrame) is
+  //  large enough to contain it reasonably
+#ifdef __ANDROID__
+  wxFont *dFont = GetOCPNScaledFont_PlugIn(_("Dialog"));
+  int fwidth;
+  int fheight;
+  gFrame->GetTextExtent("W", &fwidth, &fheight, NULL, NULL, dFont);
+  auto frame_size = gFrame->GetSize();
+  if ((frame_size.x > fwidth * 60) && (frame_size.y > fheight * 18))
+#endif
+    MenuAppend1(subMenuDebug, ID_DGB_MENU_NMEA_WINDOW, _("Show Data Monitor"));
 
   wxMenu *menuFocus = contextMenu;  // This is the one that will be shown
 
@@ -969,7 +984,8 @@ void CanvasMenuHandler::CanvasPopupMenu(int x, int y, int seltype) {
     int sub_menu = 0;
     if (!g_bBasicMenus && menuFocus != contextMenu) {
       if (global_color_scheme != GLOBAL_COLOR_SCHEME_DUSK &&
-          global_color_scheme != GLOBAL_COLOR_SCHEME_NIGHT) {
+          global_color_scheme != GLOBAL_COLOR_SCHEME_NIGHT &&
+          global_color_scheme != GLOBAL_COLOR_SCHEME_NIGHT_HICON) {
         menuFocus->AppendSeparator();
       }
 
@@ -1367,10 +1383,9 @@ void CanvasMenuHandler::PopupMenuHandler(wxCommandEvent &event) {
         g_AW2GUID.Clear();
       }
       if (!guid.IsEmpty()) {
-        wxJSONValue v;
+        nlohmann::json v;
         v["GUID"] = guid;
-        wxString msg_id("OCPN_ANCHOR_WATCH_CLEARED");
-        SendJSONMessageToAllPlugins(msg_id, v);
+        SendJsonMessageToAllPlugins("OCPN_ANCHOR_WATCH_CLEARED", v);
       }
       break;
     }
@@ -1399,10 +1414,9 @@ void CanvasMenuHandler::PopupMenuHandler(wxCommandEvent &event) {
         }
       }
       if (!guid.IsEmpty()) {
-        wxJSONValue v;
+        nlohmann::json v;
         v["GUID"] = guid;
-        wxString msg_id("OCPN_ANCHOR_WATCH_SET");
-        SendJSONMessageToAllPlugins(msg_id, v);
+        SendJsonMessageToAllPlugins("OCPN_ANCHOR_WATCH_SET", v);
       }
       break;
     }

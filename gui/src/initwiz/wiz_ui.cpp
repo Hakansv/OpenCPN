@@ -33,6 +33,8 @@
 
 #include "gl_headers.h"  // Must be included before anything using GL stuff
 
+#include <sstream>
+
 #include <wx/wxprec.h>
 #ifndef WX_PRECOMP
 #include <wx/wx.h>
@@ -41,17 +43,20 @@
 #include <regex>
 #include <wx/sckaddr.h>
 #include <wx/socket.h>
-#include <wx/jsonval.h>
-#include <wx/jsonreader.h>
+
+#include "ocpn-nlohmann/json.hpp"
+
 #include "wiz_ui.h"
-#include "ocpn_platform.h"
+
 #include "model/comm_drv_signalk_net.h"
 #include "model/comm_drv_n2k_net.h"
 #include "model/conn_params.h"
 #include "model/logger.h"
 #include "model/mdns_query.h"
-#include "navutil.h"
 #include "model/svg_utils.h"
+
+#include "navutil.h"
+#include "ocpn_platform.h"
 #ifndef __ANDROID__
 #include "serial/serial.h"
 #include "dnet.h"
@@ -266,13 +271,13 @@ void FirstUseWizImpl::EnumerateUSB() {
         DEBUG_LOG << "Known device: " << port.port << " " << port.description
                   << " " << port.hardware_id;
         ConnectionParams params;
-        params.Type = ConnectionType::SERIAL;
-        params.NetProtocol = NetworkProtocol::PROTO_UNDEFINED;
-        params.Protocol = device.protocol;
-        params.LastDataProtocol = device.protocol;
-        params.Port = port.port;
-        params.UserComment = port.description;
-        params.Baudrate = device.baudrate;
+        params.type = ConnectionType::SERIAL;
+        params.net_protocol = NetworkProtocol::PROTO_UNDEFINED;
+        params.data_protocol = device.protocol;
+        params.last_data_protocol = device.protocol;
+        params.serial_port = port.port;
+        params.user_comment = port.description;
+        params.baudrate = device.baudrate;
         m_detected_connections.push_back(params);
         known = true;
       }
@@ -302,31 +307,31 @@ void FirstUseWizImpl::EnumerateUSB() {
             auto flavor = SeemsN0183(data);
             if (flavor != NMEA0183Flavor::INVALID) {
               ConnectionParams params;
-              params.Type = ConnectionType::SERIAL;
-              params.NetProtocol = NetworkProtocol::PROTO_UNDEFINED;
-              params.Protocol = DataProtocol::PROTO_NMEA0183;
-              params.LastDataProtocol = DataProtocol::PROTO_NMEA0183;
+              params.type = ConnectionType::SERIAL;
+              params.net_protocol = NetworkProtocol::PROTO_UNDEFINED;
+              params.data_protocol = DataProtocol::PROTO_NMEA0183;
+              params.last_data_protocol = DataProtocol::PROTO_NMEA0183;
               if (flavor == NMEA0183Flavor::CRC) {
-                params.ChecksumCheck = true;
+                params.checksum_check = true;
               } else {
-                params.ChecksumCheck = false;
+                params.checksum_check = false;
               }
-              params.Port = port.port;
-              params.UserComment = wxString::Format(
+              params.serial_port = port.port;
+              params.user_comment = wxString::Format(
                   "NMEA0183: %s (%s) @%u", port.description, port.port, sp);
-              params.Baudrate = sp;
+              params.baudrate = sp;
               m_detected_connections.push_back(params);
               break;
             } else if (SeemsN2000(data)) {
               ConnectionParams params;
-              params.Type = ConnectionType::SERIAL;
-              params.NetProtocol = NetworkProtocol::PROTO_UNDEFINED;
-              params.Protocol = DataProtocol::PROTO_NMEA2000;
-              params.LastDataProtocol = DataProtocol::PROTO_NMEA2000;
-              params.Port = port.port;
-              params.UserComment = wxString::Format(
+              params.type = ConnectionType::SERIAL;
+              params.net_protocol = NetworkProtocol::PROTO_UNDEFINED;
+              params.data_protocol = DataProtocol::PROTO_NMEA2000;
+              params.last_data_protocol = DataProtocol::PROTO_NMEA2000;
+              params.serial_port = port.port;
+              params.user_comment = wxString::Format(
                   "NMEA2000: %s (%s) @%u", port.description, port.port, sp);
-              params.Baudrate = sp;
+              params.baudrate = sp;
               m_detected_connections.push_back(params);
               break;
             }
@@ -391,29 +396,31 @@ void FirstUseWizImpl::EnumerateUDP() {
       DEBUG_LOG << "Read: " << data;
       if (auto flavor = SeemsN0183(data); flavor != NMEA0183Flavor::INVALID) {
         ConnectionParams params;
-        params.Type = ConnectionType::NETWORK;
-        params.NetProtocol = NetworkProtocol::UDP;
-        params.Protocol = DataProtocol::PROTO_NMEA0183;
-        params.LastDataProtocol = DataProtocol::PROTO_NMEA0183;
+        params.type = ConnectionType::NETWORK;
+        params.net_protocol = NetworkProtocol::UDP;
+        params.data_protocol = DataProtocol::PROTO_NMEA0183;
+        params.last_data_protocol = DataProtocol::PROTO_NMEA0183;
         if (flavor == NMEA0183Flavor::CRC) {
-          params.ChecksumCheck = true;
+          params.checksum_check = true;
         } else {
-          params.ChecksumCheck = false;
+          params.checksum_check = false;
         }
-        params.NetworkAddress = "0.0.0.0";
-        params.NetworkPort = port;
-        params.UserComment = wxString::Format(_("NMEA0183: UDP port %d"), port);
+        params.network_address = "0.0.0.0";
+        params.network_port = port;
+        params.user_comment =
+            wxString::Format(_("NMEA0183: UDP port %d"), port);
         m_detected_connections.push_back(params);
         continue;
       } else if (SeemsN2000(data)) {
         ConnectionParams params;
-        params.Type = ConnectionType::NETWORK;
-        params.NetProtocol = NetworkProtocol::UDP;
-        params.Protocol = DataProtocol::PROTO_NMEA2000;
-        params.LastDataProtocol = DataProtocol::PROTO_NMEA2000;
-        params.NetworkAddress = "0.0.0.0";
-        params.NetworkPort = port;
-        params.UserComment = wxString::Format(_("NMEA2000: UDP port %d"), port);
+        params.type = ConnectionType::NETWORK;
+        params.net_protocol = NetworkProtocol::UDP;
+        params.data_protocol = DataProtocol::PROTO_NMEA2000;
+        params.last_data_protocol = DataProtocol::PROTO_NMEA2000;
+        params.network_address = "0.0.0.0";
+        params.network_port = port;
+        params.user_comment =
+            wxString::Format(_("NMEA2000: UDP port %d"), port);
         m_detected_connections.push_back(params);
         continue;
       }
@@ -507,31 +514,31 @@ void FirstUseWizImpl::EnumerateTCP() {
           if (auto flavor = SeemsN0183(data);
               flavor != NMEA0183Flavor::INVALID) {
             ConnectionParams params;
-            params.Type = ConnectionType::NETWORK;
-            params.NetProtocol = NetworkProtocol::TCP;
-            params.Protocol = DataProtocol::PROTO_NMEA0183;
-            params.LastDataProtocol = DataProtocol::PROTO_NMEA0183;
+            params.type = ConnectionType::NETWORK;
+            params.net_protocol = NetworkProtocol::TCP;
+            params.data_protocol = DataProtocol::PROTO_NMEA0183;
+            params.last_data_protocol = DataProtocol::PROTO_NMEA0183;
             if (flavor == NMEA0183Flavor::CRC) {
-              params.ChecksumCheck = true;
+              params.checksum_check = true;
             } else {
-              params.ChecksumCheck = false;
+              params.checksum_check = false;
             }
-            params.NetworkAddress = ip;
-            params.NetworkPort = port;
-            params.UserComment = wxString::Format(_("NMEA0183: %s TCP port %d"),
-                                                  ip.c_str(), port);
+            params.network_address = ip;
+            params.network_port = port;
+            params.user_comment = wxString::Format(
+                _("NMEA0183: %s TCP port %d"), ip.c_str(), port);
             m_detected_connections.push_back(params);
             continue;
           } else if (SeemsN2000(data)) {
             ConnectionParams params;
-            params.Type = ConnectionType::NETWORK;
-            params.NetProtocol = NetworkProtocol::TCP;
-            params.Protocol = DataProtocol::PROTO_NMEA2000;
-            params.LastDataProtocol = DataProtocol::PROTO_NMEA2000;
-            params.NetworkAddress = ip;
-            params.NetworkPort = port;
-            params.UserComment = wxString::Format(_("NMEA2000: %s TCP port %d"),
-                                                  ip.c_str(), port);
+            params.type = ConnectionType::NETWORK;
+            params.net_protocol = NetworkProtocol::TCP;
+            params.data_protocol = DataProtocol::PROTO_NMEA2000;
+            params.last_data_protocol = DataProtocol::PROTO_NMEA2000;
+            params.network_address = ip;
+            params.network_port = port;
+            params.user_comment = wxString::Format(
+                _("NMEA2000: %s TCP port %d"), ip.c_str(), port);
             m_detected_connections.push_back(params);
             continue;
           }
@@ -563,35 +570,31 @@ void FirstUseWizImpl::EnumerateCAN() {
     return;
   }
 
-  wxString fis;
+  std::stringstream ss;
   for (const auto& l : output) {
-    fis.Append(l);
+    ss << l;
   }
-  wxJSONReader reader;
-  wxJSONValue root;
-  reader.Parse(fis, &root);
-  if (reader.GetErrorCount() > 0) {
-    DEBUG_LOG << "Failed to parse JSON output from ip.";
-    for (const auto& l : reader.GetErrors()) {
-      DEBUG_LOG << " - " << l;
-    }
+  nlohmann::json root;
+  try {
+    root = nlohmann::json::parse(ss.str());
+  } catch (nlohmann::json::exception& e) {
+    DEBUG_LOG << "Failed to parse JSON output from ip: " << e.what();
     return;
   }
-  if (root.IsArray()) {
-    for (int i = 0; i < root.Size(); i++) {
-      const wxJSONValue iface = root[i];
-      if (iface.HasMember("ifname") && iface.HasMember("link_type")) {
-        wxString ifname = iface.Get("ifname", "").AsString();
-        wxString link_type = iface.Get("link_type", "").AsString();
+  if (root.is_array()) {
+    for (const auto& iface : root) {
+      if (iface.contains("ifname") && iface.contains("link_type")) {
+        std::string ifname = iface["ifname"].get<std::string>();
+        std::string link_type = iface["link_type"].get<std::string>();
         if (link_type == "can") {
           DEBUG_LOG << "Found CAN interface: " << ifname;
           ConnectionParams params;
-          params.Type = ConnectionType::SOCKETCAN;
-          params.NetProtocol = NetworkProtocol::PROTO_UNDEFINED;
-          params.Protocol = DataProtocol::PROTO_NMEA2000;
-          params.LastDataProtocol = DataProtocol::PROTO_NMEA2000;
-          params.Port = ifname;
-          params.UserComment = wxString::Format("SocketCAN: %s", ifname);
+          params.type = ConnectionType::SOCKETCAN;
+          params.net_protocol = NetworkProtocol::PROTO_UNDEFINED;
+          params.data_protocol = DataProtocol::PROTO_NMEA2000;
+          params.last_data_protocol = DataProtocol::PROTO_NMEA2000;
+          params.serial_port = ifname;
+          params.user_comment = wxString::Format("SocketCAN: %s", ifname);
           m_detected_connections.push_back(params);
         }
       }
@@ -610,13 +613,13 @@ void FirstUseWizImpl::EnumerateGPSD() {
   client->SetTimeout(1);
   if (client->Connect(conn_addr, true)) {
     ConnectionParams params;
-    params.Type = ConnectionType::NETWORK;
-    params.NetProtocol = NetworkProtocol::GPSD;
-    params.Protocol = DataProtocol::PROTO_NMEA0183;
-    params.LastDataProtocol = DataProtocol::PROTO_NMEA0183;
-    params.NetworkAddress = "127.0.0.1";
-    params.NetworkPort = 2947;
-    params.UserComment =
+    params.type = ConnectionType::NETWORK;
+    params.net_protocol = NetworkProtocol::GPSD;
+    params.data_protocol = DataProtocol::PROTO_NMEA0183;
+    params.last_data_protocol = DataProtocol::PROTO_NMEA0183;
+    params.network_address = "127.0.0.1";
+    params.network_port = 2947;
+    params.user_comment =
         wxString::Format(_("GPSd: %s TCP port %d"), "127.0.0.1", 2947);
     m_detected_connections.push_back(params);
   }
@@ -678,19 +681,19 @@ void FirstUseWizImpl::EnumerateDatasources() {
   wxYield();
   for (const auto& sks : g_sk_servers) {
     ConnectionParams params;
-    params.Type = ConnectionType::NETWORK;
-    params.NetProtocol = NetworkProtocol::SIGNALK;
-    params.Protocol = DataProtocol::PROTO_SIGNALK;
-    params.LastDataProtocol = DataProtocol::PROTO_SIGNALK;
-    params.NetworkAddress = sks.ip;
-    params.NetworkPort = std::stoi(sks.port);
-    params.UserComment =
+    params.type = ConnectionType::NETWORK;
+    params.net_protocol = NetworkProtocol::SIGNALK;
+    params.data_protocol = DataProtocol::PROTO_SIGNALK;
+    params.last_data_protocol = DataProtocol::PROTO_SIGNALK;
+    params.network_address = sks.ip;
+    params.network_port = std::stoi(sks.port);
+    params.user_comment =
         wxString::Format(_("SignalK: %s (%s port %d)"), sks.hostname,
-                         params.NetworkAddress, params.NetworkPort);
+                         params.network_address, params.network_port);
     m_detected_connections.push_back(params);
   }
   for (const auto& conn : m_detected_connections) {
-    m_clSources->Append(conn.UserComment);
+    m_clSources->Append(conn.user_comment);
     m_clSources->Check(m_clSources->GetCount() - 1, true);
   }
   wxString svgDir = g_Platform->GetSharedDataDir() + _T("uidata") +

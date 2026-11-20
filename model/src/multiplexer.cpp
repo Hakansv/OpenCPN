@@ -51,7 +51,7 @@
 Multiplexer *g_pMUX;
 
 /** KeyProvider wrapper for a plain key string. */
-class RawKey : public KeyProvider {
+class RawKey : public obs::KeyProvider {
 public:
   explicit RawKey(const std::string &key) : m_key(key) {}
   [[nodiscard]] std::string GetKey() const override { return m_key; }
@@ -256,10 +256,10 @@ void Multiplexer::HandleN0183(
         //  or any other NMEA0183 port supporting output
         //  But, do not echo to the source network interface.  This will
         //  likely recurse...
-        if ((!params_.DisableEcho && params_.Type == SERIAL) ||
+        if ((!params_.disable_echo && params_.type == SERIAL) ||
             driver->iface != n0183_msg->source->iface) {
-          if (params_.IOSelect == DS_TYPE_INPUT_OUTPUT ||
-              params_.IOSelect == DS_TYPE_OUTPUT) {
+          if (params_.direction == PortDirection::kInOut ||
+              params_.direction == PortDirection::kOutput) {
             bool bout_filter = true;
             bool bxmit_ok = true;
             std::string id("XXXXX");
@@ -352,15 +352,15 @@ void Multiplexer::OnNewMessageType() {
     switch (NavMsg::GetBusByKey(msg_key)) {
       case NavAddr::Bus::N0183:
         m_listeners[msg_key] =
-            ObsListener(RawKey(key_parts[1]), [&](ObservedEvt &ev) {
-              HandleN0183(UnpackEvtPointer<Nmea0183Msg>(ev));
+            obs::Listener(RawKey(key_parts[1]), [&](ObservedEvt &ev) {
+              HandleN0183(obs::UnpackEvtPointer<Nmea0183Msg>(ev));
             });
         break;
 
       case NavAddr::Bus::N2000:
         m_listeners[msg_key] =
-            ObsListener(RawKey(key_parts[1]), [&](ObservedEvt &ev) {
-              HandleN2kLog(UnpackEvtPointer<Nmea2000Msg>(ev));
+            obs::Listener(RawKey(key_parts[1]), [&](ObservedEvt &ev) {
+              HandleN2kLog(obs::UnpackEvtPointer<Nmea2000Msg>(ev));
             });
         break;
 

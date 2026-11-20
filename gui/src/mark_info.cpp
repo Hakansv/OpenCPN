@@ -40,6 +40,8 @@
 #include <wx/clrpicker.h>
 #include <wx/bmpbuttn.h>
 
+#include "libgui/ui_utils.h"
+
 #include "model/config_vars.h"
 #include "model/georef.h"
 #include "model/navobj_db.h"
@@ -62,7 +64,6 @@
 #include "styles.h"
 #include "tcmgr.h"
 #include "tc_win.h"
-#include "ui_utils.h"
 
 #ifdef __ANDROID__
 #include "androidUTIL.h"
@@ -906,7 +907,7 @@ void MarkInfoDlg::UpdateHtmlList() {
   // Clear the list
   wxWindowList kids = m_scrolledWindowLinks->GetChildren();
   for (unsigned int i = 0; i < kids.GetCount(); i++) {
-    wxWindowListNode* node = kids.Item(i);
+    wxWindowList::compatibility_iterator node = kids.Item(i);
     wxWindow* win = node->GetData();
 
     auto link_win = dynamic_cast<wxHyperlinkCtrl*>(win);

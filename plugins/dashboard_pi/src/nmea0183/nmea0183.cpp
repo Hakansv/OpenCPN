@@ -223,12 +223,12 @@ bool NMEA0183::IsGood(void) const {
   /*  This seems too harsh for cross platform work
    *
   if ( sentence.Sentence.Mid( sentence.Sentence.Len() - 2, 1 ) !=
-  wxString(_T("\r")) )
+  wxString("\r") )
   {
      return( FALSE );
   }
 
-  if ( sentence.Sentence.Right( 1 ) != _T("\n") )
+  if ( sentence.Sentence.Right( 1 ) != "\n" )
   {
      return( FALSE );
   }
@@ -291,11 +291,10 @@ bool NMEA0183::Parse(void) {
 
     //          Traverse the response list to find a mnemonic match
 
-    wxMRLNode *node = response_table.GetFirst();
-
     int comparison = 0;
 
-    while (node) {
+    for (MRL::compatibility_iterator node = response_table.GetFirst(); node;
+         node = node->GetNext()) {
       RESPONSE *resp = node->GetData();
 
       comparison = mnemonic.Cmp(resp->Mnemonic);
@@ -319,8 +318,6 @@ bool NMEA0183::Parse(void) {
 
         break;
       }
-
-      node = node->GetNext();
     }
 
   } else {

@@ -39,6 +39,8 @@
 
 #include "ocpn_plugin.h"
 
+#include "observable/evtvar.h"
+
 #include "model/ais_target_data.h"
 #include "model/gui.h"
 #include "model/idents.h"
@@ -58,7 +60,6 @@
 #include "displays.h"
 #include "gui_lib.h"
 #include "load_errors_dlg.h"
-#include "observable_evtvar.h"
 #include "options.h"
 #include "pluginmanager.h"
 #include "s52_plib_utils.h"
@@ -96,8 +97,6 @@ class MyFrame;          // forward
 extern MyFrame* gFrame; /**< Global instance */
 
 // FIXME (leamas) to have utility functions in top window is a really bad idea.
-bool ShowNavWarning();
-
 void ApplyLocale(void);
 
 /**
@@ -309,6 +308,7 @@ public:
   virtual void UpdateAISMOBRoute(const AisTargetData* ptarget) override;
   virtual void ActivateAISMOBRoute(const AisTargetData* ptarget) override;
   void EnableSettingsTool(bool _enable) override {
+    if (m_pMenuBar) m_pMenuBar->Enable(wxID_PREFERENCES, _enable);
     if (g_MainToolbar) {
       g_MainToolbar->EnableTool(ID_SETTINGS, _enable);
       g_MainToolbar->GetToolbar()->SetDirty(true);
@@ -445,6 +445,7 @@ public:
   DataMonitor* GetDataMonitor() const { return m_data_monitor; }
 
   void SetAndApplyColorScheme(ColorScheme cs);
+  void ValidateColorScheme();
 
   void OnFrameTCTimer(wxTimerEvent& event);
   void OnFrameCOGTimer(wxTimerEvent& event);
@@ -504,7 +505,7 @@ public:
   void UpdateCanvasConfigDescriptors();
   void ScheduleSettingsDialog();
   void ScheduleSettingsDialogNew();
-  static void StartRebuildChartDatabase();
+  static bool StartRebuildChartDatabase();
   void PositionIENCToolbar();
 
   void InitAppMsgBusListener();
@@ -520,7 +521,6 @@ private:
   void ProcessAnchorWatch();
   void ProcessLogAndBells();
   void CalculateCOGAverage();
-  void CheckToolbarPosition();
 
   void ODoSetSize(void);
   void DoCOGSet(void);
@@ -583,13 +583,13 @@ private:
 private:
   ObservableListener listener_basic_navdata;
   ObservableListener listener_gps_watchdog;
-  ObsListener m_on_raise_listener;
-  ObsListener m_on_quit_listener;
-  ObsListener m_routes_update_listener;
-  ObsListener m_evt_drv_msg_listener;
-  ObsListener m_update_statusbar_listener;
-  ObsListener m_center_aistarget_listener;
-  ObsListener m_reload_charts_listener;
+  obs::Listener m_on_raise_listener;
+  obs::Listener m_on_quit_listener;
+  obs::Listener m_routes_update_listener;
+  obs::Listener m_evt_drv_msg_listener;
+  obs::Listener m_update_statusbar_listener;
+  obs::Listener m_center_aistarget_listener;
+  obs::Listener m_reload_charts_listener;
   ToolbarDlgCallbacks m_toolbar_callbacks;
 
   wxStatusBar* m_pStatusBar;

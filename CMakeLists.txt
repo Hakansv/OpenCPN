@@ -142,7 +142,11 @@ set(OCPN_TARGET_TUPLE "" CACHE STRING
 )
 
 if (MSVC OR MINGW)
-  option(OCPN_USE_CRASHREPORT "Enable crash reporting" ON)
+  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    set(OCPN_USE_CRASHREPORT FALSE)
+  else ()
+    option(OCPN_USE_CRASHREPORT "Enable crash reporting" ON)
+  endif()
 else ()
   set(OCPN_USE_CRASHREPORT FALSE)
 endif ()
@@ -827,6 +831,7 @@ set(GUI_HDRS
     ${GUI_HDR_DIR}/connection_edit.h
     ${GUI_HDR_DIR}/connections_dlg.h
     ${GUI_HDR_DIR}/conn_params_panel.h
+    ${GUI_HDR_DIR}/conn_edit_commons.h
     ${GUI_HDR_DIR}/data_monitor.h
     ${GUI_HDR_DIR}/detail_slider.h
     ${GUI_HDR_DIR}/displays.h
@@ -834,6 +839,7 @@ set(GUI_HDRS
     ${GUI_HDR_DIR}/dychart.h
     ${GUI_HDR_DIR}/emboss_data.h
     ${GUI_HDR_DIR}/flex_hash.h
+    ${GUI_HDR_DIR}/filter_sentence_dlg.h
     ${GUI_HDR_DIR}/font_desc.h
     ${GUI_HDR_DIR}/font_mgr.h
     ${GUI_HDR_DIR}/go_to_position_dlg.h
@@ -919,6 +925,7 @@ set(GUI_HDRS
     ${GUI_HDR_DIR}/user_colors_dlg.h
     ${GUI_HDR_DIR}/viewport.h
     ${GUI_HDR_DIR}/waypointman_gui.h
+    ${GUI_HDR_DIR}/welcome.h
 )
 
 set(GUI_SRC_DIR ${CMAKE_SOURCE_DIR}/gui/src)
@@ -950,6 +957,7 @@ set(GUI_SRC
     ${GUI_SRC_DIR}/concanv.cpp
     ${GUI_SRC_DIR}/config_mgr.cpp
     ${GUI_SRC_DIR}/connection_edit.cpp
+    ${GUI_SRC_DIR}/conn_edit_commons.cpp
     ${GUI_SRC_DIR}/connections_dlg.cpp
     ${GUI_SRC_DIR}/conn_params_panel.cpp
     ${GUI_SRC_DIR}/data_monitor.cpp
@@ -957,6 +965,7 @@ set(GUI_SRC
     ${GUI_SRC_DIR}/displays.cpp
     ${GUI_SRC_DIR}/download_mgr.cpp
     ${GUI_SRC_DIR}/filter_dlg.cpp
+    ${GUI_SRC_DIR}/filter_sentence_dlg.cpp
     ${GUI_SRC_DIR}/flex_hash.cpp
     ${GUI_SRC_DIR}/font_desc.cpp
     ${GUI_SRC_DIR}/font_mgr.cpp
@@ -1046,7 +1055,7 @@ set(GUI_SRC
     ${GUI_SRC_DIR}/user_colors.cpp
     ${GUI_SRC_DIR}/viewport.cpp
     ${GUI_SRC_DIR}/waypointman_gui.cpp
-
+    ${GUI_SRC_DIR}/welcome.cpp
 )
 
 if (NOT QT_ANDROID)
@@ -1108,6 +1117,7 @@ target_link_libraries(_opencpn INTERFACE ${PACKAGE_NAME})
 target_include_directories(
   _opencpn BEFORE
   INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/model/include
+            ${CMAKE_CURRENT_SOURCE_DIR}/gui/include
             ${CMAKE_CURRENT_SOURCE_DIR}/include
             ${CMAKE_CURRENT_SOURCE_DIR}/resources
             ${CMAKE_CURRENT_SOURCE_DIR}/gui/src/mbtiles
@@ -1521,6 +1531,9 @@ endif ()
 # Add android and windows extra, bundled GL headers
 target_link_libraries(${PACKAGE_NAME} PUBLIC ocpn::gl-headers)
 
+add_subdirectory(libs/nlohmann-json)
+target_link_libraries(${PACKAGE_NAME} PUBLIC nlohmann::json)
+
 # Ensure we have ghc::filesystem if std::filesystem is missing.
 add_subdirectory(libs/std_filesystem)
 target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::filesystem)
@@ -1545,8 +1558,13 @@ add_subdirectory(libs/gui)
 target_link_libraries(${PACKAGE_NAME} PRIVATE ocpn::guilib)
 
 if (MSVC)
-  install(FILES "cache/buildwin/libssl-3.dll" DESTINATION ".")
-  install(FILES "cache/buildwin/libcrypto-3.dll" DESTINATION ".")
+  if (CMAKE_SIZEOF_VOID_P EQUAL 8)
+    install(FILES "cache/buildwin/libssl-3-x64.dll" DESTINATION ".")
+    install(FILES "cache/buildwin/libcrypto-3-x64.dll" DESTINATION ".")
+  else()
+    install(FILES "cache/buildwin/libssl-3.dll" DESTINATION ".")
+    install(FILES "cache/buildwin/libcrypto-3.dll" DESTINATION ".")
+  endif()
 endif ()
 
 message(STATUS "S57 ENC support: enabled")
@@ -2330,11 +2348,11 @@ endif ()
 #
 if (WIN32 AND NOT UNIX)
   if (OCPN_BUNDLE_WXDLLS)
-    file(GLOB wxdll_files "${wxWidgets_LIB_DIR}/wxmsw32*u_*.dll"
-         "${wxWidgets_LIB_DIR}/wxbase32*u_*.dll"
+    file(GLOB wxdll_files "${wxWidgets_LIB_DIR}/wxmsw3*u_*.dll"
+         "${wxWidgets_LIB_DIR}/wxbase3*u_*.dll"
     )
-    file(GLOB wxdll_debug_files "${wxWidgets_LIB_DIR}/wxmsw32*ud_*.dll"
-         "${wxWidgets_LIB_DIR}/wxbase32*ud_*.dll"
+    file(GLOB wxdll_debug_files "${wxWidgets_LIB_DIR}/wxmsw3*ud_*.dll"
+         "${wxWidgets_LIB_DIR}/wxbase3*ud_*.dll"
     )
     list(LENGTH wxdll_files wxdll_count)
     if (wxdll_count LESS 5)
@@ -2364,11 +2382,11 @@ if (WIN32 AND NOT UNIX)
         "${wxdllud_count} wxWidgets debug DLLs available to be bundled into the installer package..."
     )
     if (OCPN_BUNDLE_WXDLLS AND NOT OCPN_CI_BUILD)
-      file(GLOB wxpdb_files "${wxWidgets_LIB_DIR}/wxmsw32*u_*.pdb"
-           "${wxWidgets_LIB_DIR}/wxbase32*u_*.pdb"
+      file(GLOB wxpdb_files "${wxWidgets_LIB_DIR}/wxmsw3*u_*.pdb"
+           "${wxWidgets_LIB_DIR}/wxbase3*u_*.pdb"
       )
-      file(GLOB wxpdb_debug_files "${wxWidgets_LIB_DIR}/wxmsw32*ud_*.pdb"
-           "${wxWidgets_LIB_DIR}/wxbase32*ud_*.pdb"
+      file(GLOB wxpdb_debug_files "${wxWidgets_LIB_DIR}/wxmsw3*ud_*.pdb"
+           "${wxWidgets_LIB_DIR}/wxbase3*ud_*.pdb"
       )
       list(LENGTH wxpdb_files wxpdb_count)
       list(LENGTH wxpdb_debug_files wxpdbud_count)
@@ -2399,14 +2417,31 @@ if (WIN32 AND NOT UNIX)
       STATUS "MSVC redistributable DLLs bundled into the installer package..."
     )
   endif ()
+
   if (BUNDLE_LIBARCHIVEDLLS)
-    file(
-      GLOB
-      libarchivedll_files
-      "${CMAKE_CURRENT_SOURCE_DIR}/cache/buildwin/archive.dll"
-      "${CMAKE_CURRENT_SOURCE_DIR}/cache/buildwin/liblzma.dll"
-      "${CMAKE_CURRENT_SOURCE_DIR}/cache/buildwin/zlib1.dll"
-    )
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+      file(
+            GLOB
+            libarchivedll_files
+            "${CMAKE_CURRENT_SOURCE_DIR}/cache/buildwin/archive.dll"
+            "${CMAKE_CURRENT_SOURCE_DIR}/cache/buildwin/liblzma.dll"
+            "${CMAKE_CURRENT_SOURCE_DIR}/cache/buildwin/z.dll"
+            "${CMAKE_CURRENT_SOURCE_DIR}/cache/buildwin/bz2.dll"
+            "${CMAKE_CURRENT_SOURCE_DIR}/cache/buildwin/lz4.dll"
+            "${CMAKE_CURRENT_SOURCE_DIR}/cache/buildwin/zstd.dll"
+            "${CMAKE_CURRENT_SOURCE_DIR}/cache/buildwin/libxml2.dll"
+      )
+
+    else ()
+      file(
+        GLOB
+          libarchivedll_files
+          "${CMAKE_CURRENT_SOURCE_DIR}/cache/buildwin/archive.dll"
+          "${CMAKE_CURRENT_SOURCE_DIR}/cache/buildwin/liblzma.dll"
+          "${CMAKE_CURRENT_SOURCE_DIR}/cache/buildwin/zlib1.dll"
+      )
+    endif ()
+
     install(FILES ${libarchivedll_files} DESTINATION ".")
     message(STATUS "LibArchive DLLs bundled into the installer package...")
   endif ()
@@ -2475,9 +2510,29 @@ endif ()
 #
 if (WIN32)
   configure_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/NSIS.template.in.in
-    ${CMAKE_BINARY_DIR}/NSIS.template.in COPYONLY
+          ${CMAKE_CURRENT_SOURCE_DIR}/NSIS.template.in.in
+          ${CMAKE_BINARY_DIR}/NSIS.template.in
+          COPYONLY
   )
+
+  # Fixup the install directory for x64 build
+  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    file(READ
+            "${CMAKE_BINARY_DIR}/NSIS.template.in"
+            NSIS_TEMPLATE
+            )
+    string(REPLACE
+            "@NSIS_INSTALL_PROGRAMFILES@"
+            "$PROGRAMFILES64"
+            NSIS_TEMPLATE
+            "${NSIS_TEMPLATE}"
+            )
+    file(WRITE
+            "${CMAKE_BINARY_DIR}/NSIS.template.in"
+            "${NSIS_TEMPLATE}"
+            )
+  endif()
+
 endif ()
 
 #
@@ -2615,6 +2670,7 @@ if (WIN32)
   set(CPACK_NSIS_DISPLAY_NAME "${CPACK_PACKAGE_NAME} ${PACKAGE_VERSION}")
   set(CPACK_PACKAGE_ICON "${CMAKE_SOURCE_DIR}/resources/bitmaps\\\\opencpn.ico")
   set(CPACK_PACKAGE_FILE_NAME "${PACKAGE_NAME}_${PACKAGE_VERSION}_setup")
+
   set(CPACK_RESOURCE_FILE_LICENSE
       "${CMAKE_CURRENT_SOURCE_DIR}/data/license.txt"
   )
@@ -2670,6 +2726,13 @@ if (APPLE)
 
   set(APPS "\${CMAKE_INSTALL_PREFIX}/bin/OpenCPN.app")
   set(DIRS "/usr/local/lib")
+  # Homebrew on arm64 lives in /opt/homebrew, and its newer bottles use
+  # @rpath install names (e. g. libwebp's libsharpyuv). fixup_bundle
+  # resolves such items by searching DIRS, so the Homebrew lib directory
+  # must be listed or the install fails with "cannot resolve item".
+  if (EXISTS "/opt/homebrew/lib")
+    list(APPEND DIRS "/opt/homebrew/lib")
+  endif ()
 
   # INSTALL(DIRECTORY DESTINATION "bin/OpenCPN.app/Contents/Plugins")
   install(
@@ -2809,6 +2872,10 @@ endif ()
 add_subdirectory(model)
 target_link_libraries(${PACKAGE_NAME} PUBLIC ocpn::model-src ocpn::model)
 
+set(OCPN_TEST_ERROR_BEHAVIOR "ANY" CACHE STRING
+    "Error behavior for tests (ANY, LAST or NONE (last added in cmake version 4.0))"
+)
+
 if ("${ENABLE_SANITIZER}" STREQUAL "none")
   if (MSVC)
     set(test_root  ${CMAKE_BINARY_DIR}/test/${CMAKE_BUILD_TYPE})
@@ -2816,9 +2883,14 @@ if ("${ENABLE_SANITIZER}" STREQUAL "none")
     set(test_root  ${CMAKE_BINARY_DIR}/test/)
   endif ()
   set(_run_tests "
-  execute_process(COMMAND ${test_root}/tests)
-  execute_process(COMMAND ${test_root}/buffer_tests)
-  ")
+  execute_process(
+	  COMMAND ${test_root}/tests
+	  COMMAND_ERROR_IS_FATAL ${OCPN_TEST_ERROR_BEHAVIOR}
+  )
+  execute_process(
+	  COMMAND ${test_root}/buffer_tests
+	  COMMAND_ERROR_IS_FATAL ${OCPN_TEST_ERROR_BEHAVIOR}
+  )")
 else ()
   set(_run_tests "message(STATUS \"tests disabled on sanitized builds\")")
 endif ()

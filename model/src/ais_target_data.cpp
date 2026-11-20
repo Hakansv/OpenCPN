@@ -215,6 +215,8 @@ AisTargetData::AisTargetData(AisTargetCallbacks cb) : m_callbacks(cb) {
   ROTAIS = -128;
   Lat = 0.;
   Lon = 0.;
+  Lat_projected = Lat;
+  Lon_projected = Lon;
 
   wxDateTime now = wxDateTime::Now();
   now.MakeGMT();
@@ -262,6 +264,7 @@ AisTargetData::AisTargetData(AisTargetCallbacks cb) : m_callbacks(cb) {
   b_positionDoubtful = false;
   b_positionOnceValid = false;
   b_nameValid = false;
+  b_VDM_secure_Pos = false;
 
   Euro_Length = 0;  // Extensions for European Inland AIS
   Euro_Beam = 0;
@@ -341,6 +344,8 @@ void AisTargetData::CloneFrom(AisTargetData *q) {
   ROTAIS = q->ROTAIS;
   Lat = q->Lat;
   Lon = q->Lon;
+  Lat_projected = q->Lat_projected;
+  Lon_projected = q->Lon_projected;
 
   PositionReportTicks = q->PositionReportTicks;
   StaticReportTicks = q->StaticReportTicks;

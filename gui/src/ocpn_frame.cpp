@@ -20,6 +20,9 @@
  *
  * OpenCPN top window
  */
+
+#include <string>
+
 #include "config.h"
 #include "gl_headers.h"  // Must be included before anything using GL stuff
 
@@ -95,7 +98,6 @@
 #include "model/usb_watch_daemon.h"
 
 #include "ais_info_gui.h"
-#include "dialog_alert.h"
 #include "about_frame_impl.h"
 #include "about.h"
 #include "ais.h"
@@ -363,19 +365,16 @@ void BuildiENCToolbar(bool bnew, ToolbarDlgCallbacks callbacks) {
       }
 
       if ((g_iENCToolbarPosX < 0) || (g_iENCToolbarPosY < 0)) {
-        posn.x = 0;
-        posn.y = 100;
-
-        if (g_MainToolbar)
-          posn =
-              wxPoint(g_maintoolbar_x + g_MainToolbar->GetToolbarSize().x + 4,
-                      g_maintoolbar_y);
+        posn.x = 4;
+        posn.y = 4;
       }
 
       double tool_scale_factor =
           g_Platform->GetToolbarScaleFactor(g_GUIScaleFactor);
       g_iENCToolbar = new iENCToolbar(gFrame, posn, wxTB_HORIZONTAL,
                                       tool_scale_factor, callbacks);
+      g_iENCToolbar->SetULDockPosition(wxPoint(4, 4));
+
       g_iENCToolbar->SetColorScheme(global_color_scheme);
       g_iENCToolbar->EnableSubmerge(false);
     }
@@ -730,7 +729,7 @@ MyFrame::MyFrame(const wxString &title, const wxPoint &pos, const wxSize &size,
       [&](ObservedEvt &) { UpdateStatusBar(); });
   m_center_aistarget_listener.Init(
       GuiEvents::GetInstance().on_center_ais_target, [&](ObservedEvt &ev) {
-        auto ais_target = UnpackEvtPointer<AisTargetData>(ev);
+        auto ais_target = obs::UnpackEvtPointer<AisTargetData>(ev);
         CenterAisTarget(ais_target);
       });
   m_reload_charts_listener.Init(
@@ -837,7 +836,7 @@ void MyFrame::OnSENCEvtThread(OCPN_BUILDSENC_ThreadEvent &event) {
   }
 }
 
-void MyFrame::StartRebuildChartDatabase() {
+bool MyFrame::StartRebuildChartDatabase() {
   bool b_SetInitialPoint = false;
 
   //   Build the initial chart dir array
@@ -873,7 +872,9 @@ void MyFrame::StartRebuildChartDatabase() {
 
     LoadS57();
     ChartData->Create(ChartDirArray, pprog);
+    return true;
   }
+  return false;
 }
 
 // play an arbitrary number of bells by using 1 and 2 bell sounds
@@ -917,7 +918,9 @@ void MyFrame::ReloadAllVP() {
 }
 
 void MyFrame::SetAndApplyColorScheme(ColorScheme cs) {
-  int is_day = cs == GLOBAL_COLOR_SCHEME_DAY ? 1 : 0;
+  bool scheme_day =
+      (cs == GLOBAL_COLOR_SCHEME_DAY) || (cs == GLOBAL_COLOR_SCHEME_DAY_HICON);
+  int is_day = scheme_day ? 1 : 0;
   GuiEvents::GetInstance().color_scheme_change.Notify(is_day, "");
 
   global_color_scheme = cs;
@@ -931,6 +934,12 @@ void MyFrame::SetAndApplyColorScheme(ColorScheme cs) {
       break;
     case GLOBAL_COLOR_SCHEME_NIGHT:
       SchemeName = "NIGHT";
+      break;
+    case GLOBAL_COLOR_SCHEME_DAY_HICON:
+      SchemeName = "DAY";
+      break;
+    case GLOBAL_COLOR_SCHEME_NIGHT_HICON:
+      SchemeName = "DUSK";
       break;
     default:
       SchemeName = "DAY";
@@ -1075,7 +1084,15 @@ void MyFrame::SetAndApplyColorScheme(ColorScheme cs) {
     }
   }
 
-  if (g_pi_manager) g_pi_manager->SetColorSchemeForAllPlugIns(cs);
+  ColorScheme s = cs;
+  if (g_hicon_colors) {
+    // Plugins know nothing about HICON
+    if (cs == GLOBAL_COLOR_SCHEME_DAY_HICON)
+      s = GLOBAL_COLOR_SCHEME_DAY;
+    else if (cs == GLOBAL_COLOR_SCHEME_NIGHT_HICON)
+      s = GLOBAL_COLOR_SCHEME_DUSK;
+  }
+  g_pi_manager->SetColorSchemeForAllPlugIns(s);
 }
 
 void MyFrame::ApplyGlobalColorSchemetoStatusBar() {
@@ -1699,6 +1716,8 @@ void MyFrame::OnCloseWindow(wxCloseEvent &event) {
   // g_MainToolbar = NULL;
 #endif
 
+  if (g_iENCToolbar) delete g_iENCToolbar;
+
   if (g_pAISTargetList) {
     g_pAISTargetList->Disconnect_decoder();
     g_pAISTargetList->Destroy();
@@ -1823,7 +1842,6 @@ void MyFrame::OnCloseWindow(wxCloseEvent &event) {
 #endif
   uninitIXNetSystem();
 
-  delete g_iENCToolbar;
   g_iENCToolbar = NULL;
 
   this->Destroy();
@@ -2721,15 +2739,14 @@ void MyFrame::OnToolLeftClick(wxCommandEvent &event) {
     case ID_CMD_POST_JSON_TO_PLUGINS: {
       // Extract the Message ID which is embedded in the JSON string passed in
       // the event
-      wxJSONValue root;
-      wxJSONReader reader;
-
-      int numErrors = reader.Parse(event.GetString(), &root);
-      if (numErrors == 0) {
-        if (root["MessageID"].IsString()) {
-          wxString MsgID = root["MessageID"].AsString();
-          SendPluginMessage(MsgID, event.GetString());  // Send to all PlugIns
+      nlohmann::json root;
+      try {
+        root = nlohmann::json::parse(event.GetString().ToStdString());
+        if (root["MessageID"].is_string()) {
+          std::string msg_id = root["MessageID"].get<std::string>();
+          SendPluginMessage(msg_id, event.GetString());  // Send to all PlugIns
         }
+      } catch (nlohmann::json::exception &) {
       }
 
       break;
@@ -2978,6 +2995,11 @@ void MyFrame::DoSettingsNew() {
 }
 
 void MyFrame::DoSettings() {
+  if (!g_bDeferredInitDone) {
+    wxLogWarning("Ignoring settings request while OpenCPN is initializing.");
+    return;
+  }
+
   LoadS57();
   DoOptionsDialog();
 
@@ -3018,17 +3040,26 @@ void MyFrame::ToggleChartBar(ChartCanvas *cc) {
 void MyFrame::ToggleColorScheme() {
   static bool lastIsNight;
   ColorScheme s = user_colors::GetColorScheme();
-  int is = (int)s;
-  is++;
-  if (lastIsNight && is == 3)  // Back from step 3
-  {
-    is = 1;
-    lastIsNight = false;
-  }  //      Goto to Day
-  if (lastIsNight) is = 2;          // Back to Dusk on step 3
-  if (is == 3) lastIsNight = true;  // Step 2 Night
-  s = (ColorScheme)is;
-  if (s == N_COLOR_SCHEMES) s = GLOBAL_COLOR_SCHEME_RGB;
+  if (!g_hicon_colors) {
+    int is = (int)s;
+    is++;
+    if (lastIsNight && is == 3)  // Back from step 3
+    {
+      is = 1;
+      lastIsNight = false;
+    }  //      Goto to Day
+    if (lastIsNight) is = 2;          // Back to Dusk on step 3
+    if (is == 3) lastIsNight = true;  // Step 2 Night
+    s = (ColorScheme)(is);
+    if (s == N_COLOR_SCHEMES) s = GLOBAL_COLOR_SCHEME_RGB;
+  } else {
+    if (s == GLOBAL_COLOR_SCHEME_DAY_HICON)
+      s = GLOBAL_COLOR_SCHEME_NIGHT_HICON;
+    else if (s == GLOBAL_COLOR_SCHEME_NIGHT_HICON)
+      s = GLOBAL_COLOR_SCHEME_DAY_HICON;
+    else
+      s = GLOBAL_COLOR_SCHEME_DAY_HICON;
+  }
 
   SetAndApplyColorScheme(s);
 }
@@ -3099,10 +3130,9 @@ void MyFrame::ActivateMOB() {
     if (g_pRouteMan->GetpActiveRoute()) g_pRouteMan->DeactivateRoute();
     g_pRouteMan->ActivateRoute(temp_route, pWP_MOB);
 
-    wxJSONValue v;
+    nlohmann::json v;
     v["GUID"] = temp_route->m_GUID;
-    wxString msg_id("OCPN_MAN_OVERBOARD");
-    SendJSONMessageToAllPlugins(msg_id, v);
+    SendJsonMessageToAllPlugins("OCPN_MAN_OVERBOARD", v);
   }
 
   if (RouteManagerDialog::getInstanceFlag()) {
@@ -3150,7 +3180,7 @@ void MyFrame::TrackOn() {
     }
   }
 
-  wxJSONValue v;
+  nlohmann::json v;
   wxString name = g_pActiveTrack->GetName();
   if (name.IsEmpty()) {
     TrackPoint *tp = g_pActiveTrack->GetPoint(0);
@@ -3162,20 +3192,18 @@ void MyFrame::TrackOn() {
   }
   v["Name"] = name;
   v["GUID"] = g_pActiveTrack->m_GUID;
-  wxString msg_id("OCPN_TRK_ACTIVATED");
-  SendJSONMessageToAllPlugins(msg_id, v);
-  g_FlushNavobjChangesTimeout =
-      30;  // Every thirty seconds, consider flushing navob changes
+  SendJsonMessageToAllPlugins("OCPN_TRK_ACTIVATED", v);
+  // Every thirty seconds, consider flushing navob changes
+  g_FlushNavobjChangesTimeout = 30;
 }
 
 Track *MyFrame::TrackOff(bool do_add_point) {
   Track *return_val = g_pActiveTrack;
 
   if (g_pActiveTrack) {
-    wxJSONValue v;
-    wxString msg_id("OCPN_TRK_DEACTIVATED");
+    nlohmann::json v;
     v["GUID"] = g_pActiveTrack->m_GUID;
-    SendJSONMessageToAllPlugins(msg_id, v);
+    SendJsonMessageToAllPlugins("OCPN_TRK_DEACTIVATED", v);
 
     g_pActiveTrack->Stop(do_add_point);
 
@@ -3737,6 +3765,7 @@ void MyFrame::RegisterGlobalMenuItems() {
 
   // Set initial values for menu check items and radio items
   UpdateGlobalMenuItems();
+  EnableSettingsTool(g_bDeferredInitDone);
 }
 
 void MyFrame::UpdateGlobalMenuItems() {
@@ -4309,7 +4338,25 @@ void MyFrame::ProcessOptionsDialog(int rr, ArrayOfCDI *pNewDirArray) {
   // Reset chart scale factor trigger
   g_last_ChartScaleFactor = g_ChartScaleFactor;
 
+  // Process HighContrast Color selection
+  ValidateColorScheme();
+  SetAndApplyColorScheme(global_color_scheme);
+
   return;
+}
+
+void MyFrame::ValidateColorScheme() {
+  // Force to a color in the correct hi/lo contrast family if necessary.
+  if (g_hicon_colors) {
+    if ((global_color_scheme != GLOBAL_COLOR_SCHEME_DAY_HICON) &&
+        (global_color_scheme != GLOBAL_COLOR_SCHEME_NIGHT_HICON))
+      global_color_scheme = GLOBAL_COLOR_SCHEME_DAY_HICON;
+  } else {
+    if ((global_color_scheme != GLOBAL_COLOR_SCHEME_DAY) &&
+        (global_color_scheme != GLOBAL_COLOR_SCHEME_NIGHT) &&
+        (global_color_scheme != GLOBAL_COLOR_SCHEME_DUSK))
+      global_color_scheme = GLOBAL_COLOR_SCHEME_DAY;
+  }
 }
 
 bool MyFrame::CheckGroup(int igroup) {
@@ -4624,12 +4671,14 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
           }
         }
 
-        // Start an async chart database update
-        // Arrange for init timer to restart at next point in chain
-        m_iInitCount = 1;
-        StartRebuildChartDatabase();
+        // Start an async chart database update, if there are chart directories.
+        // Arrange for init timer to restart at the next point in the chain.
+        const bool update_started = StartRebuildChartDatabase();
         g_NeedDBUpdate = 0;
-        return;
+        if (update_started) {
+          m_iInitCount = 1;
+          return;
+        }
       }
 
       break;
@@ -4859,7 +4908,7 @@ void MyFrame::OnInitTimer(wxTimerEvent &event) {
 
   RefreshAllCanvas(true);
   UsbWatchDaemon::GetInstance().Start();
-  EnableSettingsTool(true);
+  EnableSettingsTool(g_bDeferredInitDone);
 }
 
 wxDEFINE_EVENT(EVT_BASIC_NAV_DATA, ObservedEvt);
@@ -5260,32 +5309,6 @@ void MyFrame::OnMemFootTimer(wxTimerEvent &event) {
 
 int ut_index;
 
-void MyFrame::CheckToolbarPosition() {
-#ifdef __WXMAC__
-  // Manage Full Screen mode on Mac Mojave 10.14
-  static bool bMaximized;
-
-  if (IsMaximized() && !bMaximized) {
-    bMaximized = true;
-    if (g_MainToolbar) {
-      g_MainToolbar->SetYAuxOffset(g_MainToolbar->GetToolSize().y * 15 / 10);
-      g_MainToolbar->SetDefaultPosition();
-      g_MainToolbar->Realize();
-    }
-    PositionIENCToolbar();
-  } else if (!IsMaximized() && bMaximized) {
-    bMaximized = false;
-    if (g_MainToolbar) {
-      g_MainToolbar->SetYAuxOffset(0);
-      g_MainToolbar->SetDockY(-1);
-      g_MainToolbar->SetDefaultPosition();
-      g_MainToolbar->Realize();
-    }
-    PositionIENCToolbar();
-  }
-#endif
-}
-
 void MyFrame::ProcessUnitTest() {
   if (!g_bPauseTest && (g_unit_test_1 || g_unit_test_2)) {
     //            if((0 == ut_index) && GetQuiltMode())
@@ -5611,8 +5634,6 @@ void MyFrame::ProcessLogAndBells() {
 }
 
 void MyFrame::OnFrameTimer1(wxTimerEvent &event) {
-  CheckToolbarPosition();
-
   ProcessUnitTest();
   g_tick++;
   if (ProcessQuitFlag()) return;
@@ -5828,14 +5849,14 @@ double MyFrame::GetMag(double a, double lat, double lon) {
 bool MyFrame::SendJSON_WMM_Var_Request(double lat, double lon,
                                        wxDateTime date) {
   if (g_pi_manager) {
-    wxJSONValue v;
+    nlohmann::json v;
     v["Lat"] = lat;
     v["Lon"] = lon;
     v["Year"] = date.GetYear();
     v["Month"] = date.GetMonth();
     v["Day"] = date.GetDay();
 
-    SendJSONMessageToAllPlugins("WMM_VARIATION_REQUEST", v);
+    SendJsonMessageToAllPlugins("WMM_VARIATION_REQUEST", v);
     return true;
   } else
     return false;
@@ -6170,70 +6191,57 @@ void MyFrame::OnEvtPlugInMessage(OCPN_MsgEvent &event) {
   //  present, active, and we have no other source of Variation
   if (!g_bVAR_Rx) {
     if (message_ID == "WMM_VARIATION_BOAT") {
-      // construct the JSON root object
-      wxJSONValue root;
-      // construct a JSON parser
-      wxJSONReader reader;
-
-      // now read the JSON text and store it in the 'root' structure
-      // check for errors before retreiving values...
-      int numErrors = reader.Parse(message_JSONText, &root);
-      if (numErrors > 0) {
-        //              const wxArrayString& errors = reader.GetErrors();
+      nlohmann::json root;
+      try {
+        root = nlohmann::json::parse(message_JSONText);
+      } catch (nlohmann::json::exception &) {
         return;
       }
-
       // get the DECL value from the JSON message
-      wxString decl = root["Decl"].AsString();
-      double decl_val;
-      decl.ToDouble(&decl_val);
-
-      gVar = decl_val;
+      try {
+        gVar = root["Decl"].get<double>();
+      } catch (nlohmann::json::exception &) {
+        return;
+      }
     }
   }
 
   if (message_ID == "WMM_VARIATION") {
-    // construct the JSON root object
-    wxJSONValue root;
-    // construct a JSON parser
-    wxJSONReader reader;
-
-    // now read the JSON text and store it in the 'root' structure
-    // check for errors before retreiving values...
-    int numErrors = reader.Parse(message_JSONText, &root);
-    if (numErrors > 0) {
-      //              const wxArrayString& errors = reader.GetErrors();
+    nlohmann::json root;
+    try {
+      root = nlohmann::json::parse(message_JSONText);
+    } catch (nlohmann::json::exception &) {
       return;
     }
 
-    // get the DECL value from the JSON message
-    wxString decl = root["Decl"].AsString();
-    double decl_val;
-    decl.ToDouble(&decl_val);
+    double decl_val = 0.0;
+    if (root["Decl"].is_number()) {
+      decl_val = root["Decl"].get<double>();
+    } else if (root["Decl"].is_string()) {
+      decl_val = std::stod(root["Decl"].get<std::string>());
+    }
 
     gQueryVar = decl_val;
   }
 
   if (message_ID == "GRIB_TIMELINE") {
-    wxJSONReader r;
-    wxJSONValue v;
-    int numErrors = r.Parse(message_JSONText, &v);
-
-    if (numErrors > 0) {
+    nlohmann::json v;
+    try {
+      v = nlohmann::json::parse(message_JSONText);
+    } catch (nlohmann::json::exception &) {
       wxLogMessage("GRIB_TIMELINE: JSON parse error");
       return;
     }
-
-    // Store old time source for comparison
     wxDateTime oldTimeSource = gTimeSource;
 
-    if (v["Day"].AsInt() == -1) {
+    if (v["Day"].get<int>() == -1) {
       gTimeSource = wxInvalidDateTime;
       wxLogMessage("GRIB_TIMELINE: Reset to system time");
     } else {
-      gTimeSource.Set(v["Day"].AsInt(), (wxDateTime::Month)v["Month"].AsInt(),
-                      v["Year"].AsInt(), v["Hour"].AsInt(), v["Minute"].AsInt(),
-                      v["Second"].AsInt());
+      gTimeSource.Set(v["Day"].get<int>(),
+                      (wxDateTime::Month)v["Month"].get<int>(),
+                      v["Year"].get<int>(), v["Hour"].get<int>(),
+                      v["Minute"].get<int>(), v["Second"].get<int>());
     }
 
     // Refresh tide displays if time source changed
@@ -6253,16 +6261,17 @@ void MyFrame::OnEvtPlugInMessage(OCPN_MsgEvent &event) {
     }
   }
   if (message_ID == "OCPN_TRACK_REQUEST") {
-    wxJSONValue root;
-    wxJSONReader reader;
-    wxString trk_id = wxEmptyString;
+    nlohmann::json root;
+    wxString trk_id = "";
 
-    int numErrors = reader.Parse(message_JSONText, &root);
-    if (numErrors > 0) return;
+    try {
+      root = nlohmann::json::parse(message_JSONText);
+    } catch (nlohmann::json::exception &) {
+      return;
+    }
+    if (root.contains("Track_ID")) trk_id = root["Track_ID"].get<std::string>();
 
-    if (root.HasMember("Track_ID")) trk_id = root["Track_ID"].AsString();
-
-    wxJSONValue v;
+    nlohmann::json v;
     v["Track_ID"] = trk_id;
     for (Track *ptrack : g_TrackList) {
       wxString name = wxEmptyString;
@@ -6288,29 +6297,25 @@ void MyFrame::OnEvtPlugInMessage(OCPN_MsgEvent &event) {
           v["lon"] = tp->m_lon;
           v["NodeNr"] = i;
           i++;
-          wxString msg_id("OCPN_TRACKPOINTS_COORDS");
-          SendJSONMessageToAllPlugins(msg_id, v);
+          SendJsonMessageToAllPlugins("OCPN_TRACKPOINTS_COORDS", v);
         }
         return;
       }
       v["error"] = true;
-
-      wxString msg_id("OCPN_TRACKPOINTS_COORDS");
-      SendJSONMessageToAllPlugins(msg_id, v);
+      SendJsonMessageToAllPlugins("OCPN_TRACKPOINTS_COORDS", v);
     }
   } else if (message_ID == "OCPN_ROUTE_REQUEST") {
-    wxJSONValue root;
-    wxJSONReader reader;
-    wxString guid = wxEmptyString;
-
-    int numErrors = reader.Parse(message_JSONText, &root);
-    if (numErrors > 0) {
+    nlohmann::json root;
+    wxString guid = "";
+    try {
+      root = nlohmann::json::parse(message_JSONText);
+    } catch (nlohmann::json::exception &) {
       return;
     }
 
-    if (root.HasMember("GUID")) guid = root["GUID"].AsString();
+    if (root.contains("GUID")) guid = root["GUID"].get<std::string>();
 
-    wxJSONValue v;
+    nlohmann::json v;
     v["GUID"] = guid;
     for (auto it = pRouteList->begin(); it != pRouteList->end(); ++it) {
       wxString name = wxEmptyString;
@@ -6321,7 +6326,7 @@ void MyFrame::OnEvtPlugInMessage(OCPN_MsgEvent &event) {
 
         v["Name"] = name;
         v["error"] = false;
-        wxJSONValue w;
+        nlohmann::json w;
         int i = 0;
         for (RoutePointList::iterator itp = (*it)->pRoutePointList->begin();
              itp != (*it)->pRoutePointList->end(); itp++) {
@@ -6337,8 +6342,8 @@ void MyFrame::OnEvtPlugInMessage(OCPN_MsgEvent &event) {
             int n = 1;
             while (node != (*itp)->m_HyperlinkList->end()) {
               Hyperlink *httpLink = *node;
-              v[i]["WPLink" + wxString::Format("%d", n)] = httpLink->Link;
-              v[i]["WPLinkDesciption" + wxString::Format("%d", n++)] =
+              v[i]["WPLink" + std::to_string(n)] = httpLink->Link;
+              v[i]["WPLinkDesciption" + std::to_string(n++)] =
                   httpLink->DescrText;
               ++node;
             }
@@ -6346,29 +6351,25 @@ void MyFrame::OnEvtPlugInMessage(OCPN_MsgEvent &event) {
           i++;
         }
         v["waypoints"] = w;
-        wxString msg_id("OCPN_ROUTE_RESPONSE");
-        SendJSONMessageToAllPlugins(msg_id, v);
+        SendJsonMessageToAllPlugins("OCPN_ROUTE_RESPONSE", v);
         return;
       }
     }
 
     v["error"] = true;
-
-    wxString msg_id("OCPN_ROUTE_RESPONSE");
-    SendJSONMessageToAllPlugins(msg_id, v);
+    SendJsonMessageToAllPlugins("OCPN_ROUTE_RESPONSE", v);
   } else if (message_ID == "OCPN_ROUTELIST_REQUEST") {
-    wxJSONValue root;
-    wxJSONReader reader;
+    nlohmann::json root;
     bool route = true;
+    try {
+      root = nlohmann::json::parse(message_JSONText);
+    } catch (nlohmann::json::exception &) {
+      return;
+    }
+    if (root.contains("mode")) {
+      if (root["mode"].get<std::string>() == "Track") route = false;
 
-    int numErrors = reader.Parse(message_JSONText, &root);
-    if (numErrors > 0) return;
-
-    if (root.HasMember("mode")) {
-      wxString str = root["mode"].AsString();
-      if (str == "Track") route = false;
-
-      wxJSONValue v;
+      nlohmann::json v;
       int i = 1;
       if (route) {
         for (RouteList::iterator it = pRouteList->begin();
@@ -6400,16 +6401,14 @@ void MyFrame::OnEvtPlugInMessage(OCPN_MsgEvent &event) {
           i++;
         }
       }
-      wxString msg_id("OCPN_ROUTELIST_RESPONSE");
-      SendJSONMessageToAllPlugins(msg_id, v);
+      SendJsonMessageToAllPlugins("OCPN_ROUTELIST_RESPONSE", v);
     } else {
-      wxJSONValue v;
+      nlohmann::json v;
       v[0]["error"] = true;
-      wxString msg_id("OCPN_ROUTELIST_RESPONSE");
-      SendJSONMessageToAllPlugins(msg_id, v);
+      SendJsonMessageToAllPlugins("OCPN_ROUTELIST_RESPONSE", v);
     }
   } else if (message_ID == "OCPN_ACTIVE_ROUTELEG_REQUEST") {
-    wxJSONValue v;
+    nlohmann::json v;
     v[0]["error"] = true;
     if (g_pRouteMan->GetpActiveRoute()) {
       if (g_pRouteMan->m_bDataValid) {
@@ -6424,8 +6423,7 @@ void MyFrame::OnEvtPlugInMessage(OCPN_MsgEvent &event) {
             g_pRouteMan->GetpActiveRoute()->m_pRouteActivePoint->GetLongitude();
       }
     }
-    wxString msg_id("OCPN_ACTIVE_ROUTELEG_RESPONSE");
-    SendJSONMessageToAllPlugins(msg_id, v);
+    SendJsonMessageToAllPlugins("OCPN_ACTIVE_ROUTELEG_RESPONSE", v);
   }
 }
 
@@ -6579,10 +6577,9 @@ void MyFrame::ActivateAISMOBRoute(const AisTargetData *ptarget) {
   if (g_pRouteMan->GetpActiveRoute()) g_pRouteMan->DeactivateRoute();
   //       g_pRouteMan->ActivateRoute( pAISMOBRoute, pWP_MOB );
 
-  wxJSONValue v;
+  nlohmann::json v;
   v["GUID"] = pAISMOBRoute->m_GUID;
-  wxString msg_id("OCPN_MAN_OVERBOARD");
-  SendJSONMessageToAllPlugins(msg_id, v);
+  SendJsonMessageToAllPlugins("OCPN_MAN_OVERBOARD", v);
   //}
 
   if (RouteManagerDialog::getInstanceFlag()) {
@@ -6819,6 +6816,11 @@ void MyFrame::RequestNewMasterToolbar(bool bforcenew) {
 #ifdef __WXOSX__
     toolbarParent = GetPrimaryCanvas();
 #endif
+    if (!g_bInlandEcdis)
+      g_maintoolbar_y = 4;
+    else
+      g_maintoolbar_y = 8 + g_iENCToolbar->GetToolbarRect().height;
+
     g_MainToolbar = new ocpnFloatingToolbarDialog(
         toolbarParent, wxPoint(-1, -1), orient, g_toolbar_scalefactor,
         m_toolbar_callbacks);
@@ -6835,12 +6837,7 @@ void MyFrame::RequestNewMasterToolbar(bool bforcenew) {
 
   if (g_MainToolbar) {
     CreateMasterToolbar();
-    {
-      // g_MainToolbar->RestoreRelativePosition(g_maintoolbar_x,
-      // g_maintoolbar_y);
-      g_MainToolbar->SetColorScheme(global_color_scheme);
-      // g_MainToolbar->Show(b_reshow && g_bshowToolbar);
-    }
+    g_MainToolbar->SetColorScheme(global_color_scheme);
   }
 
   if (btbRebuild && g_MainToolbar) {
@@ -6982,10 +6979,12 @@ bool MyFrame::CheckAndAddPlugInTool() {
 
       switch (global_color_scheme) {
         case GLOBAL_COLOR_SCHEME_DAY:
+        case GLOBAL_COLOR_SCHEME_DAY_HICON:
           ptool_bmp = pttc->bitmap_day;
           ;
           break;
         case GLOBAL_COLOR_SCHEME_DUSK:
+        case GLOBAL_COLOR_SCHEME_NIGHT_HICON:
           ptool_bmp = pttc->bitmap_dusk;
           break;
         case GLOBAL_COLOR_SCHEME_NIGHT:
@@ -7039,9 +7038,11 @@ bool MyFrame::AddDefaultPositionPlugInTools() {
 
       switch (global_color_scheme) {
         case GLOBAL_COLOR_SCHEME_DAY:
+        case GLOBAL_COLOR_SCHEME_DAY_HICON:
           ptool_bmp = pttc->bitmap_day;
           break;
         case GLOBAL_COLOR_SCHEME_DUSK:
+        case GLOBAL_COLOR_SCHEME_NIGHT_HICON:
           ptool_bmp = pttc->bitmap_dusk;
           break;
         case GLOBAL_COLOR_SCHEME_NIGHT:
@@ -7135,7 +7136,8 @@ void SetSystemColors(ColorScheme cs) {  //---------------
   int element[NCOLORS];
   int rgbcolor[NCOLORS];
   int i = 0;
-  if ((GLOBAL_COLOR_SCHEME_DUSK == cs) || (GLOBAL_COLOR_SCHEME_NIGHT == cs)) {
+  if ((GLOBAL_COLOR_SCHEME_DUSK == cs) || (GLOBAL_COLOR_SCHEME_NIGHT == cs) ||
+      (GLOBAL_COLOR_SCHEME_NIGHT_HICON == cs)) {
     MSW_COLOR_SPEC *pcspec = &color_spec[0];
     while (pcspec->COLOR_NAME != -1) {
       wxColour color = GetGlobalColor(pcspec->S52_RGB_COLOR);

@@ -35,10 +35,10 @@
 #include <wx/panel.h>
 #include <wx/sizer.h>
 #include <wx/spinctrl.h>
-#include <wx/statbox.h>
-#include <wx/statline.h>
 #include <wx/textctrl.h>
 #include <wx/window.h>
+
+#include "libgui/expand_panel.h"
 
 #include "model/base_platform.h"
 #include "model/comm_drv_factory.h"
@@ -57,17 +57,11 @@
 #include "conn_params_panel.h"
 #include "gui_lib.h"
 #include "navutil.h"
-#include "ocpn_platform.h"
 #include "options.h"
 #include "priority_gui.h"
 #include "std_filesystem.h"
-#include "model/svg_utils.h"
 
-static wxString UtfArrowDown() { return wxString::FromUTF8(u8"\u25bc"); }
-static wxString UtfArrowRight() { return wxString::FromUTF8(u8"\u25ba"); }
-static wxString UtfFilledCircle() { return wxString::FromUTF8(u8"\u2b24"); }
-
-static const auto TopScrollWindowName = "TopScroll";
+static constexpr auto TopScrollWindowName = "TopScroll";
 
 static const char* kInfoHeader = _("OpenCPN help").c_str();
 static const char* kInfo = _(R"---(
@@ -91,6 +85,28 @@ the only transmitted messages.
 static const char* kInterfaceExistsMessage =
     _("Warning: A driver using this interface already exists.").c_str();
 
+static wxString UtfArrowDown() {
+  return wxString::FromUTF8(reinterpret_cast<const char*>(u8"\u25bc"));
+}
+static wxString UtfArrowRight() {
+  return wxString::FromUTF8(reinterpret_cast<const char*>(u8"\u25ba"));
+}
+static wxString UtfCheckMark() {
+  return wxString::FromUTF8(reinterpret_cast<const char*>(u8"\u2713"));
+}
+static wxString UtfGear() {
+  return wxString::FromUTF8(reinterpret_cast<const char*>(u8"\u2699"));
+}
+static wxString UtfFilledCircle() {
+  return wxString::FromUTF8(reinterpret_cast<const char*>(u8"\u25cf"));
+}
+static wxString UtfOpenCircle() {
+  return wxString::FromUTF8(reinterpret_cast<const char*>(u8"\u25c8"));
+}
+static wxString UtfWastebasket() {
+  return wxString::FromUTF8(reinterpret_cast<const char*>(u8"\U0001f5d1"));
+}
+
 static bool IsWindows() {
   return wxPlatformInfo::Get().GetOperatingSystemId() & wxOS_WINDOWS;
 }
@@ -113,18 +129,18 @@ static std::string BitsToDottedMask(const unsigned bits) {
   return ss.str();
 }
 
-static ConnectionParams* FindConnectionByIface(ConnectionParams* new_cp) {
+static ConnectionParams* FindConnectionByIface(const ConnectionParams* new_cp) {
   for (const auto& cp : TheConnectionParams()) {
-    if (cp->Type != new_cp->Type) continue;
-    switch (cp->Type) {
+    if (cp->type != new_cp->type) continue;
+    switch (cp->type) {
       case SERIAL:
-        if (cp->Port != new_cp->Port) continue;
+        if (cp->serial_port != new_cp->serial_port) continue;
         return cp;
         break;
       case NETWORK:
-        if (cp->NetProtocol != new_cp->NetProtocol) continue;
-        if (cp->NetworkAddress != new_cp->NetworkAddress) continue;
-        if (cp->NetworkPort != new_cp->NetworkPort) continue;
+        if (cp->net_protocol != new_cp->net_protocol) continue;
+        if (cp->network_address != new_cp->network_address) continue;
+        if (cp->network_port != new_cp->network_port) continue;
         return cp;
         break;
       case INTERNAL_GPS:
@@ -134,7 +150,11 @@ static ConnectionParams* FindConnectionByIface(ConnectionParams* new_cp) {
         return cp;
         break;
       case SOCKETCAN:
-        if (cp->socketCAN_port != new_cp->socketCAN_port) continue;
+        if (cp->socket_can_port != new_cp->socket_can_port) continue;
+        return cp;
+        break;
+      case CANABLE:
+        if (cp->serial_port != new_cp->serial_port) continue;
         return cp;
         break;
       default:
@@ -144,150 +164,12 @@ static ConnectionParams* FindConnectionByIface(ConnectionParams* new_cp) {
   return nullptr;
 }
 
-/** Standard icons bitmaps: settings gear, trash bin, etc. */
-class StdIcons {
-private:
-  const unsigned m_size;
-  const fs::path m_svg_dir;
-  ColorScheme m_cs;
+static ConnectionParams* FindConnectionByIface(
+    const std::unique_ptr<ConnectionParams>& cp) {
+  return FindConnectionByIface(cp.get());
+}
 
-  /** Return platform dependent icon size. */
-  static unsigned GetSize(const wxWindow* parent) {
-    double size = parent->GetCharHeight() * (IsWindows() ? 1.3 : 1.0);
-#if wxCHECK_VERSION(3, 1, 2)
-    // Apply scale factor, mostly for Windows. Other platforms
-    // does this in the toolkits, ToDIP() is aware of this.
-    size *= static_cast<double>(parent->ToDIP(100)) / 100.;
-#endif
-    // Force minimum physical size for touch screens
-    if (g_btouch) {
-      double pixel_per_mm =
-          wxGetDisplaySize().x / g_Platform->GetDisplaySizeMM();
-      size = std::max(size, 7.0 * pixel_per_mm);
-    }
-    return static_cast<unsigned>(size);
-  }
-
-  [[nodiscard]] wxBitmap LoadIcon(const std::string& filename) const {
-    fs::path path = m_svg_dir / filename;
-    return LoadSVG(path.string(), m_size, m_size);
-  }
-
-  [[nodiscard]] wxBitmap IconApplyColorScheme(const wxBitmap& proto) const {
-    if (!proto.IsOk()) return wxNullBitmap;
-    if ((m_cs != GLOBAL_COLOR_SCHEME_DAY) &&
-        (m_cs != GLOBAL_COLOR_SCHEME_RGB)) {
-      // Assume the bitmap is monochrome, so simply invert the colors.
-      const wxImage image = proto.ConvertToImage();
-      unsigned char* data = image.GetData();
-      unsigned char* p_idata = data;
-      for (int i = 0; i < image.GetSize().y; i++) {
-        for (int j = 0; j < image.GetSize().x; j++) {
-          unsigned char v = *p_idata;
-          v = 255 - v;
-          *p_idata++ = v;
-          v = *p_idata;
-          v = 255 - v;
-          *p_idata++ = v;
-          v = *p_idata;
-          v = 255 - v;
-          *p_idata++ = v;
-        }
-      }
-      return {image};
-    }
-    return proto;
-  }
-
-public:
-  explicit StdIcons(const wxWindow* parent)
-      : m_size(GetSize(parent)),
-        m_svg_dir(fs::path(g_Platform->GetSharedDataDir().ToStdString()) /
-                  "uidata" / "MUI_flat"),
-        m_cs(GLOBAL_COLOR_SCHEME_RGB),
-        trash_bin_proto(LoadIcon("trash_bin.svg")),
-        settings_proto(LoadIcon("setting_gear.svg")),
-        filled_circle_proto(LoadIcon("circle-on.svg")),
-        open_circle_proto(LoadIcon("circle-off.svg")),
-        exclaim_mark_proto(LoadIcon("exclaim_mark.svg")),
-        x_mult_proto(LoadIcon("X_mult.svg")),
-        check_mark_proto(LoadIcon("check_mark.svg")) {
-    trash_bin = trash_bin_proto;
-    settings = settings_proto;
-    filled_circle = filled_circle_proto;
-    open_circle = open_circle_proto;
-    exclaim_mark = exclaim_mark_proto;
-    x_mult = x_mult_proto;
-    check_mark = check_mark_proto;
-  }
-
-  void SetColorScheme(const ColorScheme cs) {
-    if (m_cs != cs) {
-      m_cs = cs;
-      trash_bin = IconApplyColorScheme(trash_bin_proto);
-      settings = IconApplyColorScheme(settings_proto);
-      filled_circle = IconApplyColorScheme(filled_circle_proto);
-      open_circle = IconApplyColorScheme(open_circle_proto);
-      exclaim_mark = IconApplyColorScheme(exclaim_mark_proto);
-      x_mult = IconApplyColorScheme(x_mult_proto);
-      check_mark = IconApplyColorScheme(check_mark_proto);
-    }
-  }
-
-  const wxBitmap trash_bin_proto;
-  const wxBitmap settings_proto;
-  const wxBitmap filled_circle_proto;
-  const wxBitmap open_circle_proto;
-  const wxBitmap exclaim_mark_proto;
-  const wxBitmap x_mult_proto;
-  const wxBitmap check_mark_proto;
-
-  wxBitmap trash_bin;
-  wxBitmap settings;
-  wxBitmap filled_circle;
-  wxBitmap open_circle;
-  wxBitmap exclaim_mark;
-  wxBitmap x_mult;
-  wxBitmap check_mark;
-};
-
-/** Custom renderer class for rendering bitmap in a grid cell */
-class BitmapCellRenderer : public wxGridCellRenderer {
-public:
-  BitmapCellRenderer(const wxBitmap& bitmap, ColorScheme cs)
-      : status(ConnState::Disabled), m_bitmap(bitmap), m_cs(cs) {}
-
-  // Update the bitmap dynamically
-  void SetBitmap(const wxBitmap& bitmap) { m_bitmap = bitmap; }
-
-  void Draw(wxGrid& grid, wxGridCellAttr& attr, wxDC& dc, const wxRect& rect,
-            int row, int col, bool isSelected) override {
-    dc.SetBrush(wxBrush(GetGlobalColor("DILG1")));
-    if ((m_cs != GLOBAL_COLOR_SCHEME_DAY) && m_cs != GLOBAL_COLOR_SCHEME_RGB)
-      dc.SetBrush(wxBrush(GetDialogColor(DLG_BACKGROUND)));
-    if (IsWindows()) dc.SetBrush(wxBrush(GetGlobalColor("DILG1")));
-    dc.DrawRectangle(rect);
-
-    // Draw the bitmap centered in the cell
-    dc.DrawBitmap(m_bitmap, rect.x + (rect.width - m_bitmap.GetWidth()) / 2,
-                  rect.y + (rect.height - m_bitmap.GetHeight()) / 2, true);
-  }
-
-  wxSize GetBestSize(wxGrid& grid, wxGridCellAttr& attr, wxDC& dc, int row,
-                     int col) override {
-    // Return the size of the bitmap as the best size for the cell
-    return {m_bitmap.GetWidth(), m_bitmap.GetHeight()};
-  }
-
-  [[nodiscard]] BitmapCellRenderer* Clone() const override {
-    return new BitmapCellRenderer(m_bitmap, m_cs);
-  }
-  ConnState status;
-
-private:
-  wxBitmap m_bitmap;
-  ColorScheme m_cs;
-};
+namespace {
 
 /**
  * Custom renderer class for rendering ENABLE in a grid cell.
@@ -320,11 +202,12 @@ public:
                   const ConnectionParams* p2) const {
     switch (m_col) {
       case 0:
-        return static_cast<int>(p1->bEnabled) > static_cast<int>(p2->bEnabled);
+        return static_cast<int>(p1->is_enabled) >
+               static_cast<int>(p2->is_enabled);
       case 1:
         return p1->GetCommProtocol() < p2->GetCommProtocol();
       case 2:
-        return p1->GetIOTypeValueStr() < p2->GetIOTypeValueStr();
+        return p1->GetPortDirectionValueStr() < p2->GetPortDirectionValueStr();
       case 3:
         return p1->GetStrippedDSPort() < p2->GetStrippedDSPort();
       default:
@@ -358,7 +241,7 @@ public:
 /** The "Add new connection" button */
 class AddConnectionButton final : public wxButton {
 public:
-  AddConnectionButton(wxWindow* parent, EventVar& evt_add_connection,
+  AddConnectionButton(wxWindow* parent, obs::EventVar& evt_add_connection,
                       const std::function<void(ConnectionParams* p,
                                                bool editing)>& _start_edit_conn)
       : wxButton(parent, wxID_ANY, _("Add new connection...")),
@@ -371,7 +254,7 @@ public:
 private:
   void OnAddConnection() const { m_start_edit_conn(nullptr, false); }
 
-  EventVar& m_evt_add_connection;
+  obs::EventVar& m_evt_add_connection;
   std::function<void(ConnectionParams* p, bool editing)> m_start_edit_conn;
 };
 
@@ -380,7 +263,7 @@ class Connections final : public wxGrid {
 public:
   Connections(wxWindow* parent,
               const std::vector<ConnectionParams*>& connections,
-              EventVar& on_conn_update,
+              obs::EventVar& on_conn_update,
               const std::function<void(ConnectionParams* p, bool editing)>&
                   on_edit_conn)
       : wxGrid(parent, wxID_ANY),
@@ -389,7 +272,6 @@ public:
         m_last_tooltip_cell(100),
         m_cs(GLOBAL_COLOR_SCHEME_DAY),
         m_on_conn_delete(on_conn_update),
-        m_icons(parent),
         m_on_edit_conn(on_edit_conn) {
     ShowScrollbars(wxSHOW_SB_NEVER, wxSHOW_SB_NEVER);
     SetTable(new wxGridStringTable(), true);
@@ -418,6 +300,7 @@ public:
     HideRowLabels();
     SetColAttributes(parent);
 
+    OnColorChange();
     ReloadGrid(connections);
     DisableDragColSize();
     DisableDragRowSize();
@@ -428,7 +311,7 @@ public:
       ev.Skip();
     });
     GetGridWindow()->Bind(wxEVT_MOUSEWHEEL,
-                          [&](const wxMouseEvent& ev) { OnWheel(ev); });
+                          [&](wxMouseEvent& ev) { OnWheel(ev); });
     // wxGridEvent.GetCol() and GetRow() are not const until wxWidgets 3.2
     Bind(wxEVT_GRID_LABEL_LEFT_CLICK,
          [&](wxGridEvent& ev) { HandleSort(ev.GetCol()); });
@@ -438,14 +321,34 @@ public:
       SetColAttributes(dynamic_cast<const wxWindow*>(ev.GetEventObject()));
       ev.Skip();
     });
+    Bind(wxEVT_SYS_COLOUR_CHANGED,
+         [&](wxSysColourChangedEvent& ev) { OnColorChange(ev); });
     conn_change_lstnr.Init(
         m_conn_states.evt_conn_status_change,
         [&](ObservedEvt&) { OnConnectionChange(m_connections); });
   }
+
   void SetColorScheme(const ColorScheme cs) {
     m_cs = cs;
-    m_icons.SetColorScheme(cs);
     ReloadGrid(m_connections);
+  }
+
+  void OnColorChange() {
+    auto foreground = wxSystemSettings::GetColour(wxSYS_COLOUR_MENUTEXT);
+    auto background = wxSystemSettings::GetColour(wxSYS_COLOUR_WINDOW);
+    SetLabelBackgroundColour(background);
+    SetLabelTextColour(foreground);
+    for (int row = 0; row <= GetNumberRows(); row++) {
+      for (unsigned col = 0; col < 7; col++) {
+        SetCellBackgroundColour(row, col, background);
+        SetCellTextColour(row, col, foreground);
+      }
+    }
+  }
+
+  void OnColorChange(wxSysColourChangedEvent& ev) {
+    OnColorChange();
+    ev.Skip();
   }
 
   wxSize GetEstimatedSize() const {
@@ -455,10 +358,14 @@ public:
   }
 
   /** Mouse wheel: scroll the TopScroll window */
-  static void OnWheel(const wxMouseEvent& ev) {
+  void OnWheel(wxMouseEvent& ev) {
+    if (!IsShown()) {
+      ev.Skip();
+      return;
+    }
     auto w =
         dynamic_cast<wxScrolledWindow*>(FindWindowByName(TopScrollWindowName));
-    assert(w && "No TopScroll window found");
+    if (!w) return;
     int xpos;
     int ypos;
     w->GetViewStart(&xpos, &ypos);
@@ -473,36 +380,32 @@ public:
   /** Reload grid using data from given list of connections. */
   void ReloadGrid(const std::vector<ConnectionParams*>& connections) {
     ClearGrid();
-    m_renderer_status_vector.clear();
 
     for (auto it = connections.begin(); it != connections.end(); ++it) {
       const auto row = static_cast<int>(it - connections.begin());
       EnsureRows(row);
-      SetCellValue(row, 0, (*it)->bEnabled ? "1" : "");
-      if ((*it)->bEnabled)
+      SetCellValue(row, 0, (*it)->is_enabled ? "1" : "");
+      if ((*it)->is_enabled)
         m_tooltips[row][0] = _("Enabled, click to disable");
       else
         m_tooltips[row][0] = _("Disabled, click to enable");
       std::string protocol = NavAddr::BusToString((*it)->GetCommProtocol());
       SetCellValue(row, 1, protocol);
-      SetCellValue(row, 2, (*it)->GetIOTypeValueStr());
+      SetCellValue(row, 2, (*it)->GetPortDirectionValueStr());
       SetCellValue(row, 3, (*it)->GetStrippedDSPort());
-      m_tooltips[row][3] = (*it)->UserComment;
-      SetCellRenderer(row, 5, new BitmapCellRenderer(m_icons.settings, m_cs));
+      m_tooltips[row][3] = (*it)->user_comment;
+      SetCellValue(row, 5, UtfGear());
       m_tooltips[row][5] = _("Edit connection");
-      SetCellRenderer(row, 6, new BitmapCellRenderer(m_icons.trash_bin, m_cs));
+      SetCellValue(row, 6, UtfWastebasket());
       m_tooltips[row][6] = _("Delete connection");
       SetCellValue(row, 7, (*it)->GetKey());
 
-      auto stat_renderer = new BitmapCellRenderer(m_icons.filled_circle, m_cs);
-      stat_renderer->status = ConnState::Disabled;
-      m_renderer_status_vector.push_back(stat_renderer);
-      SetCellRenderer(row, 4, stat_renderer);
       if (IsAndroid()) {
         wxString sp(protocol);
         unsigned size = sp.Length() * wxWindow::GetCharWidth();
         m_header_column_widths[1] = std::max(m_header_column_widths[1], size);
-        size = (*it)->GetIOTypeValueStr().Length() * wxWindow::GetCharWidth();
+        size = (*it)->GetPortDirectionValueStr().Length() *
+               wxWindow::GetCharWidth();
         m_header_column_widths[2] = std::max(m_header_column_widths[2], size);
         sp = wxString((*it)->GetStrippedDSPort());
         size = sp.Length() * wxWindow::GetCharWidth();
@@ -510,6 +413,7 @@ public:
       }
     }
     OnConnectionChange(m_connections);
+    OnColorChange();
 
     if (IsAndroid()) {
       int ic = 0;
@@ -543,7 +447,7 @@ public:
   /**
    * Find index in m_connections for given pointer.
    * @return positive index if found, else -1;
-   * */
+   */
   int FindConnectionIndex(const ConnectionParams* cp) const {
     using namespace std;
     auto key = cp->GetKey();
@@ -650,7 +554,8 @@ private:
   }
 
   /** Handle mouse movements i.e., the tooltips. */
-  void OnMouseMove(const wxMouseEvent& ev) {
+  void OnMouseMove(wxMouseEvent& ev) {
+    if (!IsShown()) return;
     const wxPoint pt = ev.GetPosition();
     int row = YToRow(pt.y);
     int col = XToCol(pt.x);
@@ -658,6 +563,7 @@ private:
     if (row * 7 + col == m_last_tooltip_cell) return;
     m_last_tooltip_cell = row * 7 + col;
     GetGridWindow()->SetToolTip(m_tooltips[row][col]);
+    ev.Skip();
   }
 
   /** Handle connections driver statistics status changes event. */
@@ -666,50 +572,34 @@ private:
     for (auto it = connections.begin(); it != connections.end(); ++it) {
       ConnState state = m_conn_states.GetDriverState(
           (*it)->GetCommProtocol(), (*it)->GetStrippedDSPort());
-      if (!(*it)->bEnabled) state = ConnState::Disabled;
+      if (!(*it)->is_enabled) state = ConnState::Disabled;
       auto row = static_cast<int>(it - connections.begin());
       EnsureRows(row);
-      if (static_cast<int>(m_renderer_status_vector.size()) < row + 1) continue;
       switch (state) {
         case ConnState::Disabled:
-          if (m_renderer_status_vector[row]->status != ConnState::Disabled) {
-            m_renderer_status_vector[row]->SetBitmap(m_icons.filled_circle);
-            m_renderer_status_vector[row]->status = ConnState::Disabled;
-            refresh_needed = true;
-          }
+          SetCellValue(row, 4, UtfFilledCircle());
           m_tooltips[row][4] = _("Disabled");
+          refresh_needed = true;
           break;
         case ConnState::NoStats:
-          if (m_renderer_status_vector[row]->status != ConnState::NoStats) {
-            m_renderer_status_vector[row]->SetBitmap(m_icons.open_circle);
-            m_renderer_status_vector[row]->status = ConnState::NoStats;
-            refresh_needed = true;
-          }
+          SetCellValue(row, 4, UtfOpenCircle());
           m_tooltips[row][4] = _("No driver statistics available");
+          refresh_needed = true;
           break;
         case ConnState::NoData:
-          if (m_renderer_status_vector[row]->status != ConnState::NoData) {
-            m_renderer_status_vector[row]->SetBitmap(m_icons.exclaim_mark);
-            m_renderer_status_vector[row]->status = ConnState::NoData;
-            refresh_needed = true;
-          }
+          SetCellValue(row, 4, "!");
           m_tooltips[row][4] = _("No data flowing through connection");
+          refresh_needed = true;
           break;
         case ConnState::Unavailable:
-          if (m_renderer_status_vector[row]->status != ConnState::Unavailable) {
-            m_renderer_status_vector[row]->SetBitmap(m_icons.x_mult);
-            m_renderer_status_vector[row]->status = ConnState::Unavailable;
-            refresh_needed = true;
-          }
+          SetCellValue(row, 4, "X");
           m_tooltips[row][4] = _("The device is unavailable");
+          refresh_needed = true;
           break;
         case ConnState::Ok:
-          if (m_renderer_status_vector[row]->status != ConnState::Ok) {
-            m_renderer_status_vector[row]->SetBitmap(m_icons.check_mark);
-            m_renderer_status_vector[row]->status = ConnState::Ok;
-            refresh_needed = true;
-          }
+          SetCellValue(row, 4, UtfCheckMark());
           m_tooltips[row][4] = _("Data is flowing");
+          refresh_needed = true;
           break;
       }
     }
@@ -747,10 +637,10 @@ private:
   void HandleEnable(int row) {
     ConnectionParams* cp = FindRowConnection(row);
     if (!cp) return;
-    cp->bEnabled = !cp->bEnabled;
-    cp->b_IsSetup = FALSE;  // trigger a rebuild/takedown of the connection
-    SetCellValue(row, 0, cp->bEnabled ? "1" : "");
-    if (cp->bEnabled)
+    cp->is_enabled = !cp->is_enabled;
+    cp->is_setup = FALSE;  // trigger a rebuild/takedown of the connection
+    SetCellValue(row, 0, cp->is_enabled ? "1" : "");
+    if (cp->is_enabled)
       m_tooltips[row][0] = _("Enabled, click to disable");
     else
       m_tooltips[row][0] = _("Disabled, click to enable");
@@ -759,9 +649,9 @@ private:
     stats.driver_bus = cp->GetCommProtocol();
     m_conn_states.HandleDriverStats(stats);
     StopAndRemoveCommDriver(cp->GetStrippedDSPort(), cp->GetCommProtocol());
-    if (cp->bEnabled) MakeCommDriver(cp);
-    cp->b_IsSetup = true;
-    if (!cp->bEnabled) {
+    if (cp->is_enabled) MakeCommDriver(cp);
+    cp->is_setup = true;
+    if (!cp->is_enabled) {
       SetCellValue(row, 4, UtfFilledCircle());
       // ForceRefresh() apparently broken, see #4648
       ReloadGrid(TheConnectionParams());
@@ -786,7 +676,7 @@ private:
       int rcode = OCPNMessageBox(this, ss.str(), _("Delete connection?"),
                                  wxOK | wxCANCEL);
       if (rcode != wxID_OK && rcode != wxID_YES) return;
-      delete (*found)->m_optionsPanel;
+      delete (*found)->options_panel;
       StopAndRemoveCommDriver((*found)->GetStrippedDSPort(),
                               (*found)->GetCommProtocol());
       TheConnectionParams().erase(found);
@@ -796,32 +686,29 @@ private:
     }
   }
 
-  ObsListener conn_change_lstnr;
+  obs::Listener conn_change_lstnr;
   std::vector<std::vector<std::string>> m_tooltips;
   ConnStates m_conn_states;
   const std::vector<ConnectionParams*>& m_connections;
   std::array<unsigned, 7> m_header_column_widths;
   int m_last_tooltip_cell;
   ColorScheme m_cs;
-  EventVar& m_on_conn_delete;
-  StdIcons m_icons;
-  std::vector<BitmapCellRenderer*> m_renderer_status_vector;
+  obs::EventVar& m_on_conn_delete;
   std::function<void(ConnectionParams* p, bool editing)> m_on_edit_conn;
 };
 
 /** Indeed: the General  panel. */
 class GeneralPanel : public wxPanel {
 public:
-  explicit GeneralPanel(wxWindow* parent, wxSize max_size)
-      : wxPanel(parent, wxID_ANY) {
+  explicit GeneralPanel(wxWindow* parent) : wxPanel(parent, wxID_ANY) {
     auto sizer = new wxStaticBoxSizer(wxVERTICAL, this, _("General"));
     SetSizer(sizer);
     auto flags = wxSizerFlags().Border();
     m_upload_options = new UploadOptionsChoice(this);
     sizer->Add(m_upload_options, flags);
     sizer->Add(new PrioritiesBtn(this), flags);
-    wxWindow::SetMaxSize(max_size);
   }
+
   void SetColorScheme(ColorScheme) {
     DimeControl(m_upload_options);
     Refresh();
@@ -887,36 +774,10 @@ private:
   UploadOptionsChoice* m_upload_options;
 };
 
-/** The "Show advanced" text + right/down triangle and handler. */
-class ShowAdvanced : public wxStaticText {
-public:
-  ShowAdvanced(wxWindow* parent, std::function<void(bool)> on_toggle)
-      : wxStaticText(parent, wxID_ANY, ""),
-        m_on_toggle(std::move(on_toggle)),
-        m_show_advanced(true) {
-    Toggle();
-    Bind(wxEVT_LEFT_DOWN, [&](const wxMouseEvent& ev) { Toggle(); });
-  }
-
-private:
-  wxString m_label = _("Advanced ");
-  std::function<void(bool)> m_on_toggle;
-  bool m_show_advanced;
-
-  void Toggle() {
-    m_show_advanced = !m_show_advanced;
-    m_label = _("Advanced ");
-    m_label += m_show_advanced ? UtfArrowDown() : UtfArrowRight();
-    SetLabelText(m_label);
-    m_on_toggle(m_show_advanced);
-  }
-};
-
 /** Indeed: The "Advanced" panel. */
 class AdvancedPanel : public wxPanel {
 public:
-  explicit AdvancedPanel(wxWindow* parent, wxSize max_size)
-      : wxPanel(parent, wxID_ANY) {
+  explicit AdvancedPanel(wxWindow* parent) : wxPanel(parent, wxID_ANY) {
     auto sizer = new wxStaticBoxSizer(wxVERTICAL, this, "");
     sizer->Add(new BearingsCheckbox(this), wxSizerFlags().Expand());
     sizer->Add(new ExtraRmbRmcLine(this), wxSizerFlags().Expand());
@@ -924,7 +785,6 @@ public:
     sizer->Add(new TalkerIdRow(this), wxSizerFlags().Expand());
     sizer->Add(new NetmaskRow(this), wxSizerFlags().Expand());
     SetSizer(sizer);
-    wxWindow::SetMaxSize(max_size);
   }
 
 private:
@@ -966,6 +826,7 @@ private:
       wxWindow::Show();
     }
   };
+
   class ExtraRmbRmcCheckbox final : public wxCheckBox, public ApplyCancel {
   public:
     explicit ExtraRmbRmcCheckbox(wxWindow* parent)
@@ -1083,7 +944,7 @@ private:
 class TopPanel : public wxPanel {
 public:
   TopPanel(wxWindow* parent, const std::vector<ConnectionParams*>& connections,
-           EventVar& evt_add_connection,
+           obs::EventVar& evt_add_connection,
            const std::function<void(ConnectionParams* p, bool editing)>&
                on_edit_conn)
       : wxPanel(parent, wxID_ANY),
@@ -1092,7 +953,6 @@ public:
     auto vbox = new wxBoxSizer(wxVERTICAL);
     auto conn_grid = new Connections(this, m_connections, m_evt_add_connection,
                                      on_edit_conn);
-    wxSize panel_max_size(conn_grid->GetEstimatedSize());
     vbox->AddSpacer(wxWindow::GetCharHeight());
     auto conn_flags = wxSizerFlags().Border();
     if (IsAndroid()) conn_flags = wxSizerFlags().Border().Expand();
@@ -1102,19 +962,19 @@ public:
     vbox->Add(0, wxWindow::GetCharHeight());  // Expanding spacer
     auto panel_flags =
         wxSizerFlags().Border(wxLEFT | wxDOWN | wxRIGHT).Expand();
-    m_general_panel = new GeneralPanel(this, panel_max_size);
+    m_general_panel = new GeneralPanel(this);
+    m_general_panel->SetMinSize(m_general_panel->GetBestSize());
     vbox->Add(m_general_panel, panel_flags);
 
-    auto advanced_panel = new AdvancedPanel(this, panel_max_size);
+    auto advanced_panel = new AdvancedPanel(this);
     m_advanced_panel = advanced_panel;
-    auto on_toggle = [&, advanced_panel, vbox](bool show) {
-      // FIXME advanced_panel->SetMaxSize({conn_grid->GetSize().x, -1});
-      advanced_panel->Show(show);
-      vbox->SetSizeHints(this);
-      vbox->Fit(this);
-    };
-    vbox->Add(new ShowAdvanced(this, on_toggle), panel_flags);
-    vbox->Add(advanced_panel, panel_flags.ReserveSpaceEvenIfHidden());
+    auto adv_box = new wxBoxSizer(wxHORIZONTAL);
+    adv_box->Add(new wxStaticText(this, wxID_ANY, _("Advanced")));
+    adv_box->Add(new ExpandablePanel(this, advanced_panel,
+                                     [&] { GetParent()->Layout(); }));
+    vbox->Add(adv_box, wxSizerFlags().Border());
+    vbox->Add(advanced_panel,
+              wxSizerFlags().Border().ReserveSpaceEvenIfHidden());
 
     SetSizer(vbox);
     vbox->SetSizeHints(this);
@@ -1126,6 +986,7 @@ public:
       conn_grid->ReloadGrid(TheConnectionParams());
       conn_grid->Show(conn_grid->GetNumberRows() > 0);
       Layout();
+      FitInside();
     };
     m_add_connection_lstnr.Init(m_evt_add_connection,
                                 on_evt_update_connections);
@@ -1138,24 +999,27 @@ public:
   }
   [[nodiscard]] Connections* GetConnectionsGrid() const { return m_conn_grid; }
 
-  EventVar& m_evt_add_connection;
+  obs::EventVar& m_evt_add_connection;
 
 private:
   const std::vector<ConnectionParams*>& m_connections;
-  ObsListener m_add_connection_lstnr;
+  obs::Listener m_add_connection_lstnr;
   Connections* m_conn_grid;
   GeneralPanel* m_general_panel;
   AdvancedPanel* m_advanced_panel;
 };
 
-/** Top scroll window, adds scrollbars to TopPanel. */
-class TopScroll : public wxScrolledWindow {
+}  // anonymous namespace
+
+/** Top window. */
+class EditPanel : public wxScrolled<wxPanel> {
 public:
-  TopScroll(wxWindow* parent, const std::vector<ConnectionParams*>& connections,
-            EventVar& evt_add_connection)
-      : wxScrolledWindow(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
-                         wxVSCROLL | wxHSCROLL, TopScrollWindowName) {
-    ShowScrollbars(wxSHOW_SB_NEVER, wxSHOW_SB_ALWAYS);
+  EditPanel(wxWindow* parent, const std::vector<ConnectionParams*>& connections,
+            obs::EventVar& evt_add_connection)
+      : wxScrolled<wxPanel>(parent, wxID_ANY, wxDefaultPosition, wxDefaultSize,
+                            wxVSCROLL | wxHSCROLL),
+        m_edited_connection(nullptr),
+        m_edit_panel(nullptr) {
     auto vbox = new wxBoxSizer(wxVERTICAL);
     SetSizer(vbox);
 
@@ -1166,114 +1030,102 @@ public:
         HandleNew(p);
     };
 
-    top_panel =
+    m_top_panel =
         new TopPanel(this, connections, evt_add_connection, on_edit_connection);
-    vbox->Add(top_panel, wxSizerFlags(1).Expand());
+    vbox->Add(m_top_panel, wxSizerFlags(1).Expand());
+    auto on_cancel = [&] { SwitchToGrid(); };
 
-    auto on_edit_click = [&](const ConnectionParams* p, bool new_mode,
-                             bool ok_cancel) {
-      HandleEditFinish(p, new_mode, ok_cancel);
+    auto on_edit_click = [&](std::unique_ptr<ConnectionParams> params,
+                             bool new_mode) {
+      HandleEditFinish(std::move(params), new_mode);
     };
 
-    m_edit_panel = new ConnectionEditDialog(this, on_edit_click);
-    m_edit_panel->SetPropsLabel(_("Edit Selected Connection"));
-    wxWindow* options = FindWindowByName("Options");
-    assert(options && "Null Options window!");
-    int fraction = 9;
-#ifdef ANDROID
-    fraction = 10;
-#endif
-    m_edit_panel->SetSize(
-        wxSize(options->GetSize().x, options->GetSize().y * fraction / 10));
-    vbox->Add(m_edit_panel, wxSizerFlags(0).Expand());
+    m_edit_panel =
+        AbstractConnectionEditDlg::Create(this, on_cancel, on_edit_click);
+    vbox->Add(m_edit_panel, wxSizerFlags(1).Expand());
+    wxWindowBase::Layout();
     m_edit_panel->Hide();
 
-    SetScrollRate(0, 10);
-    if (IsAndroid()) SetScrollRate(1, 1);
-
-    SetScrollRate(0, 10);
-    if (IsAndroid()) SetScrollRate(1, 1);
+    if (IsAndroid())
+      SetScrollRate(1, 1);
+    else
+      SetScrollRate(10, 10);
   }
 
   void SetColorScheme(ColorScheme cs) const {
-    if (top_panel) top_panel->SetColorScheme(cs);
+    if (m_top_panel) m_top_panel->SetColorScheme(cs);
   }
 
   void HandleEdit(ConnectionParams* p) {
-    m_edit_panel->SetPropsLabel(_("Edit Selected Connection"));
-    m_edit_panel->SetNewMode(false);
-    m_edit_panel->PreloadControls(p);
-    m_edit_panel->AddOKCancelButtons();
+    m_edited_connection = p;
+    m_edit_panel->SetParams(std::make_unique<ConnectionParams>(*p));
     SwitchToEditor();
   }
 
   void HandleNew(ConnectionParams*) {
-    m_edit_panel->SetPropsLabel(_("Configure new connection"));
-    m_edit_panel->SetDefaultConnectionParams();
-    m_edit_panel->SetNewMode(true);
-    m_edit_panel->AddOKCancelButtons();
+    m_edit_panel->SetParams(nullptr);
     SwitchToEditor();
   }
 
   void SwitchToEditor() {
-    top_panel->Hide();  // TopPanel
-    Scroll(0, 0);
+    ShowScrollbars(wxSHOW_SB_NEVER, wxSHOW_SB_NEVER);
+    m_top_panel->Hide();  // TopPanel
+    m_edit_panel->Scroll(0, 0);
     DimeControl(m_edit_panel);
     m_edit_panel->Show();
     g_options->ShowOKButtons(false);
-
     Layout();
   }
 
   void SwitchToGrid() {
-    g_options->ShowOKButtons(true);
     m_edit_panel->Hide();
-    top_panel->Show();
-    top_panel->GetConnectionsGrid()->ReloadGrid(TheConnectionParams());
+    m_top_panel->GetConnectionsGrid()->ReloadGrid(TheConnectionParams());
+    g_options->ShowOKButtons(true);
+    m_top_panel->Show();
     Layout();
+    FitInside();
     Scroll(0, 0);
+    ShowScrollbars(wxSHOW_SB_DEFAULT, wxSHOW_SB_DEFAULT);
   }
 
-  void HandleEditFinish(const ConnectionParams* cp_orig, bool new_mode,
-                        bool ok_cancel) {
-    if (!ok_cancel) {
-      SwitchToGrid();
-      return;
-    }
-    // OK from EDIT mode
+  void HandleEditFinish(std::unique_ptr<ConnectionParams> new_params,
+                        bool new_mode) {
     if (!new_mode) {
-      ConnectionParams* cp_edited = m_edit_panel->GetParamsFromControls();
-      delete cp_orig->m_optionsPanel;
-      StopAndRemoveCommDriver(cp_orig->GetStrippedDSPort(),
-                              cp_orig->GetCommProtocol());
-      int index = top_panel->GetConnectionsGrid()->FindConnectionIndex(cp_orig);
+      // OK from EDIT mode
+      StopAndRemoveCommDriver(m_edited_connection->GetStrippedDSPort(),
+                              m_edited_connection->GetCommProtocol());
+      assert(m_edited_connection && "No edited connection");
+      int index = m_top_panel->GetConnectionsGrid()->FindConnectionIndex(
+          m_edited_connection);
       assert(index != -1 && "Cannot look up connection index");
-      TheConnectionParams()[index] = cp_edited;
-      cp_edited->b_IsSetup = false;  // Trigger new stream
-    }
-    //  OK from NEW mode
-    else {
-      if (ConnectionParams* cp = m_edit_panel->GetParamsFromControls()) {
-        if (FindConnectionByIface(cp)) {
-          wxMessageDialog dialog(this, kInterfaceExistsMessage,
-                                 _("Driver creation warning"),
-                                 wxOK | wxCENTRE | wxICON_WARNING);
-          dialog.ShowModal();
-        }
-        if (cp->GetValidPort()) {
-          cp->b_IsSetup = false;  // Trigger new stream
-          TheConnectionParams().push_back(cp);
-        } else {
-          wxString msg =
-              _("Unable to create a connection as configured. "
-                "Connected port or address was missing.");
-          auto& noteman = NotificationManager::GetInstance();
-          noteman.AddNotification(NotificationSeverity::kWarning,
-                                  msg.ToStdString(), 60);
-        }
+      *TheConnectionParams()[index] = *new_params;
+      TheConnectionParams()[index]->is_setup = false;  // Trigger new stream
+      m_edited_connection = nullptr;
+    } else {
+      //  OK from NEW mode
+      ConnectionParams cp = m_edit_panel->GetEditedParams();
+      if (FindConnectionByIface(&cp)) {
+        wxMessageDialog dialog(this, kInterfaceExistsMessage,
+                               _("Driver creation warning"),
+                               wxOK | wxCENTRE | wxICON_WARNING);
+        dialog.ShowModal();
+      }
+      if (cp.IsPortValid()) {
+        // Trigger new stream
+        cp.is_setup = false;
+        // transfer ownership FIXME use smart pointers
+        auto new_cp = new ConnectionParams(cp);
+        TheConnectionParams().push_back(new_cp);
+      } else {
+        wxString msg =
+            _("Unable to create a connection as configured. "
+              "Connected port or address was missing.");
+        auto& noteman = NotificationManager::GetInstance();
+        noteman.AddNotification(NotificationSeverity::kWarning,
+                                msg.ToStdString(), 60);
       }
       UpdateDatastreams();
-      top_panel->m_evt_add_connection.Notify();
+      m_top_panel->m_evt_add_connection.Notify();
     }
 
     SwitchToGrid();
@@ -1281,8 +1133,9 @@ public:
   }
 
 private:
-  TopPanel* top_panel;
-  ConnectionEditDialog* m_edit_panel;
+  const ConnectionParams* m_edited_connection;
+  AbstractConnectionEditDlg* m_edit_panel;
+  TopPanel* m_top_panel;
 };
 
 /** Main window: Panel with a single TopScroll child. */
@@ -1290,18 +1143,11 @@ ConnectionsDlg::ConnectionsDlg(
     wxWindow* parent, const std::vector<ConnectionParams*>& connections)
     : wxPanel(parent, wxID_ANY), m_connections(connections) {
   const auto vbox = new wxBoxSizer(wxVERTICAL);
-  vbox->Add(new TopScroll(this, connections, m_evt_add_connection),
+  vbox->Add(new EditPanel(this, connections, m_evt_add_connection),
             wxSizerFlags(1).Expand());
   SetSizer(vbox);
-  wxWindow::Fit();
+  wxWindow::Layout();
   wxWindow::Show();
-}
-
-void ConnectionsDlg::OnResize(const wxSize& size) {
-  auto w = FindWindowByName(TopScrollWindowName);
-  if (!w) return;
-  w->SetMinSize(size);
-  Fit();
 }
 
 void ConnectionsDlg::DoApply(wxWindow* root) {
@@ -1323,6 +1169,6 @@ void ConnectionsDlg::ApplySettings() { DoApply(this); }
 void ConnectionsDlg::CancelSettings() { DoCancel(this); }
 
 void ConnectionsDlg::SetColorScheme(ColorScheme cs) {
-  auto w = dynamic_cast<TopScroll*>(FindWindowByName(TopScrollWindowName));
+  auto w = dynamic_cast<EditPanel*>(FindWindowByName(TopScrollWindowName));
   if (w) w->SetColorScheme(cs);
 }

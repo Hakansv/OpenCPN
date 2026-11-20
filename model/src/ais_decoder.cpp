@@ -24,6 +24,7 @@
 // For compilers that support precompilation, includes "wx.h".
 
 #include <algorithm>
+#include <string_view>
 #include <cstdio>
 #include <fstream>
 
@@ -129,8 +130,9 @@ static bool isBuoyMmsi(unsigned msi) {
   // Consider any not valid MMSI number for a class B target (message 18 or 19)
   // to be a "net buoy"
   int mid = msi / 1000000;
-  if ((mid > 200 && mid < 880) || mid >= 970) {
-    // MID is stated to be >200 <800. Handheld AIS starts with 8+mid thus 880
+  // MID is stated to be >200 <799. Handheld AIS starts with 8+mid thus 880
+  // "Pirate ATON buoy" seems to occur out there with MID = 799.
+  if ((mid > 200 && mid < 799) || (mid >= 800 && mid < 880) || mid >= 970) {
     return false;
   } else {
     return true;
@@ -224,17 +226,34 @@ static void BuildERIShipTypeHash() {
   make_hash_ERI(1910, _("Hydrofoil"));
 }
 
-// DSE Expansion characters, decode table from ITU-R M.825
+// DSE Expansion characters, decode table from ITU-R M.825 (codes 00..41).
+// Anything else (a code outside the table, a non-digit pair, an odd trailing
+// character) is not a character: it is dropped and the field is logged, since
+// a certified DSC transceiver does not produce it.
 static wxString DecodeDSEExpansionCharacters(const wxString &dseData) {
+  static constexpr std::string_view lookupTable =
+      "0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ.,-/ ";
   wxString result;
-  char lookupTable[] = {'0', '1', '2', '3', '4', '5', '6', '7', '8', '9', ' ',
-                        'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K',
-                        'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V',
-                        'W', 'X', 'Y', 'Z', '.', ',', '-', '/', ' '};
+  bool invalid = false;
 
   for (size_t i = 0; i < dseData.length(); i += 2) {
-    result.append(1,
-                  lookupTable[strtol(dseData.Mid(i, 2).data(), nullptr, 10)]);
+    wxString pair = dseData.Mid(i, 2);
+    if (pair.length() != 2 || !wxIsdigit(pair[0]) || !wxIsdigit(pair[1])) {
+      invalid = true;
+      continue;
+    }
+    size_t code = (pair[0] - '0') * 10 + (pair[1] - '0');
+    if (code >= lookupTable.size()) {
+      invalid = true;
+      continue;
+    }
+    result.append(1, lookupTable[code]);
+  }
+  if (invalid) {
+    wxLogMessage(
+        "DSE station information with invalid expansion data ignored "
+        "in part: \"%s\"",
+        dseData);
   }
   return result;
 }
@@ -375,6 +394,7 @@ static bool Parse_VDXBitstring(AisBitstring *bstr,
 
       parse_result = true;  // so far so good
       b_posn_report = true;
+      ptd->b_VDM_secure_Pos = true;
 
       break;
     }
@@ -421,6 +441,7 @@ static bool Parse_VDXBitstring(AisBitstring *bstr,
       }
       parse_result = true;  // so far so good
       b_posn_report = true;
+      ptd->b_VDM_secure_Pos = true;
 
       break;
     }
@@ -475,6 +496,7 @@ static bool Parse_VDXBitstring(AisBitstring *bstr,
       }
       parse_result = true;  // so far so good
       b_posn_report = true;
+      ptd->b_VDM_secure_Pos = true;
 
       break;
     }
@@ -483,6 +505,10 @@ static bool Parse_VDXBitstring(AisBitstring *bstr,
       // Long-range automatic identification system broadcast message
       // This message is used for long-range detection of AIS Class A and Class
       // B vessels (typically by satellite).
+
+      // Message 27 can be receiveed for a target that has already been decoded
+      // by class A message 1/2/3 or class B message 18/19. If so reject this.
+      if (ptd->b_VDM_secure_Pos) break;
 
       // Define the constant to do the covertion from the internal encoded
       // position in message 27. The position is less accuate :  1/10 minute
@@ -500,11 +526,9 @@ static bool Parse_VDXBitstring(AisBitstring *bstr,
 #endif
 
       // It can be both a CLASS A and a CLASS B vessel - We have decided for
-      // CLASS A
-      // TODO: Lookup to see if we have seen it as a CLASS B, and adjust.
-      if (!ptd->b_isDSCtarget) ptd->Class = AIS_CLASS_A;
-
-      ptd->NavStatus = bstr->GetInt(39, 4);
+      // CLASS A (Default if not changed by other messages.)
+      ptd->NavStatus =
+          ptd->Class == AIS_CLASS_A ? bstr->GetInt(41, 4) : UNDEFINED;
 
       int lon = bstr->GetInt(45, 18);
       int lat = bstr->GetInt(63, 17);
@@ -606,6 +630,10 @@ static bool Parse_VDXBitstring(AisBitstring *bstr,
     }
 
     case 24: {  // Static data report
+      // First, check that we have received the position and thus
+      // a main message that has given the target a relevant class
+      if (!ptd->b_positionOnceValid) break;
+
       int part_number = bstr->GetInt(39, 2);
       if (0 == part_number) {
         bstr->GetStr(41, 120, &ptd->ShipName[0], SHIP_NAME_LEN);
@@ -1415,7 +1443,7 @@ void AisDecoder::InitCommListeners() {
   SignalkMsg sk_msg;
   listener_SignalK.Listen(sk_msg, this, EVT_SIGNALK);
   Bind(EVT_SIGNALK, [&](const ObservedEvt &ev) {
-    HandleSignalK(UnpackEvtPointer<SignalkMsg>(ev));
+    HandleSignalK(obs::UnpackEvtPointer<SignalkMsg>(ev));
   });
 
   // AIS Class A   PGN 129038
@@ -1423,7 +1451,7 @@ void AisDecoder::InitCommListeners() {
   Nmea2000Msg n2k_msg_129038(static_cast<uint64_t>(129038));
   listener_N2K_129038.Listen(n2k_msg_129038, this, EVT_N2K_129038);
   Bind(EVT_N2K_129038, [&](const ObservedEvt &ev) {
-    HandleN2K_129038(UnpackEvtPointer<Nmea2000Msg>(ev));
+    HandleN2K_129038(obs::UnpackEvtPointer<Nmea2000Msg>(ev));
   });
 
   // AIS Class B   PGN 129039
@@ -1431,7 +1459,7 @@ void AisDecoder::InitCommListeners() {
   Nmea2000Msg n2k_msg_129039(static_cast<uint64_t>(129039));
   listener_N2K_129039.Listen(n2k_msg_129039, this, EVT_N2K_129039);
   Bind(EVT_N2K_129039, [&](const ObservedEvt &ev) {
-    HandleN2K_129039(UnpackEvtPointer<Nmea2000Msg>(ev));
+    HandleN2K_129039(obs::UnpackEvtPointer<Nmea2000Msg>(ev));
   });
 
   // AIS ATON   PGN 129041
@@ -1439,7 +1467,7 @@ void AisDecoder::InitCommListeners() {
   Nmea2000Msg n2k_msg_129041(static_cast<uint64_t>(129041));
   listener_N2K_129041.Listen(n2k_msg_129041, this, EVT_N2K_129041);
   Bind(EVT_N2K_129041, [&](const ObservedEvt &ev) {
-    HandleN2K_129041(UnpackEvtPointer<Nmea2000Msg>(ev));
+    HandleN2K_129041(obs::UnpackEvtPointer<Nmea2000Msg>(ev));
   });
 
   // AIS static data class A PGN 129794
@@ -1447,7 +1475,7 @@ void AisDecoder::InitCommListeners() {
   Nmea2000Msg n2k_msg_129794(static_cast<uint64_t>(129794));
   listener_N2K_129794.Listen(n2k_msg_129794, this, EVT_N2K_129794);
   Bind(EVT_N2K_129794, [&](const ObservedEvt &ev) {
-    HandleN2K_129794(UnpackEvtPointer<Nmea2000Msg>(ev));
+    HandleN2K_129794(obs::UnpackEvtPointer<Nmea2000Msg>(ev));
   });
 
   // AIS static data class B part A PGN 129809
@@ -1455,7 +1483,7 @@ void AisDecoder::InitCommListeners() {
   Nmea2000Msg n2k_msg_129809(static_cast<uint64_t>(129809));
   listener_N2K_129809.Listen(n2k_msg_129809, this, EVT_N2K_129809);
   Bind(EVT_N2K_129809, [&](const ObservedEvt &ev) {
-    HandleN2K_129809(UnpackEvtPointer<Nmea2000Msg>(ev));
+    HandleN2K_129809(obs::UnpackEvtPointer<Nmea2000Msg>(ev));
   });
 
   // AIS static data class B part B PGN 129810
@@ -1463,7 +1491,7 @@ void AisDecoder::InitCommListeners() {
   Nmea2000Msg n2k_msg_129810(static_cast<uint64_t>(129810));
   listener_N2K_129810.Listen(n2k_msg_129810, this, EVT_N2K_129810);
   Bind(EVT_N2K_129810, [&](const ObservedEvt &ev) {
-    HandleN2K_129810(UnpackEvtPointer<Nmea2000Msg>(ev));
+    HandleN2K_129810(obs::UnpackEvtPointer<Nmea2000Msg>(ev));
   });
 
   // AIS Base Station report PGN 129793
@@ -1471,7 +1499,7 @@ void AisDecoder::InitCommListeners() {
   Nmea2000Msg n2k_msg_129793(static_cast<uint64_t>(129793));
   listener_N2K_129793.Listen(n2k_msg_129793, this, EVT_N2K_129793);
   Bind(EVT_N2K_129793, [&](const ObservedEvt &ev) {
-    HandleN2K_129793(UnpackEvtPointer<Nmea2000Msg>(ev));
+    HandleN2K_129793(obs::UnpackEvtPointer<Nmea2000Msg>(ev));
   });
 }
 
@@ -2093,13 +2121,7 @@ void AisDecoder::HandleSignalK(const SignalKMsgPtr &sK_msg) {
   if (mmsi == g_OwnShipmmsi) return;
 
 #if 0
-    wxString dbg;
-    wxJSONWriter writer;
-    writer.Write(root, dbg);
-
-    wxString msg( "AisDecoder::OnEvtSignalK: " );
-    msg.append(dbg);
-    wxLogMessage(msg);
+    wxLogDebug( "AisDecoder::OnEvtSignalK: %s", root.dump().c_str(); );
 #endif
   std::shared_ptr<AisTargetData> pTargetData = nullptr;
   std::shared_ptr<AisTargetData> pStaleTarget = nullptr;
@@ -2220,7 +2242,12 @@ void AisDecoder::updateItem(const std::shared_ptr<AisTargetData> &pTargetData,
       pTargetData->HDG = GEODESIC_RAD2DEG(item["value"].GetDouble());
     } else if (update_path == "navigation.rateOfTurn" &&
                item["value"].IsNumber()) {
-      pTargetData->ROTAIS = 4.733 * sqrt(item["value"].GetDouble());
+      double deg_min = item["value"].GetDouble() * 180.0 / M_PI * 60.0;
+      double rot = 4.733 * sqrt(fabs(deg_min));
+      int rotais = wxRound(rot);
+      if (rotais > 126) rotais = 126;
+      pTargetData->ROTAIS = deg_min < 0 ? -rotais : rotais;
+      pTargetData->ROTIND = wxRound(deg_min);
     } else if (update_path == "design.aisShipType") {
       if (item["value"].HasMember("id")) {
         if (!pTargetData->b_isDSCtarget) {
@@ -2609,6 +2636,12 @@ AisError AisDecoder::DecodeSingleVDO(const wxString &str, GenericPosDatEx *pos,
   if (string_to_parse.IsEmpty() &&
       (nsentences > 1)) {             // not ready, so return with NAN
     return AIS_INCOMPLETE_MULTIPART;  // and non-zero return
+  }
+
+  //  The accumulated payload must fit AisBitstring; same guard as DecodeN0183.
+  if (string_to_parse.Len() >= AIS_MAX_MESSAGE_LEN) {
+    accumulator->Clear();
+    return AIS_NMEAVDX_TOO_LONG;
   }
 
   //  Create the bit accessible string
@@ -3053,6 +3086,9 @@ AisError AisDecoder::DecodeN0183(const wxString &str) {
     // Ais8_001_31 || ais8_367_33 (class AIS_METEO) test for a new mmsi ID
     int origin_mmsi = 0;
     int messID = strbit.GetInt(1, 6);
+    // No need for a message without a valid mess-ID
+    if (messID < 0 || messID > 63) return AIS_GENERIC_ERROR;
+
     int dac = strbit.GetInt(41, 10);
     int fi = strbit.GetInt(51, 6);
     if (messID == 8) {
@@ -3385,7 +3421,7 @@ void AisDecoder::CommitAISTarget(
       if (pTargetData->b_show_track) UpdateOneTrack(pTargetData.get());
     }
     // TODO add ais message call
-    plugin_msg.Notify(std::make_shared<AisTargetData>(*pTargetData), "");
+    plugin_msg_evt.Notify(std::make_shared<AisTargetData>(*pTargetData), "");
   } else {
     //             printf("Unrecognised AIS message ID: %d\n",
     //             pTargetData->MID);
@@ -3663,8 +3699,8 @@ std::shared_ptr<AisTargetData> AisDecoder::ProcessDSx(const wxString &str,
             ((m_ptentative_dsctarget->Lon) >= 0 ? dse_lon : -dse_lon);
         if (!dse_shipName.empty()) {
           memset(m_ptentative_dsctarget->ShipName, '\0', SHIP_NAME_LEN);
-          snprintf(m_ptentative_dsctarget->ShipName, dse_shipName.length(),
-                   "%s", dse_shipName.ToAscii().data());
+          snprintf(m_ptentative_dsctarget->ShipName, SHIP_NAME_LEN, "%s",
+                   dse_shipName.ToAscii().data());
         }
         m_ptentative_dsctarget->COG = dse_cog;
         m_ptentative_dsctarget->SOG = dse_sog;
@@ -4010,13 +4046,31 @@ void AisDecoder::UpdateOneCPA(AisTargetData *ptarget) {
   ptarget->Range_NM = -1.;  // Defaults
   ptarget->Brg = -1.;
 
+  // Ideally, project the target by the time difference between its report and
+  // the own-ship position. The own-ship position timestamp is not available
+  // here, so assume own-ship is current and project the target to now.
+  ptarget->Lat_projected = ptarget->Lat;
+  ptarget->Lon_projected = ptarget->Lon;
+  if (ptarget->PositionReportTicks > 0 && ptarget->SOG > 0.0 &&
+      ptarget->SOG < 102.2 && ptarget->COG >= 0.0 && ptarget->COG < 360.0) {
+    wxDateTime now = wxDateTime::Now();
+    now.MakeGMT();
+    const time_t report_age = now.GetTicks() - ptarget->PositionReportTicks;
+    if (report_age > 0) {
+      ll_gc_ll(ptarget->Lat, ptarget->Lon, ptarget->COG,
+               ptarget->SOG * (report_age / 3600.0), &ptarget->Lat_projected,
+               &ptarget->Lon_projected);
+    }
+  }
+
   //    Compute the current Range/Brg to the target
   //    This should always be possible even if GPS data is not valid
   //    because O must always have a position for own-ship. Plugins need
   //    AIS target range and bearing from own-ship position even if GPS is not
   //    valid.
   double brg, dist;
-  DistanceBearingMercator(ptarget->Lat, ptarget->Lon, gLat, gLon, &brg, &dist);
+  DistanceBearingMercator(ptarget->Lat_projected, ptarget->Lon_projected, gLat,
+                          gLon, &brg, &dist);
   ptarget->Range_NM = dist;
   ptarget->Brg = brg;
 
@@ -4094,8 +4148,8 @@ void AisDecoder::UpdateOneCPA(AisTargetData *ptarget) {
     //    Working on a Reduced Lat/Lon orthogonal plotting sheet....
     //    Get easting/northing to target,  in meters
 
-    double east1 = (ptarget->Lon - gLon) * 60 * 1852;
-    double north1 = (ptarget->Lat - gLat) * 60 * 1852;
+    double east1 = (ptarget->Lon_projected - gLon) * 60 * 1852;
+    double north1 = (ptarget->Lat_projected - gLat) * 60 * 1852;
 
     double east = east1 * (cos(gLat * PI / 180.));
 
@@ -4131,8 +4185,9 @@ void AisDecoder::UpdateOneCPA(AisTargetData *ptarget) {
 
     ll_gc_ll(gLat, gLon, cpa_calc_ownship_cog, gSog * tcpa, &OwnshipLatCPA,
              &OwnshipLonCPA);
-    ll_gc_ll(ptarget->Lat, ptarget->Lon, cpa_calc_target_cog,
-             ptarget->SOG * tcpa, &TargetLatCPA, &TargetLonCPA);
+    ll_gc_ll(ptarget->Lat_projected, ptarget->Lon_projected,
+             cpa_calc_target_cog, ptarget->SOG * tcpa, &TargetLatCPA,
+             &TargetLonCPA);
 
     //   And compute the distance
     ptarget->CPA = DistGreatCircle(OwnshipLatCPA, OwnshipLonCPA, TargetLatCPA,
@@ -4246,7 +4301,7 @@ void AisDecoder::OnTimerAIS(wxTimerEvent &event) {
         xtd->HDG = 511.0;
         xtd->ROTAIS = -128;
 
-        plugin_msg.Notify(xtd, "");
+        plugin_msg_evt.Notify(xtd, "");
 
         long mmsi_long = xtd->MMSI;
         pSelectAIS->DeleteSelectablePoint((void *)mmsi_long, SELTYPE_AISTARGET);
@@ -4256,7 +4311,7 @@ void AisDecoder::OnTimerAIS(wxTimerEvent &event) {
         //      or a lost ARPA target.
         if (target_static_age > removelost_Mins * 60 * 3 || b_arpalost) {
           xtd->b_removed = true;
-          plugin_msg.Notify(xtd, "");
+          plugin_msg_evt.Notify(xtd, "");
           remove_array.push_back(xtd->MMSI);  // Add this target to removal list
         }
       }
@@ -4270,7 +4325,7 @@ void AisDecoder::OnTimerAIS(wxTimerEvent &event) {
         if (props->m_bignore) {
           remove_array.push_back(xtd->MMSI);  // Add this target to removal list
           xtd->b_removed = true;
-          plugin_msg.Notify(xtd, "");
+          plugin_msg_evt.Notify(xtd, "");
         }
         break;
       }
@@ -4280,7 +4335,7 @@ void AisDecoder::OnTimerAIS(wxTimerEvent &event) {
     if (static_cast<unsigned>(xtd->MMSI) == g_OwnShipmmsi) {
       remove_array.push_back(xtd->MMSI);  // Add this target to removal list
       xtd->b_removed = true;
-      plugin_msg.Notify(xtd, "");
+      plugin_msg_evt.Notify(xtd, "");
     }
 
     ++it;

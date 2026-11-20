@@ -32,11 +32,19 @@ add_custom_target(config_tests
 
 add_library(win32_libs INTERFACE)
 if (MSVC)
-  target_link_libraries(win32_libs
+  if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+    target_link_libraries(win32_libs
+            INTERFACE
+            setupapi.lib psapi.lib
+            iphlpapi
+            )
+  else ()
+    target_link_libraries(win32_libs
     INTERFACE
       setupapi.lib psapi.lib
       ${CMAKE_SOURCE_DIR}/cache/buildwin/iphlpapi.lib
   )
+  endif ()
 endif ()
 
 set(MODEL_SRC_DIR ${CMAKE_SOURCE_DIR}/model/src)
@@ -137,6 +145,16 @@ endif ()
 include(GoogleTest)
 gtest_add_tests(TARGET tests)
 gtest_add_tests(TARGET buffer_tests)
+
+if (MSVC)
+  add_executable(win_usb_watch_tests win_usb_watch_tests.cpp
+                 ${MODEL_SRC_DIR}/win_usb_watch.cpp)
+  target_include_directories(win_usb_watch_tests
+                             PRIVATE ${CMAKE_SOURCE_DIR}/model/include)
+  target_link_libraries(win_usb_watch_tests PRIVATE observable::observable
+                        ocpn::gtest ${wxWidgets_LIBRARIES})
+  gtest_add_tests(TARGET win_usb_watch_tests)
+endif ()
 
 if (LINUX AND NOT DEFINED ENV{FLATPAK_ID} AND NOT OCPN_DISTRO_BUILD)
   # We don't have a session bus available when testing flatpak

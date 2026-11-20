@@ -49,27 +49,27 @@
 using namespace std;
 
 vector<uint8_t> GetN2000Payload(NMEA2000Id id, ObservedEvt ev) {
-  auto msg = UnpackEvtPointer<Nmea2000Msg>(ev);
+  auto msg = obs::UnpackEvtPointer<Nmea2000Msg>(ev);
   return msg->payload;
 }
 
 std::string GetN2000Source(NMEA2000Id id, ObservedEvt ev) {
-  auto msg = UnpackEvtPointer<Nmea2000Msg>(ev);
+  auto msg = obs::UnpackEvtPointer<Nmea2000Msg>(ev);
   return msg->source->to_string();
 }
 
 std::string GetN0183Payload(NMEA0183Id id, ObservedEvt ev) {
-  auto msg = UnpackEvtPointer<Nmea0183Msg>(ev);
+  auto msg = obs::UnpackEvtPointer<Nmea0183Msg>(ev);
   return msg->payload;
 }
 
 std::string GetPluginMsgPayload(PluginMsgId id, ObservedEvt ev) {
-  auto msg = UnpackEvtPointer<PluginMsg>(ev);
+  auto msg = obs::UnpackEvtPointer<PluginMsg>(ev);
   return msg->message;
 }
 
 std::shared_ptr<void> GetSignalkPayload(ObservedEvt ev) {
-  auto msg = UnpackEvtPointer<SignalkMsg>(ev);
+  auto msg = obs::UnpackEvtPointer<SignalkMsg>(ev);
   wxJSONReader reader;
   wxJSONValue data;
   reader.Parse(wxString(msg->raw_message), &data);
@@ -95,7 +95,7 @@ std::shared_ptr<void> GetSignalkPayload(ObservedEvt ev) {
 
 std::shared_ptr<PI_Notification> GetNotificationMsgPayload(NotificationMsgId id,
                                                            ObservedEvt ev) {
-  auto msg = UnpackEvtPointer<NotificationMsg>(ev);
+  auto msg = obs::UnpackEvtPointer<NotificationMsg>(ev);
   auto note = msg->notification;
   auto rv = std::make_shared<PI_Notification>(
       (PI_NotificationSeverity)note->GetSeverity(), note->GetMessage(),
@@ -136,7 +136,7 @@ std::shared_ptr<ObservableListener> GetListener(NotificationMsgId id,
 }
 
 PluginNavdata GetEventNavdata(ObservedEvt ev) {
-  auto msg = UnpackEvtPointer<BasicNavDataMsg>(ev);
+  auto msg = obs::UnpackEvtPointer<BasicNavDataMsg>(ev);
   PluginNavdata data;
 
   data.lat = msg->pos.lat;
@@ -244,8 +244,12 @@ CommDriverResult WriteCommDriverN2K(
   auto msg =
       std::make_shared<const Nmea2000Msg>(_PGN, *payload, dest_addr, priority);
   bool result = found->SendMessage(msg, dest_addr);
-
-  return RESULT_COMM_NO_ERROR;
+  if (result) {
+    return RESULT_COMM_NO_ERROR;  //  result = 1 : No error,  but return 0 for
+                                  //  no error
+  } else {
+    return RESULT_COMM_TX_ERROR;
+  };
 }
 
 CommDriverResult RegisterTXPGNs(DriverHandle handle,
@@ -302,7 +306,7 @@ void ReloadConfigConnections() {
       wxArrayString confs = wxStringTokenize(connectionconfigs, "|");
       for (size_t i = 0; i < confs.Count(); i++) {
         ConnectionParams* prm = new ConnectionParams(confs[i]);
-        if (!prm->Valid) continue;
+        if (!prm->is_valid) continue;
         TheConnectionParams().push_back(prm);
       }
     }
@@ -310,9 +314,9 @@ void ReloadConfigConnections() {
 
   // Reconnect enabled connections
   for (auto* cp : TheConnectionParams()) {
-    if (cp->bEnabled) {
+    if (cp->is_enabled) {
       MakeCommDriver(cp);
-      cp->b_IsSetup = TRUE;
+      cp->is_setup = TRUE;
     }
   }
 }

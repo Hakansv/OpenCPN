@@ -58,7 +58,8 @@ void ConnStates::HandleDriverStats(const DriverStats& stats) {
         return cp->GetStrippedDSPort() == stats.driver_iface &&
                cp->GetCommProtocol() == stats.driver_bus;
       });
-  bool disabled = found_param != conn_params.end() && !(*found_param)->bEnabled;
+  bool disabled =
+      found_param != conn_params.end() && !(*found_param)->is_enabled;
   auto found_state = std::find_if(
       m_states.begin(), m_states.end(),
       [stats](ConnData& cd) { return cd.IsDriverStatsMatch(stats); });
@@ -104,6 +105,6 @@ void ConnStates::OnDriverListChange(const ObservedEvt&) {
 }
 
 void ConnStates::OnDriverStats(const ObservedEvt& ev) {
-  auto stats_ptr = UnpackEvtPointer<DriverStats>(ev);
+  auto stats_ptr = obs::UnpackEvtPointer<DriverStats>(ev);
   if (stats_ptr) HandleDriverStats(*stats_ptr);
 }

@@ -27,11 +27,12 @@
 
 #include <wx/socket.h>
 
+#include "observable/observable.h"
+
 #include "rapidjson/document.h"
 #include "ixwebsocket/IXNetSystem.h"
 #include "ixwebsocket/IXSocketTLSOptions.h"
 #include "ixwebsocket/IXWebSocket.h"
-#include "observable.h"
 
 #include "model/comm_drv_signalk_net.h"
 #include "model/comm_navmsg_bus.h"
@@ -66,7 +67,7 @@ private:
   const std::string m_iface;
   std::string m_token;
   ix::WebSocket m_ws;
-  ObsListener m_resume_listener;
+  obs::Listener m_resume_listener;
   DriverStats m_driver_stats;
   mutable std::mutex m_stats_mutex;
 };
@@ -77,8 +78,8 @@ static const wxEventTypeTag<CommDriverSignalKNet::InputEvt> SignalkEvtType(
 
 static wxIPV4address ParamsIpAddress(const ConnectionParams& params) {
   wxIPV4address addr;
-  addr.Hostname(params.NetworkAddress);
-  addr.Service(params.NetworkPort);
+  addr.Hostname(params.network_address);
+  addr.Service(params.network_port);
   return addr;
 }
 
@@ -190,7 +191,7 @@ CommDriverSignalKNet::CommDriverSignalKNet(const ConnectionParams* params,
       m_dog_value(kDogTimeoutSeconds),
       m_io_thread(std::make_unique<IoThread>(params->GetStrippedDSPort(),
                                              ParamsIpAddress(*params), this,
-                                             params->AuthToken.ToStdString())),
+                                             params->auth_token.ToStdString())),
       m_stats_timer(*this, 2s) {
   // Prepare the wxEventHandler to accept events from the actual hardware thread
   Bind(SignalkEvtType, &CommDriverSignalKNet::HandleSkSentence, this);
