@@ -47,6 +47,15 @@
 
 namespace conn_edit {
 
+/** Return first wxWindow parent of given type or nullptr. */
+template <typename T>
+T* FindParentOfType(wxWindow* w) {
+  for (; w; w = w->GetParent()) {
+    if (T* candidate = dynamic_cast<T*>(w)) return candidate;
+  }
+  return nullptr;
+}
+
 static const std::string kPortHelp =
     _("Port number (1025 - 65535, often 10110)");
 
@@ -66,19 +75,21 @@ static const std::string kPortHelp =
  */
 
 template <typename T>
-class Reloadable {
+class ReloadableTmpl {
   static_assert(std::is_base_of_v<wxWindow, T>,
                 "Reloadable must inherit from wxWindow");
 
 public:
-  virtual ~Reloadable() = default;
+  virtual ~ReloadableTmpl() = default;
 
   /** Synchronize widget value(s) with parameter(s) */
   virtual void Reload() = 0;
 };
 
+using Reloadable = ReloadableTmpl<wxWindow>;
+
 /** NMEA2000/NMEA0183 user choice. */
-class ProtocolChoice : public wxChoice, public Reloadable<wxChoice> {
+class ProtocolChoice : public wxChoice, public Reloadable {
 public:
   static ProtocolChoice* Create(
       wxWindow* parent, ConnectionParams& params,
@@ -89,8 +100,7 @@ protected:
 };
 
 /** Entry handling "Data port" setting. */
-class PortTextCtrl : public TextCtrlWithHelp,
-                     public Reloadable<TextCtrlWithHelp> {
+class PortTextCtrl : public TextCtrlWithHelp, public Reloadable {
 public:
   static PortTextCtrl* Create(wxWindow* parent, ConnectionParams& params);
 
@@ -100,7 +110,7 @@ protected:
 };
 
 /** Configure n0183 input and output filters. */
-class FilterConfigPanel : public wxPanel, public Reloadable<wxPanel> {
+class FilterConfigPanel : public wxPanel, public Reloadable {
 public:
   static FilterConfigPanel* Create(wxWindow* parent, ConnectionParams& params);
 
@@ -126,7 +136,7 @@ protected:
 };
 
 /** Select serial port combobox. */
-class PortCombo : public wxComboBox, public Reloadable<wxComboBox> {
+class PortCombo : public wxComboBox, public Reloadable {
 public:
   static PortCombo* Create(wxWindow* parent, wxString& port);
 
